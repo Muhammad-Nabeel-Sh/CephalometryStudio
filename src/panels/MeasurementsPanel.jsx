@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { uid, normDeviation, deviationColor } from "../lib/utils.js";
-import { PREDEFINED_NORMS } from "../data/constants.js";
+import { DEFAULT_NORMS } from "../data/norms.js";
 import { Btn, Tag, Inp } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { NormsReferenceModal } from "./NormsReferenceModal.jsx";
@@ -29,7 +29,7 @@ export function MeasurementsPanel({ allMeas, formulaMeas, t, calibration, norms,
         <Btn t={t} small onClick={() => setShowGallery(true)} style={{ flex: 1 }}>Norms Reference</Btn>
         <Btn t={t} small onClick={() => {
           const existing = norms ? [...norms] : [];
-          Object.values(PREDEFINED_NORMS).forEach(preset => {
+          Object.values(DEFAULT_NORMS).forEach(preset => {
             preset.norms.forEach(n => {
               if (!existing.some(e => e.markupLabel === n.label && e.measureType === n.type))
                 existing.push({ id: uid(), markupLabel: n.label, measureType: n.type, mean: n.mean, sd: n.sd, source: preset.source });

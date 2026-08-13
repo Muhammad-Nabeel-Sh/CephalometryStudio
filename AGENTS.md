@@ -1,7 +1,9 @@
 # AGENTS.md - CephaloStudio Development Guide
 
 ## Project Overview
+
 CephaloStudio is a React + Vite application for cephalometric analysis (medical imaging analysis).
+
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
@@ -39,6 +41,7 @@ npm run lint -- --fix
 ## Code Style Guidelines
 
 ### Directory Structure
+
 ```
 src/
 ├── App.jsx                     Root component (~1850 lines)
@@ -166,24 +169,28 @@ src/
 ```
 
 ### File Organization
+
 - React components: `.jsx` extension
 - Utility functions: `.js` extension
 - Main app entry: `src/App.jsx`
 - Entry point: `src/main.jsx`
 
 ### Imports
+
 - Use double quotes for imports: `import { useState } from "react";`
 - Third-party imports first, then local imports
 - Named exports preferred: `export function Foo() {}`
 - Default export only for root component: `export default function App()`
 
 ### Components
+
 - Use function components (no class components)
 - Props destructured in function signature
 - Component files use section comments: `// ═══════════════════════════════════════════════════════════════════════════════`
 - Helper/utility functions defined before components in same file
 
 ### State Management
+
 - `useState` for local state
 - `useRef` for DOM refs and mutable values (canvas, file inputs)
 - `useCallback` for event handlers passed as props
@@ -198,6 +205,7 @@ src/
 - Session data syncs bidirectionally: when active session changes → `loadFromSession()` populates the store; when store mutates → `_onChange` callback syncs back to the project
 
 ### Naming Conventions
+
 - Components: PascalCase (`HomePage`, `Workspace`, `MarkupsPanel`)
 - Functions/hooks: camelCase (`useKatex`, `computeMeasurements`)
 - Constants: camelCase or SCREAMING_SNAKE_CASE per context
@@ -205,7 +213,9 @@ src/
 - Theme object keys: camelCase (`accent`, `surf2`, `bdr`)
 
 ### Theme System
+
 The codebase uses a `THEMES` object with consistent color properties:
+
 ```javascript
 const THEMES = {
   dark: { name, id, bg, surf, surf2, surf3, bdr, tx, tx2, tx3, acc, acc2, accMuted, err, ok, warn, shadow },
@@ -213,16 +223,20 @@ const THEMES = {
   bluish: { /* ... */ },
 };
 ```
+
 - Always pass theme object as `t` prop
 - Use theme colors: `t.acc` (accent), `t.err` (error), `t.ok` (success), `t.warn` (warning)
 
 ### Inline Styles
+
 This codebase uses inline styles exclusively:
+
 ```jsx
 <div style={{ display: "flex", gap: 12, color: t.tx, background: t.surf }}>
   <span style={{ fontSize: 13, color: t.tx2 }}>Text</span>
 </div>
 ```
+
 - Always quote style property values: `"flex"`, not `flex`
 - Use theme variables for colors
 - Numeric values without units default to pixels
@@ -230,33 +244,39 @@ This codebase uses inline styles exclusively:
 - Use `clamp()` for responsive font sizes in style strings
 
 ### Error Handling
+
 - Try-catch with empty catch blocks for non-critical operations: `try { ... } catch {}`
 - Return `null` from functions that can fail: `catch { return null; }`
 - Use optional chaining for nested property access: `calibration?.done`
 - Nullish coalescing when needed: `markups || []`
 
 ### Canvas/Drawing Code
+
 - Use `ctx.save()` / `ctx.restore()` for drawing state isolation
 - Calculate scaled coordinates: `p.x * zoom + pan.x`
 - Use `useRef` for canvas element and mutable drawing state
 - Debounce expensive redraws with `useCallback`
 
 ### MathJS Usage
+
 ```javascript
 import * as math from "mathjs";
 // Compile expressions for safe evaluation
 const compiled = math.compile(expression);
 const result = compiled.evaluate(scope);
 ```
+
 - Validate results: check `typeof result === "number"` and `isFinite(result)`
 - Build scope from markup measurements using `buildScope()`
 
 ### KaTeX Usage
+
 - Load KaTeX CSS via CDN dynamically (see `useKatex` hook)
 - Render with `throwOnError: false` to prevent crashes
 - Use `output: "html"` for inline rendering
 
 ### ID Generation
+
 - Use `uid()` function for generating unique IDs: `Math.random().toString(36).slice(2, 10)`
 
 ---
@@ -264,6 +284,7 @@ const result = compiled.evaluate(scope);
 ## Project-Specific Patterns
 
 ### Markup Data Model
+
 ```javascript
 {
   id: string,          // unique ID
@@ -280,6 +301,7 @@ const result = compiled.evaluate(scope);
 ```
 
 ### Calibration
+
 ```javascript
 {
   done: boolean,
@@ -289,6 +311,7 @@ const result = compiled.evaluate(scope);
 ```
 
 ### Measurement Types
+
 - `length`: distance in mm if calibrated, px otherwise (calibration-dependent)
 - `angle`: degrees (3-point or 4-point, calibration-independent)
 - `area`: polygon area in mm² if calibrated, px² otherwise
@@ -298,12 +321,14 @@ const result = compiled.evaluate(scope);
 - ANB signed-angle uses `m.measure === "ANB"` structural flag (falls back to `m.label`)
 
 ### Predefined Analyses
+
 Stored in `PREDEFINED` object with keys: `lateral`, `ap`, `other`
 Each analysis has `{ name, pts: [{ l, def, color }] }`
 
 ---
 
 ## File Format
+
 - Projects exported as `.cephx` JSON files with `format: "cephx", version: "2.1"`
 - Templates exported as `.cepht` JSON files with `format: "cepht"` — two versions:
   - `version: "1.0"` — definitions only (labels, types, colours, no point coordinates)
@@ -312,7 +337,9 @@ Each analysis has `{ name, pts: [{ l, def, color }] }`
 ---
 
 ## ESLint Configuration
+
 Located in `eslint.config.js`:
+
 - Flat config format (ESLint 9+)
 - Extends: recommended JS, react-hooks, react-refresh
 - Custom rule: `no-unused-vars` ignores vars starting with `_` or uppercase
@@ -323,6 +350,7 @@ Located in `eslint.config.js`:
 ## Common Development Tasks
 
 ### Adding a new markup type
+
 1. Add to `TOOLS` array in `data/constants.js` with id, icon, label, key
 2. Add rendering logic in `canvas/drawMarkups.js` (`drawMarkup()` function)
 3. Add measurement logic in `lib/utils.js` (`computeMeasurements()`) if applicable
@@ -330,15 +358,18 @@ Located in `eslint.config.js`:
 5. Add drawing-in-progress in `canvas/drawMarkups.js` (`drawInProgress()`) if multi-point
 
 ### Adding a new theme
+
 1. Add entry to `THEMES` object in `data/constants.js` with all color properties
 2. Add theme button in `panels/Toolbar.jsx`
 
 ### Modifying formula system
+
 1. Formula evaluation in `App.jsx` (mathjs compile/evaluate)
 2. Formula display in `panels/FormulasPanel.jsx`
 3. Scope building in `lib/utils.js` (`buildScope()` function)
 
 ### Adding a context menu action
+
 1. Add handler function inside the context menu component in `src/ui/ContextMenu.jsx`
 2. Add `item(label, onClick, danger?)` call in the appropriate section
 3. Wire through any required state/refs
@@ -348,6 +379,7 @@ Located in `eslint.config.js`:
 ## IDE Configuration (VS Code / Cursor)
 
 Recommended settings for `.vscode/settings.json`:
+
 ```json
 {
   "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -366,6 +398,7 @@ Recommended settings for `.vscode/settings.json`:
 ## Progress Summary
 
 ### Done
+
 - **Folder reorganization**: Root-level 22 files → 3 files (App.jsx, main.jsx, index.css). All modules organized into `canvas/`, `data/`, `hooks/`, `lib/`, `model/`, `panels/`, `report/`, `research/`, `state/`, `storage/`, `ui/`, `workspace/`
 - **Code refactoring**: App.jsx 2400 → 1700 lines. Extracted: `canvas/redraw.js` (draw pipeline), `panels/PanelContent.jsx` (11-panel router), `panels/panelIcons.jsx` (single source of truth), `panels/Toolbar.jsx` + `TopBar.jsx` + `RightPanelSidebar.jsx` (layout), `hooks/useWorkspaceUIState.js` (bundled state), `workspace/undo.js` + `markupHelpers.js` + `calibration.js` + `template.js` + `images.js` (workspace logic)
 - **Panel extraction**: `panels.jsx` split into 10 individual files in `panels/` (MarkupsPanel, MeasurementsPanel, ImagePanel, LayersPanel, FormulasPanel, TemplatesPanel, SilhouettesPanel, MarkupProps, ExamplesPanel, NormsReferenceModal)
@@ -414,10 +447,16 @@ Recommended settings for `.vscode/settings.json`:
 - **ContextMenu migration**: Reads `contextMenu`, `copiedMarkup`, `selectedIds`, `refLandmark1/2`, `showGrid` from stores directly. App.jsx props reduced from 20 → 6. `copiedMarkup` moved from `useState` into `uiStore`.
 - **Dependency added**: `zustand` npm package.
 
+- **ID-based landmark linking**: Template points get an immutable `templateId` (`<analysis>::<landmark>`); auto-created measurements store `refTemplateIds` alongside `refLabels`; `refreshAutoMeasurements` + `syncRefDeps` resolve by templateId → templateLabel → label (legacy fallback). Renaming a landmark no longer breaks dependent measurements or drag propagation. Template reload is duplicate-proof after renames (label OR templateLabel match). Airway landmark lookups also match templateLabel/templateId. 15 new tests in `src/test/templateLinking.test.js`
+- **`getMeasValue` correctness**: Now returns the type's primary measure (angle/length/area/value) instead of the first numeric value (x-coordinate); infinite-mode line refs fall back to segment length; `refreshAutoMeasurements` threads calibration through (computed sums/differences stay in mm)
+- **`PREDEFINED_NORMS` collision resolved**: Alias removed from `constants.js`; consumers (`MeasurementsPanel`, `NormsReferenceModal`) import `DEFAULT_NORMS` directly from `norms.js` (single source of truth; `descriptive.js` already used `RESEARCH_NORMS`)
+
 ### Ongoing
+
 - **Remaining workspace-reducer migration** — `markups`, `calibration`, projects, sessions, undo/redo are still in App.jsx `useReducer`; should be migrated to Zustand stores for consistency
 
 ### Build Status
+
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 6 pre-existing warnings in App.jsx only (`react-hooks/exhaustive-deps`)
-- `npm test` — 377 tests pass (17 test files, 0 failures)
+- `npm test` — 446 tests pass (20 test files, 0 failures)

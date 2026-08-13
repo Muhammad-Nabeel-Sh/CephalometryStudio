@@ -16,22 +16,22 @@ CephaloStudio is a well-engineered, feature-rich cephalometric analysis platform
 
 ### Statistical Engine
 
-| Strength | Detail |
-|---|---|
-| **Exact non-parametric distributions** | `mannWhitneyExactP` and `wilcoxonExactP` use DP exact null-distribution — falls back to normal approx only for n > 50 or with ties. R-compatible. |
-| **F-based ICC CI (Shrout & Fleiss)** | `iccShroutFleiss` implements the exact F-based CI for ICC(1,1), ICC(2,1), ICC(3,1) with average-measure variants. Handles unbalanced data via per-row/column counts. |
-| **Proper betaCF / chi2CDF** | Lentz continued-fraction is correctly initialised; the lower-incomplete-gamma for chi2CDF uses the convergent series branch correctly. |
-| **Welch-Satterthwaite df** | Independent t-test uses fractional Welch df without rounding — improves p-value precision for unequal-variance cases. |
-| **Jacobi MANOVA eigendecomposition** | Correct E^{-1/2} H E^{-1/2} symmetric path via Jacobi iteration for p > 2 DVs. Box's M test implemented. |
-| **Logistic regression hardening** | Newton-Raphson with separation detection (gradient norm > 1e6), step-halving, and singular Hessian bail-out. Youden-optimal threshold. |
-| **DeLong AUC CI** | Logit-transform CI more accurate near 0/1. |
-| **Shapiro-Wilk + D'Agostino-Pearson** | Two normality tests covering different sample sizes. |
-| **Cluster-robust SE for LMM** | Sandwich variance estimator applied post-hoc to reduce anti-conservatism; correctly labeled as not REML. |
-| **Formula sandbox AST validation** | AST-gate on mathjs parse tree (not regex) blocks `import`, property access, function definition. |
-| **Calibration-awareness** | z-scores suppressed when uncalibrated, `_unit` propagated through measurement chain, warnings shown in UI. |
-| **Time-separation enforcement** | Min-days checks on reliability and longitudinal sessions; violations listed as structured warnings. |
-| **MDC distinction** | Correctly uses individual-level MDC (z√2·sdDiff) not the group-level SE — common clinical error avoided. |
-| **Procrustes mm-normalization** | Both sessions scaled to mm before alignment, preventing magnification mismatch when T1/T2 have different pxPerMm. |
+| Strength                               | Detail                                                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Exact non-parametric distributions** | `mannWhitneyExactP` and `wilcoxonExactP` use DP exact null-distribution — falls back to normal approx only for n > 50 or with ties. R-compatible.                    |
+| **F-based ICC CI (Shrout & Fleiss)**   | `iccShroutFleiss` implements the exact F-based CI for ICC(1,1), ICC(2,1), ICC(3,1) with average-measure variants. Handles unbalanced data via per-row/column counts. |
+| **Proper betaCF / chi2CDF**            | Lentz continued-fraction is correctly initialised; the lower-incomplete-gamma for chi2CDF uses the convergent series branch correctly.                               |
+| **Welch-Satterthwaite df**             | Independent t-test uses fractional Welch df without rounding — improves p-value precision for unequal-variance cases.                                                |
+| **Jacobi MANOVA eigendecomposition**   | Correct E^{-1/2} H E^{-1/2} symmetric path via Jacobi iteration for p > 2 DVs. Box's M test implemented.                                                             |
+| **Logistic regression hardening**      | Newton-Raphson with separation detection (gradient norm > 1e6), step-halving, and singular Hessian bail-out. Youden-optimal threshold.                               |
+| **DeLong AUC CI**                      | Logit-transform CI more accurate near 0/1.                                                                                                                           |
+| **Shapiro-Wilk + D'Agostino-Pearson**  | Two normality tests covering different sample sizes.                                                                                                                 |
+| **Cluster-robust SE for LMM**          | Sandwich variance estimator applied post-hoc to reduce anti-conservatism; correctly labeled as not REML.                                                             |
+| **Formula sandbox AST validation**     | AST-gate on mathjs parse tree (not regex) blocks `import`, property access, function definition.                                                                     |
+| **Calibration-awareness**              | z-scores suppressed when uncalibrated, `_unit` propagated through measurement chain, warnings shown in UI.                                                           |
+| **Time-separation enforcement**        | Min-days checks on reliability and longitudinal sessions; violations listed as structured warnings.                                                                  |
+| **MDC distinction**                    | Correctly uses individual-level MDC (z√2·sdDiff) not the group-level SE — common clinical error avoided.                                                             |
+| **Procrustes mm-normalization**        | Both sessions scaled to mm before alignment, preventing magnification mismatch when T1/T2 have different pxPerMm.                                                    |
 
 ---
 
@@ -120,6 +120,7 @@ McNamara's R-PAS is the **narrowest** AP dimension of the retropalatal airway, m
 In `runSuperimposition`, `matchLandmarks(compF, baseF)` sets `src = compare point` (T2), `dst = base point` (T1). Displacement = `dst - alignedSrc` = T1_position - T2_aligned. So **displacement is T1 − T2** (positive = moved backward from T2 to T1 perspective).
 
 Meanwhile `computeLinearChanges` uses `m1 = src = compare` (T2), `m2 = dst = base` (T1), and:
+
 ```js
 delta: v1[k] - v2[k]  // v1 = T2 measurement, v2 = T1 measurement → T2 - T1
 ```
@@ -280,49 +281,49 @@ All airway measurements are 1D linear distances. Modern OSA research uses minimu
 
 ### A. Research Module
 
-| Feature | Priority | Notes |
-|---|---|---|
-| **Power/sample size calculator** | 🔥 High | t-test, ANOVA, correlation, ICC — essential pre-study tool |
-| **Missing data / multiple imputation** | 🔥 High | MICE or available-data sensitivity analysis for longitudinal module |
-| **Growth velocity curves** | 🔥 High | Overlay individual trajectories on Björk/Nanda velocity norms |
-| **ANCOVA / covariate adjustment** | Medium | Age, sex, baseline value as covariates in comparative analysis |
-| **Effect size CI (ω², η² via noncentral F)** | Medium | Required for CONSORT/STROBE compliant reporting |
-| **Equivalence / TOST tests** | Medium | Test "no meaningful change" hypotheses in reliability/longitudinal |
-| **MANOVA pairwise post-hoc** | Medium | Discriminant function or pairwise MANOVA follow-up |
-| **ROC partial AUC** | Low | pAUC at clinically relevant specificity range |
-| **REML mixed model** | Low | Replace pseudo-OLS with proper EM-based REML |
+| Feature                                      | Priority | Notes                                                               |
+| -------------------------------------------- | -------- | ------------------------------------------------------------------- |
+| **Power/sample size calculator**             | 🔥 High   | t-test, ANOVA, correlation, ICC — essential pre-study tool          |
+| **Missing data / multiple imputation**       | 🔥 High   | MICE or available-data sensitivity analysis for longitudinal module |
+| **Growth velocity curves**                   | 🔥 High   | Overlay individual trajectories on Björk/Nanda velocity norms       |
+| **ANCOVA / covariate adjustment**            | Medium   | Age, sex, baseline value as covariates in comparative analysis      |
+| **Effect size CI (ω², η² via noncentral F)** | Medium   | Required for CONSORT/STROBE compliant reporting                     |
+| **Equivalence / TOST tests**                 | Medium   | Test "no meaningful change" hypotheses in reliability/longitudinal  |
+| **MANOVA pairwise post-hoc**                 | Medium   | Discriminant function or pairwise MANOVA follow-up                  |
+| **ROC partial AUC**                          | Low      | pAUC at clinically relevant specificity range                       |
+| **REML mixed model**                         | Low      | Replace pseudo-OLS with proper EM-based REML                        |
 
 ### B. Superimposition & Growth
 
-| Feature | Priority | Notes |
-|---|---|---|
-| **Canvas overlay rendering** | 🔥 High | Visual T1/T2 tracing overlay with displacement arrows — far more intuitive than tables |
-| **VTO (Visual Treatment Objective)** | 🔥 High | Forward-plan using delta norms + displacement vectors — framework already built |
-| **MCID user-configurable threshold** | Medium | Distinguish statistical from clinical significance |
-| **Growth prediction confidence bands** | Medium | ±1SD expected growth envelope around predicted position |
-| **Landmark quality scoring in superimposition** | Medium | Flag high-variability landmarks from reliability module for exclusion |
-| **Pharyngeal airway area** | Medium | Compute area from `traceAirwayBoundary` — already has the infrastructure |
+| Feature                                         | Priority | Notes                                                                                  |
+| ----------------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| **Canvas overlay rendering**                    | 🔥 High   | Visual T1/T2 tracing overlay with displacement arrows — far more intuitive than tables |
+| **VTO (Visual Treatment Objective)**            | 🔥 High   | Forward-plan using delta norms + displacement vectors — framework already built        |
+| **MCID user-configurable threshold**            | Medium   | Distinguish statistical from clinical significance                                     |
+| **Growth prediction confidence bands**          | Medium   | ±1SD expected growth envelope around predicted position                                |
+| **Landmark quality scoring in superimposition** | Medium   | Flag high-variability landmarks from reliability module for exclusion                  |
+| **Pharyngeal airway area**                      | Medium   | Compute area from `traceAirwayBoundary` — already has the infrastructure               |
 
 ### C. Core Application
 
-| Feature | Priority | Notes |
-|---|---|---|
-| **Batch analysis runner** | Medium | Run same research analysis across multiple `.cephx` files |
-| **DICOM import** | Medium | Native import with embedded patient metadata from PACS |
-| **Undo for session metadata** | Medium | Calibration/patient data edits not currently undoable |
-| **Autosave** | Low | Prevent research session loss on browser close |
-| **Audit trail** | Low | Blinding enforcement for reliability studies |
-| **REST API mode** | Low | Expose measurement engine to R/Python for batch processing |
+| Feature                       | Priority | Notes                                                      |
+| ----------------------------- | -------- | ---------------------------------------------------------- |
+| **Batch analysis runner**     | Medium   | Run same research analysis across multiple `.cephx` files  |
+| **DICOM import**              | Medium   | Native import with embedded patient metadata from PACS     |
+| **Undo for session metadata** | Medium   | Calibration/patient data edits not currently undoable      |
+| **Autosave**                  | Low      | Prevent research session loss on browser close             |
+| **Audit trail**               | Low      | Blinding enforcement for reliability studies               |
+| **REST API mode**             | Low      | Expose measurement engine to R/Python for batch processing |
 
 ---
 
 ## Priority Summary
 
-| Category | Count | Severity |
-|---|---|---|
-| Critical errors (wrong math or clinical definition) | **9** | 🔴 |
-| Weaknesses (suboptimal, may mislead users) | **13** | 🟡 |
-| Feature gaps | **15** | 🔵 |
+| Category                                            | Count  | Severity |
+| --------------------------------------------------- | ------ | -------- |
+| Critical errors (wrong math or clinical definition) | **9**  | 🔴        |
+| Weaknesses (suboptimal, may mislead users)          | **13** | 🟡        |
+| Feature gaps                                        | **15** | 🔵        |
 
 ### **Top 3 fixes to ship immediately:**
 

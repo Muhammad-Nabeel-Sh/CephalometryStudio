@@ -59,6 +59,7 @@ All five selected features are implemented in/around `ExampleViewerModal`
 independently shippable + verifiable.
 
 ### 4.1 Hover / group teaching
+
 - Hover tooltips with name + definition already exist.
 - Add **color-coded groups** with a legend: assign each point a group
   (cranial base / maxillary / mandibular / dentition / soft tissue) and render
@@ -80,6 +81,7 @@ independently shippable + verifiable.
   legend is always shown whenever the data has groups.
 
 ### 4.2 Step-by-step placement guide
+
 - "Guide mode": walk the user through the points in a sensible order (group by
   group), highlighting the current point on the canvas (pulse ring), with
   prev/next controls and a progress indicator.
@@ -93,6 +95,7 @@ independently shippable + verifiable.
   change, dimming of all other markups, and ←/→/Esc keyboard navigation.
 
 ### 4.3 Practice-placing on the example
+
 - "Practice mode": the tracing and reference points are hidden (or ghosted);
   the user clicks on the canvas to place the current point.
 - Feedback: distance-to-reference tolerance → "correct" (green) / "close" /
@@ -100,6 +103,7 @@ independently shippable + verifiable.
 - Reuses the viewer's existing hit-testing + draw pipeline.
 
 ### 4.4 Measurement explanation
+
 - When an example declares `analysisName` (or ships an explicit
   `measurements` list in the envelope), show a **measurement mapping table**:
   which points combine into which measurement (e.g. SNA = S · N · A), with a
@@ -118,6 +122,7 @@ independently shippable + verifiable.
   dashed line connecting the mapped points (numbered vertices) on the tracing.
 
 ### 4.5 Step-by-step tracing overlay
+
 - "Build mode": reveal the tracing in stages (e.g. by group, or by the
   markups' stored z-order) with a slider / play control, showing how a complete
   tracing is assembled.

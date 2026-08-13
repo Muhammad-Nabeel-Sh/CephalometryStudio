@@ -12,7 +12,6 @@ import photofrontalCsv from "../../Data/Photo_Frontal.csv?raw";
 import airwayCsv from "../../Data/Airway.csv?raw";
 import analysisMeasurementsCsv from "../../Data/AnalysisMeasurements.csv?raw";
 import { parseAnalysisCsv } from "../report/csvParser.js";
-import { DEFAULT_NORMS } from "./norms.js";
 
 const _smvAnalyses = parseAnalysisCsv(smvCsv);
 const _opgAnalyses = parseAnalysisCsv(opgCsv);
@@ -424,8 +423,6 @@ for (const a of PREDEFINED.photofrontal) {
     a.measurements = _measurementLookup[a.name];
   }
 }
-
-export const PREDEFINED_NORMS = DEFAULT_NORMS;
 
 export const AIRWAY_NORMS = {
   source: "Composite — McNamara, Riley-Powell, Guilleminault, Solow",

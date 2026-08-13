@@ -243,7 +243,7 @@ export function coreLandmarksComplete(markups) {
 export function findPt(markups, label, ptMap) {
   try {
     if (ptMap) {
-      const m = ptMap.get(label.toLowerCase());
+      const m = ptMap.get(String(label).toLowerCase());
       if (m && m.visible !== false) {
         const pts = vpts(m);
         if (pts.length > 0) return { x: pts[0].x, y: pts[0].y };
@@ -252,7 +252,8 @@ export function findPt(markups, label, ptMap) {
     }
     for (const m of markups) {
       if (m.visible === false) continue;
-      if (m.label === label || m.label?.toLowerCase() === label.toLowerCase()) {
+      const lc = String(label).toLowerCase();
+      if (m.label === label || m.label?.toLowerCase() === lc || m.templateLabel?.toLowerCase() === lc || m.templateId === label) {
         const pts = vpts(m);
         if (pts.length > 0) return { x: pts[0].x, y: pts[0].y };
       }
@@ -265,6 +266,8 @@ function buildPtMap(markups) {
   const map = new Map();
   for (const m of markups) {
     if (m.label) map.set(m.label.toLowerCase(), m);
+    if (m.templateLabel && m.templateLabel.toLowerCase() !== m.label?.toLowerCase()) map.set(m.templateLabel.toLowerCase(), m);
+    if (m.templateId) map.set(m.templateId, m);
   }
   return map;
 }
@@ -772,7 +775,8 @@ export function computeAirwayMeasurements(markups, calibration, sex, age) {
 export function generateAirwayBoundaries(markups, imageData) {
   try {
     const find = (label) => {
-      const m = markups.find(mk => mk.type === "point" && mk.label === label && mk.visible !== false && mk.placed !== false);
+      const lc = String(label).toLowerCase();
+      const m = markups.find(mk => mk.type === "point" && (mk.label === label || mk.label?.toLowerCase() === lc || mk.templateLabel?.toLowerCase() === lc || mk.templateId === label) && mk.visible !== false && mk.placed !== false);
       if (!m) return null;
       const pts = vpts(m);
       return pts.length ? { x: pts[0].x, y: pts[0].y } : null;

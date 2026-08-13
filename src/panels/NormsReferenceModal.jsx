@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { PREDEFINED_NORMS } from "../data/constants.js";
+import { DEFAULT_NORMS } from "../data/norms.js";
 import { addPreset, exportLibraryJSON, exportPresetJSON, exportPresetCSV, importLibraryJSON, importPresetCSV, validatePreset } from "../data/normLibrary.js";
 import { fetchCommunityNorms, installPreset, getContributionURL, getRepoURL } from "../data/communityNorms.js";
 import { Btn } from "../ui/ui.jsx";
@@ -39,7 +39,7 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
     });
   }
 
-  const allBuiltIn = useMemo(() => Object.entries(PREDEFINED_NORMS).map(([key, p]) => ({ key, ...p, builtIn: true })), []);
+  const allBuiltIn = useMemo(() => Object.entries(DEFAULT_NORMS).map(([key, p]) => ({ key, ...p, builtIn: true })), []);
   const allUser = useMemo(() => (userPresets || []).map(p => ({ key: p.id, ...p, builtIn: false })), [userPresets]);
   const allPresets = useMemo(() => [...allBuiltIn, ...allUser], [allBuiltIn, allUser]);
 

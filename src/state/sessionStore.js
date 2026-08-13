@@ -106,7 +106,7 @@ export const useSessionStore = create((set, get) => ({
   },
 
   updMarkups(fn) {
-    const ms = refreshAutoMeasurements(fn(get().markups));
+    const ms = refreshAutoMeasurements(fn(get().markups), get().calibration);
     set({ markups: ms });
     _onChange?.();
   },

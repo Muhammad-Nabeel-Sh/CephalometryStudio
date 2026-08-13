@@ -11,6 +11,7 @@ However, the architecture exhibits **"God Object" antipatterns**, particularly w
 ## 2. Canvas Engine & Rendering (`redraw.js`, `App.jsx`)
 
 ### Strengths
+
 *   **Performance Optimization**: Bypassing React's render cycle for high-frequency events (mouse moves, panning) by writing directly to `useRef` and scheduling redraws via `requestAnimationFrame` is a textbook best practice for canvas applications. 
 *   **Decoupled Rendering Pipeline**: Moving the drawing logic into a `createRedraw` closure (`canvas/redraw.js`) successfully isolates the presentation layer from the React component tree.
 *   **DPR Awareness**: Proper handling of device pixel ratios ensures crisp rendering on high-DPI (Retina) displays.
