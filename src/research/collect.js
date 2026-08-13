@@ -4,6 +4,29 @@ import { logError } from "../lib/logger.js";
 let _collectCacheKey = "";
 let _collectCacheResult = null;
 
+// Unit for a single measurement key given the markup's calibrated unit.
+// Angle-ish keys are always degrees; everything else is mm when calibrated, px otherwise.
+export function unitForKey(key, valsUnit) {
+  const k = String(key).toLowerCase();
+  if (k.includes("angle") || k.includes("deg")) return "°";
+  return valsUnit === "mm" ? "mm" : "px";
+}
+
+// Most common unit among collected rows. Coordinate keys (x/y) are ignored
+// when any non-coordinate key exists so an angle markup reports "°" and a
+// line reports mm/px instead of the coordinate unit.
+export function dominantUnit(rows, keyField = "measureKey") {
+  const nonCoord = (rows || []).filter(r => r[keyField] !== "x" && r[keyField] !== "y");
+  const pool = nonCoord.length > 0 ? nonCoord : rows || [];
+  const counts = {};
+  for (const r of pool) {
+    const u = r.unit || "";
+    counts[u] = (counts[u] || 0) + 1;
+  }
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return top ? top[0] : "";
+}
+
 export function collectMeasurements(sessions, labelIds, calibration, angleMode) {
   const labelKey = [...(labelIds || [])].sort().join(",");
   const calKey = calibration ? `${calibration.done}:${calibration.pxPerMm}:${calibration.knownMm}` : "";
@@ -24,7 +47,6 @@ export function collectMeasurements(sessions, labelIds, calibration, angleMode) 
       if (!m.visible || !m.placed) continue;
       try {
         const vals = computeMeasurements(m, cal, mode);
-        const rowUnit = vals._unit === "mm" ? "mm" : "px";
         for (const [key, raw] of Object.entries(vals)) {
           if (key.startsWith("_")) continue;
           if (typeof raw !== "number" || !isFinite(raw)) continue;
@@ -35,7 +57,7 @@ export function collectMeasurements(sessions, labelIds, calibration, angleMode) 
             label: m.label,
             measureKey: key,
             value: raw,
-            unit: key.includes("angle") || key.includes("deg") ? "°" : rowUnit,
+            unit: unitForKey(key, vals._unit),
             type: m.type,
           });
         }

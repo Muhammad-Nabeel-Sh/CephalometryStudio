@@ -42,10 +42,10 @@ export function exportResultsCSV(study) {
 
 function exportReliabilityCSV(name, res) {
   const details = (res.details || []).filter(d => !d.skip);
-  const rows = [["Label", "ICC", "CI_Lower", "CI_Upper", "F", "df1", "df2", "p_Value", "Mean_Diff", "SD_Diff", "CV%", "Dahlberg", "SEM", "MDC", "n"]];
+  const rows = [["Label", "Unit", "ICC", "CI_Lower", "CI_Upper", "F", "df1", "df2", "p_Value", "Mean_Diff", "SD_Diff", "CV%", "Dahlberg", "SEM", "MDC", "n"]];
   for (const d of details) {
     rows.push([
-      d.label, d.icc, d.ci95?.[0], d.ci95?.[1],
+      d.label, d.unit || "", d.icc, d.ci95?.[0], d.ci95?.[1],
       d.F, d.df1, d.df2, d.pValue,
       d.meanDiff, d.sdDiff, d.cv != null ? d.cv.toFixed(2) : "",
       d.dahlberg, d.sem, d.mdc, d.n,
@@ -57,12 +57,12 @@ function exportReliabilityCSV(name, res) {
 function exportDescriptiveCSV(name, res) {
   const combined = res.combined || {};
   const labels = Object.keys(combined);
-  const rows = [["Label", "n", "Mean", "SD", "SEM", "Variance", "Min", "Max", "Q1", "Median", "Q3", "P5", "P95", "Skewness", "Kurtosis", "Is_Normal"]];
+  const rows = [["Label", "Unit", "n", "Mean", "SD", "SEM", "Variance", "Min", "Max", "Q1", "Median", "Q3", "P5", "P95", "Skewness", "Kurtosis", "Is_Normal"]];
   for (const label of labels) {
     const s = combined[label]?.stats;
     if (!s) continue;
     rows.push([
-      label, s.n, s.mean, s.sd, s.sem, s.variance,
+      label, combined[label].unit || "", s.n, s.mean, s.sd, s.sem, s.variance,
       s.min, s.max, s.q1, s.median, s.q3, s.p5, s.p95,
       s.skewness, s.kurtosis,
       s.isNormal ? "Yes" : "No",
@@ -86,7 +86,7 @@ function comparativeStatistic(testName, r) {
 
 function exportComparativeCSV(name, res) {
   const labels = Object.entries(res.labels || {}).filter(([, lr]) => !lr.skip);
-  const rows = [["Label", "Test", "Statistic", "df", "p_Value", "p_Adjusted", "MC_Significant", "Effect_Size", "ES_Type", "ES_Interpretation", "Overall_Significant"]];
+  const rows = [["Label", "Unit", "Test", "Statistic", "df", "p_Value", "p_Adjusted", "MC_Significant", "Effect_Size", "ES_Type", "ES_Interpretation", "Overall_Significant"]];
   for (const [label, lr] of labels) {
     const r = lr.result;
     const testName = lr.testName || "";
@@ -99,7 +99,7 @@ function exportComparativeCSV(name, res) {
     const p = r?.pValue;
     const mcCorr = lr.mcCorrected;
     rows.push([
-      label, testName, stat, df, p,
+      label, lr.unit || "", testName, stat, df, p,
       mcCorr?.adjusted ?? "",
       mcCorr ? (mcCorr.significant ? "Yes" : "No") : "",
       esVal, es?.measure ?? "", es?.interpretation ?? "",
@@ -111,15 +111,16 @@ function exportComparativeCSV(name, res) {
 
 function exportLongitudinalCSV(name, res) {
   const labels = Object.entries(res.labels || {}).filter(([, lr]) => !lr.skip);
-  const rows = [["Label", "From", "To", "Mean_Delta", "SD_Delta", "SEM", "MDC", "Delta_Exceeds_MDC", "t", "p_Value", "p_Adjusted", "Significant"]];
+  const rows = [["Label", "Unit", "From", "To", "Mean_Delta", "SD_Delta", "SEM", "MDC", "Delta_Exceeds_MDC", "t", "p_Value", "p_Adjusted", "Significant"]];
   for (const [label, lr] of labels) {
+    const unit = lr.unit || "";
     const ch = lr.changeScores || [];
     for (const c of ch) {
-      rows.push([label, c.from, c.to, c.meanChange, c.sd, c.sem, c.mdc, c.mdcExceeded ? "Yes" : "No", c.t, c.pValue, "", ""].map(esc).join(","));
+      rows.push([label, unit, c.from, c.to, c.meanChange, c.sd, c.sem, c.mdc, c.mdcExceeded ? "Yes" : "No", c.t, c.pValue, "", ""].map(esc).join(","));
     }
     const pw = lr.pairwise || [];
     for (const p of pw) {
-      rows.push([label, p.tpA, p.tpB, p.meanDiff, p.sd, "", "", "", p.t, p.pValue, p.pAdjusted, p.significant ? "Yes" : "No"].map(esc).join(","));
+      rows.push([label, unit, p.tpA, p.tpB, p.meanDiff, p.sd, "", "", "", p.t, p.pValue, p.pAdjusted, p.significant ? "Yes" : "No"].map(esc).join(","));
     }
   }
   download(name + "_longitudinal.csv", rows.join("\n"));

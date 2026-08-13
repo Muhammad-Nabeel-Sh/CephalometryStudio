@@ -351,7 +351,7 @@ function DescriptiveTable({ labels, data, t }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
-            {["Label", "N", "Mean", "SD", "SEM", "Median", "Q1", "Q3", "Min", "Max", "Skew", "Kurt"].map(h => (
+            {["Label", "Unit", "N", "Mean", "SD", "SEM", "Median", "Q1", "Q3", "Min", "Max", "Skew", "Kurt"].map(h => (
               <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
             ))}
           </tr>
@@ -362,6 +362,7 @@ function DescriptiveTable({ labels, data, t }) {
             return (
               <tr key={l} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{l}</td>
+                <td style={{ padding: "5px 6px", color: t.tx3 }}>{data[l].unit || "—"}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.n}</td>
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 700 }}>{s.mean.toFixed(2)}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.sd.toFixed(2)}</td>
@@ -392,7 +393,7 @@ function RefIntervalTable({ labels, data, t }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
-            {["Label", "Method", "Lower", "Upper", "90% CI Lower", "90% CI Upper"].map(h => (
+            {["Label", "Unit", "Method", "Lower", "Upper", "90% CI Lower", "90% CI Upper"].map(h => (
               <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
             ))}
           </tr>
@@ -403,6 +404,7 @@ function RefIntervalTable({ labels, data, t }) {
             return (
               <tr key={l} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{l}</td>
+                <td style={{ padding: "5px 6px", color: t.tx3 }}>{data[l].unit || "—"}</td>
                 <td style={{ padding: "5px 6px" }}>
                   <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: t.acc + "22", color: t.acc, fontWeight: 600 }}>
                     {ri.method}

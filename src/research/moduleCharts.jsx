@@ -122,6 +122,8 @@ function CollectiveBlandAltman({ details, t }) {
   const chartable = details.filter(d => d.meanDiff != null).slice(0, 8);
   if (chartable.length === 0) return null;
   const COLORS = [t.acc, t.err, t.warn, t.ok, t.tx2, "#a78bfa", "#f472b6", "#34d399"];
+  const unit = chartable[0]?.unit || "";
+  const u = unit ? ` (${unit})` : "";
 
   const points = chartable.flatMap((d, idx) =>
     (d.points || []).map(p => ({ label: d.label, mean: p.mean, diff: p.diff, idx }))
@@ -140,7 +142,7 @@ function CollectiveBlandAltman({ details, t }) {
       color: points.map(p => COLORS[p.idx % COLORS.length]),
       size: 4, opacity: 0.4,
     },
-    hovertemplate: "Mean: %{x:.1f}<br>Diff: %{y:.1f}<br>%{text}<extra></extra>",
+    hovertemplate: `Mean: %{x:.1f}${unit}<br>Diff: %{y:.1f}${unit}<br>%{text}<extra></extra>`,
     text: points.map(p => p.label),
     showlegend: false,
   };
@@ -158,8 +160,8 @@ function CollectiveBlandAltman({ details, t }) {
     paper_bgcolor: t.surf, plot_bgcolor: t.surf,
     font: { color: t.tx2, family: FONT_STACK, size: 11 },
     margin: { l: 55, r: 20, t: 15, b: 45 },
-    xaxis: { title: "Mean of measurements", gridcolor: t.surf3, zeroline: false, range: [xMin, xMax] },
-    yaxis: { title: "Difference", gridcolor: t.surf3, zeroline: false, range: [yMin, yMax] },
+    xaxis: { title: `Mean of measurements${u}`, gridcolor: t.surf3, zeroline: false, range: [xMin, xMax] },
+    yaxis: { title: `Difference${u}`, gridcolor: t.surf3, zeroline: false, range: [yMin, yMax] },
     legend: { orientation: "h", y: 1.02, x: 0.5, xanchor: "center", font: { size: 10 } },
     height: 400,
   };
@@ -174,44 +176,46 @@ function ErrorMapPlot({ results, t }) {
     mean: v.meanError || 0,
     sd: v.sdError || 0,
     max: v.maxError,
+    unit: v.unit || "",
   })).filter(e => e.sd > 0);
   if (entries.length === 0) return null;
   const sorted = [...entries].sort((a, b) => b.sd - a.sd);
   const maxV = Math.max(...sorted.map(e => e.sd), 0.5);
+  const unit = sorted[0]?.unit || "mm";
 
   const sdTrace = {
     type: "bar", orientation: "h",
-    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)})`),
+    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)} ${e.unit})`),
     x: sorted.map(e => e.sd),
     marker: { color: t.acc, opacity: 0.7 },
     text: sorted.map(e => e.sd.toFixed(2)),
     textposition: "outside",
     textfont: { size: 9, color: t.tx3, family: FONT_STACK },
     showlegend: false,
-    hovertemplate: "%{y}: SD = %{x:.2f} mm<extra></extra>",
+    hovertemplate: `%{y}: SD = %{x:.2f} ${unit}<extra></extra>`,
   };
   const meanTrace = {
     type: "scatter", mode: "markers",
-    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)})`),
+    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)} ${e.unit})`),
     x: sorted.map(e => e.mean),
     marker: { color: t.warn, size: 8, symbol: "diamond", line: { width: 1, color: t.bg } },
     showlegend: true, name: "Mean Error",
-    hovertemplate: "Mean = %{x:.2f} mm<extra></extra>",
+    hovertemplate: `Mean = %{x:.2f} ${unit}<extra></extra>`,
   };
   const maxTrace = {
     type: "scatter", mode: "markers",
-    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)})`),
+    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)} ${e.unit})`),
     x: sorted.map(e => e.max),
     marker: { color: t.err, size: 6, symbol: "circle", line: { width: 1, color: t.bg } },
     showlegend: true, name: "Max Error",
-    hovertemplate: "Max = %{x:.2f} mm<extra></extra>",
+    hovertemplate: `Max = %{x:.2f} ${unit}<extra></extra>`,
   };
 
   const layout = {
     paper_bgcolor: t.surf, plot_bgcolor: t.surf,
     font: { color: t.tx2, family: FONT_STACK, size: 11 },
     margin: { l: 180, r: 60, t: 15, b: 45 },
-    xaxis: { title: "Error (mm)", range: [0, maxV * 1.3], gridcolor: t.surf3, zeroline: false },
+    xaxis: { title: `Error (${unit})`, range: [0, maxV * 1.3], gridcolor: t.surf3, zeroline: false },
     yaxis: { title: { text: "Landmark", font: { size: 12 } }, autorange: "reversed", zeroline: false, showgrid: false, tickfont: { size: 10 } },
     height: Math.max(240, sorted.length * 30 + 60),
     legend: { orientation: "h", y: 1.02, x: 0.5, xanchor: "center", font: { size: 10 } },
@@ -230,34 +234,36 @@ function MethodErrorBarPlot({ details, t }) {
   const sem = chartable.map(d => d.sem);
   const mdc = chartable.map(d => d.mdc);
   const maxV = Math.max(...chartable.flatMap(d => [d.dahlberg || 0, d.sem || 0, d.mdc || 0])) || 1;
+  const unit = chartable[0]?.unit || "";
+  const u = unit ? ` (${unit})` : "";
 
   const dahlbergTrace = {
     type: "bar", orientation: "h",
     y: labels, x: dahlberg,
     marker: { color: t.acc, opacity: 0.7 },
     showlegend: true, name: "Dahlberg",
-    hovertemplate: "%{y}: Dahlberg = %{x:.2f} mm<extra></extra>",
+    hovertemplate: `%{y}: Dahlberg = %{x:.2f} ${unit}<extra></extra>`,
   };
   const semTrace = {
     type: "bar", orientation: "h",
     y: labels, x: sem,
     marker: { color: t.warn, opacity: 0.7 },
     showlegend: true, name: "SEM",
-    hovertemplate: "%{y}: SEM = %{x:.2f} mm<extra></extra>",
+    hovertemplate: `%{y}: SEM = %{x:.2f} ${unit}<extra></extra>`,
   };
   const mdcTrace = {
     type: "scatter", mode: "markers",
     y: labels, x: mdc,
     marker: { color: t.err, size: 8, symbol: "diamond" },
     showlegend: true, name: "MDC",
-    hovertemplate: "%{y}: MDC = %{x:.2f} mm<extra></extra>",
+    hovertemplate: `%{y}: MDC = %{x:.2f} ${unit}<extra></extra>`,
   };
 
   const layout = {
     paper_bgcolor: t.surf, plot_bgcolor: t.surf,
     font: { color: t.tx2, family: FONT_STACK, size: 11 },
     margin: { l: 120, r: 30, t: 15, b: 45 },
-    xaxis: { title: "Error (mm)", range: [0, maxV * 1.1], gridcolor: t.surf3, zeroline: false },
+    xaxis: { title: `Error${u}`, range: [0, maxV * 1.1], gridcolor: t.surf3, zeroline: false },
     yaxis: { title: { text: "Landmark", font: { size: 12 } }, autorange: "reversed", zeroline: false, showgrid: false, tickfont: { size: 10 } },
     height: Math.max(240, chartable.length * 24 + 50),
     barmode: "overlay",
@@ -359,7 +365,7 @@ function DistributionsChart({ combined, labels, t }) {
             annotations: [
               {
                 x: 0.02, y: 0.92, xref: "paper", yref: "paper",
-                text: `<b>${label}</b>  n=${s.n}  μ=${s.mean.toFixed(1)}`,
+                text: `<b>${label}</b>  n=${s.n}  μ=${s.mean.toFixed(1)}${combined[label]?.unit || ""}`,
                 showarrow: false, xanchor: "left", yanchor: "top",
                 font: { size: 10, color },
               },
@@ -1601,6 +1607,7 @@ export function SuperimpositionCharts({ results, t }) {
 function DisplacementBarPlot({ displacements, t }) {
   const sorted = [...displacements].sort((a, b) => b.lenMm - a.lenMm);
   const colors = sorted.map(d => d.lenMm < 2 ? "#22c55e" : d.lenMm < 5 ? "#eab308" : "#ef4444");
+  const axisUnit = sorted[0]?.unit || "mm";
 
   const trace = {
     type: "bar", orientation: "h",
@@ -1610,7 +1617,8 @@ function DisplacementBarPlot({ displacements, t }) {
     text: sorted.map(d => d.lenMm.toFixed(2) + " " + d.unit),
     textposition: "outside",
     textfont: { size: 10, color: t.tx2, family: FONT_STACK },
-    hovertemplate: "%{y}: %{x:.2f} mm<extra></extra>",
+    customdata: sorted.map(d => d.unit || ""),
+    hovertemplate: "%{y}: %{x:.2f} %{customdata}<extra></extra>",
     showlegend: false,
   };
 
@@ -1618,7 +1626,7 @@ function DisplacementBarPlot({ displacements, t }) {
     paper_bgcolor: t.surf, plot_bgcolor: t.surf,
     font: { color: t.tx2, family: FONT_STACK, size: 11 },
     margin: { l: 100, r: 80, t: 15, b: 45 },
-    xaxis: { title: "Displacement (mm)", gridcolor: t.surf3, zeroline: false },
+    xaxis: { title: `Displacement (${axisUnit})`, gridcolor: t.surf3, zeroline: false },
     yaxis: { autorange: "reversed", zeroline: false, showgrid: false, tickfont: { size: 10 } },
     height: Math.max(200, displacements.length * 24 + 50),
   };
@@ -1662,7 +1670,8 @@ function DisplacementPolarPlot({ displacements, t }) {
     }),
     textposition: "outside",
     textfont: { size: 10, color: t.tx2, family: FONT_STACK },
-    hovertemplate: "%{y}: %{x:.2f} mm<extra></extra>",
+    customdata: sorted.map(d => d.unit || ""),
+    hovertemplate: "%{y}: %{x:.2f} %{customdata}<extra></extra>",
     showlegend: false,
   };
 
@@ -1670,7 +1679,7 @@ function DisplacementPolarPlot({ displacements, t }) {
     paper_bgcolor: t.surf, plot_bgcolor: t.surf,
     font: { color: t.tx2, family: FONT_STACK, size: 11 },
     margin: { l: 80, r: 80, t: 15, b: 40 },
-    xaxis: { gridcolor: t.surf3, zeroline: false, title: "Distance (mm)" },
+    xaxis: { gridcolor: t.surf3, zeroline: false, title: `Distance (${sorted[0]?.unit || "mm"})` },
     yaxis: { gridcolor: t.surf3, autorange: "reversed" },
     height: Math.max(200, sorted.length * 28 + 60),
     annotations: [{

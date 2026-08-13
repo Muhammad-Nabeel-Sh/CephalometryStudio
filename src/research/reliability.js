@@ -1,5 +1,6 @@
 import { computeMeasurements, tDistributeCDF, fCDF } from "../lib/utils.js";
 import { checkReliabilityTimeSeparation } from "./validation.js";
+import { unitForKey, dominantUnit } from "./collect.js";
 import { logError } from "../lib/logger.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
@@ -344,7 +345,6 @@ export function runReliabilityAll(sessions, config, calibration) {
       if (!m.visible || !m.placed) continue;
       try {
         const vals = computeMeasurements(m, cal);
-        const rowUnit = vals._unit === "mm" ? "mm" : "px";
         for (const [key, raw] of Object.entries(vals)) {
           if (key.startsWith("_")) continue;
           if (typeof raw !== "number" || !isFinite(raw)) continue;
@@ -357,7 +357,7 @@ export function runReliabilityAll(sessions, config, calibration) {
             label: m.label,
             measureKey: key,
             value: raw,
-            unit: key.includes("angle") || key.includes("deg") ? "°" : rowUnit,
+            unit: unitForKey(key, vals._unit),
           });
         }
       } catch (e) { logError("reliability/markup", e); }
@@ -415,6 +415,7 @@ export function runReliabilityAll(sessions, config, calibration) {
     details.push({
       label,
       n: samples.length,
+      unit: dominantUnit(samples),
       icc: iccResult?.icc ?? null,
       ci95: iccResult?.ci95 || [null, null],
       F: iccResult?.F || null,

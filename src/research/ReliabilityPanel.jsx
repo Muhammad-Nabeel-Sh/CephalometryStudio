@@ -731,7 +731,7 @@ function BlandAltmanView({ details, t }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
-            {["Label", "Mean Diff", "SD Diff", "LoA Lower", "LoA Upper", "Prop. Bias", "p"].map(h => (
+            {["Label", "Unit", "Mean Diff", "SD Diff", "LoA Lower", "LoA Upper", "Prop. Bias", "p"].map(h => (
               <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
             ))}
           </tr>
@@ -740,6 +740,7 @@ function BlandAltmanView({ details, t }) {
           {valid.map(r => (
             <tr key={r.label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
               <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{r.label}</td>
+              <td style={{ padding: "5px 6px", color: t.tx3 }}>{r.unit || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.meanDiff?.toFixed(4) || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.sdDiff?.toFixed(4) || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.loaLower?.toFixed(4) || "—"}</td>
@@ -766,7 +767,7 @@ function MethodErrorView({ details, t }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
-            {["Label", "Dahlberg", "SEM", "MDC (95%)", "CV (%)", "N"].map(h => (
+            {["Label", "Unit", "Dahlberg", "SEM", "MDC (95%)", "CV (%)", "N"].map(h => (
               <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
             ))}
           </tr>
@@ -775,6 +776,7 @@ function MethodErrorView({ details, t }) {
           {valid.map(r => (
             <tr key={r.label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
               <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{r.label}</td>
+              <td style={{ padding: "5px 6px", color: t.tx3 }}>{r.unit || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.dahlberg?.toFixed(4) || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.sem?.toFixed(4) || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.mdc?.toFixed(4) || "—"}</td>
@@ -798,7 +800,7 @@ function ErrorMapView({ results, t }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
-            {["Landmark", "N", "Mean Error", "SD Error", "Max Error", "Ellipse Major", "Ellipse Minor"].map(h => (
+            {["Landmark", "Unit", "N", "Mean Error", "SD Error", "Max Error", "Ellipse Major", "Ellipse Minor"].map(h => (
               <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
             ))}
           </tr>
@@ -807,12 +809,13 @@ function ErrorMapView({ results, t }) {
           {Object.entries(map).sort().map(([label, lm]) => (
             <tr key={label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
               <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{label}</td>
+              <td style={{ padding: "5px 6px", color: t.tx3 }}>{lm.unit || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.n}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.meanError.toFixed(2)} px</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.sdError.toFixed(2)} px</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.maxError.toFixed(2)} px</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.major?.toFixed(2) || "—"} px</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.minor?.toFixed(2) || "—"} px</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.meanError.toFixed(2)} {lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.sdError.toFixed(2)} {lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.maxError.toFixed(2)} {lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.major?.toFixed(2) || "—"} {lm.ellipse?.unit || lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.minor?.toFixed(2) || "—"} {lm.ellipse?.unit || lm.unit || ""}</td>
             </tr>
           ))}
         </tbody>

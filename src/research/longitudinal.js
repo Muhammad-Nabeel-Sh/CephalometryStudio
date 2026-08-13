@@ -1,6 +1,7 @@
 import { computeMeasurements, mean, stdev, variance, tTestPaired, fCDF, chi2CDF, tDistributeCDF, clamp } from "../lib/utils.js";
 import { matInverse } from "./statsCore.js";
 import { checkLongitudinalTimeSeparation } from "./validation.js";
+import { unitForKey } from "./collect.js";
 import { logError } from "../lib/logger.js";
 
 // ─── Matrix helpers ─────────────────────────────────────────────────────────
@@ -378,8 +379,9 @@ function getMeasurementForLabel(session, label, calibration) {
   for (const m of markups) {
     try {
       const vals = computeMeasurements(m, cal);
-      const num = Object.values(vals).find(v => typeof v === "number" && isFinite(v));
-      if (num != null) return num;
+      const firstKey = Object.keys(vals).find(k => typeof vals[k] === "number" && isFinite(vals[k]) && !k.startsWith("_"));
+      const num = firstKey != null ? vals[firstKey] : undefined;
+      if (num != null) return { value: num, unit: unitForKey(firstKey, vals._unit) };
     } catch (e) { logError("longitudinal/value", e); }
   }
   return null;
@@ -410,6 +412,7 @@ function collectSubjectData(sessions, subjects, timepoints, labelIds, calibratio
 
     const rows = [];
     let validCount = 0;
+    const labelUnits = {};
 
     for (const subj of subjects) {
       const row = { _subject: subj.label || subj.id };
@@ -417,9 +420,10 @@ function collectSubjectData(sessions, subjects, timepoints, labelIds, calibratio
       for (let j = 0; j < tpIds.length; j++) {
         const sessionId = subj.records?.[tpIds[j]];
         const session = sessionId ? sessions.find(s => s.id === sessionId) : null;
-        const val = getMeasurementForLabel(session, label, calibration);
-        row[`tp_${j}`] = val;
-        if (val != null) hasAny = true;
+        const got = getMeasurementForLabel(session, label, calibration);
+        row[`tp_${j}`] = got?.value ?? null;
+        if (got?.unit) labelUnits[got.unit] = (labelUnits[got.unit] || 0) + 1;
+        if (got?.value != null) hasAny = true;
       }
       if (hasAny) { rows.push(row); validCount++; }
     }
@@ -449,6 +453,7 @@ function collectSubjectData(sessions, subjects, timepoints, labelIds, calibratio
       rawData,
       nSubjects: rows.length,
       nComplete: complete.length,
+      unit: Object.entries(labelUnits).sort((a, b) => b[1] - a[1])[0]?.[0] || "",
     };
   }
 
@@ -497,7 +502,7 @@ export function runLongitudinalAll(sessions, config, calibration) {
     }
 
     const rmAnova = repeatedMeasuresANOVA(paired, sphericityCorrection);
-    const pairwise = rmAnova ? pairedPostHoc(paired, Object.keys(paired[0]).filter(k => k.startsWith("tp_")), tpLabels) : [];
+    const pairwise = rmAnova ? pairedPostHoc(paired, Object.keys(paired[0]).filter(k => k.startsWith("tp_")), tpLabels).map(p => ({ ...p, unit: ld.unit || "" })) : [];
     const lmm = modelType === "mixed_model" || modelType === "both" ? linearMixedModel(paired, tpLabels) : null;
 
     // Change scores. The MDC must be the INDIVIDUAL-level MDC (z·√2·SEM where
@@ -520,6 +525,7 @@ export function runLongitudinalAll(sessions, config, calibration) {
         changeScores.push({
           from: tpLabels[i] || tpKeys[i],
           to: tpLabels[j] || tpKeys[j],
+          unit: ld.unit || "",
           meanChange: mDiff,
           sd: sdDiff,
           sem: semGroup,
@@ -534,6 +540,7 @@ export function runLongitudinalAll(sessions, config, calibration) {
 
     results.labels[label] = {
       label,
+      unit: ld.unit || "",
       rmAnova,
       pairwise,
       lmm,

@@ -1,4 +1,5 @@
 import { computeMeasurements, chi2CDF, tDistributeCDF } from "../lib/utils.js";
+import { unitForKey, dominantUnit } from "./collect.js";
 import { logError } from "../lib/logger.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
@@ -289,14 +290,14 @@ function collectMeasurements(sessions, labelIds, calibration) {
           for (const [key, raw] of Object.entries(vals)) {
             if (typeof raw !== "number" || !isFinite(raw)) continue;
             if (!byLabel[m.label]) byLabel[m.label] = [];
-            byLabel[m.label].push({ value: raw, key, sessionId: s.id });
+            byLabel[m.label].push({ value: raw, key, sessionId: s.id, unit: unitForKey(key, vals._unit) });
           }
           // If no specific measureKey, also push the first numeric value
           if (!Object.keys(vals).some(k => typeof vals[k] === "number")) {
             const first = Object.values(vals).find(v => typeof v === "number" && isFinite(v));
             if (first != null) {
               if (!byLabel[m.label]) byLabel[m.label] = [];
-              byLabel[m.label].push({ value: first, key: "value", sessionId: s.id });
+              byLabel[m.label].push({ value: first, key: "value", sessionId: s.id, unit: vals._unit === "mm" ? "mm" : "px" });
             }
           }
         } catch (e) { logError("descriptive/collect", e); }
@@ -346,7 +347,7 @@ export function runDescriptiveAll(sessions, config, calibration) {
       const values = samples.map(s => s.value);
       const stats = descriptiveStats(values);
       const refInterval = referenceInterval(values);
-      groupResult.labels[label] = { values, stats, referenceInterval: refInterval };
+      groupResult.labels[label] = { values, stats, referenceInterval: refInterval, unit: dominantUnit(samples, "key") };
     }
 
     results.groups[gName] = groupResult;
@@ -358,7 +359,7 @@ export function runDescriptiveAll(sessions, config, calibration) {
     const values = samples.map(s => s.value);
     const stats = descriptiveStats(values);
     const refInterval = referenceInterval(values);
-    results.combined[label] = { values, stats, referenceInterval: refInterval };
+    results.combined[label] = { values, stats, referenceInterval: refInterval, unit: dominantUnit(samples, "key") };
   }
 
   // Compute z-scores against reference norms

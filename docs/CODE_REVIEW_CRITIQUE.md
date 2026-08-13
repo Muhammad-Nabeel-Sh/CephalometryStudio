@@ -164,19 +164,23 @@ Every frame redraws image + all markups from scratch. The `staticDirtyRef` is ve
 
 **Remediation:** Build a uniform-grid spatial index over markup points/bboxes.
 
-### R8. Research result panels display values with no unit indicator
+### R8. Research result panels display values with no unit indicator — FIXED
 
-**Severity: Medium (clinical correctness)**
-Every research results table renders raw numbers (meanDiff, sdDiff, LoA, Dahlberg, SEM, MDC, etc.) with `.toFixed(n)` and no unit suffix. A Bland-Altman "Mean Diff" of `2.500` could be mm, px, or degrees.
+**Severity: Was Medium (clinical correctness) — now resolved**
+Every research results table rendered raw numbers (meanDiff, sdDiff, LoA, Dahlberg, SEM, MDC, means, SDs, meanΔ) with no unit suffix. Units now propagate end-to-end:
 
-**Remediation:** Carry the `unit` through `details`/`labels` result objects, render in table headers/cells, emit a `Unit` column in CSV exports.
+- `collect.js` exports `unitForKey()` (angle keys → "°", else mm/px from `_unit`) and `dominantUnit()` (ignores x/y coordinate keys when real measurement keys exist).
+- `reliability.js` attaches `unit` to every `details` entry; `ReliabilityPanel.jsx` renders a Unit column in the Bland-Altman and Method-Error tables, and the landmark error-map table now shows the actual `lm.unit` (mm when calibrated) instead of hardcoded "px".
+- `descriptive.js` attaches `unit` to group + combined label results; `DescriptivePanel.jsx` renders Unit columns in the descriptive and reference-interval tables.
+- `comparative.js` attaches `unit` to label results; post-hoc section headers show it.
+- `longitudinal.js` attaches `unit` to label results, change scores, and pairwise rows; ANOVA/Change/Pairwise views show it in section headers.
+- `resultsExport.js` emits a `Unit` column in reliability/descriptive/comparative/longitudinal CSVs.
+- New tests: `src/test/unitPropagation.test.js` (13 tests).
 
-### R9. Chart vs table unit inconsistency for landmark error map
+### R9. Chart vs table unit inconsistency for landmark error map — FIXED
 
-**Severity: Medium**
-`moduleCharts.jsx` ErrorMapPlot hardcodes `"mm"` in axis titles and hover templates. `ReliabilityPanel.jsx` displays the same values as `"px"`. The underlying data is in pixels.
-
-**Remediation:** Derive the unit from the study's calibration state; pass it into both charts and tables.
+**Severity: Was Medium — now resolved**
+`moduleCharts.jsx` ErrorMapPlot hardcoded "mm" in axis titles and hover templates while the panel showed "px" (or vice versa after calibration). All reliability charts (Collective Bland-Altman, ErrorMapPlot, MethodErrorBarPlot) and the superimposition displacement charts (bar/polar) now derive the unit from the result objects (`d.unit` / `v.unit` / `results.landmarkMap`) in axis titles, hover templates (via `customdata` where units may be mixed), and descriptive distribution annotations.
 
 ### R10. `mkReliabilitySession` shares image-entry references
 

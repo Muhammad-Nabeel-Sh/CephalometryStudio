@@ -1,5 +1,6 @@
 import { computeMeasurements, mean, stdev, variance, shapiroWilk, oneWayAnova, tTestPaired, tDistributeCDF, fCDF, chi2CDF } from "../lib/utils.js";
 import { normalCdf, matMul, matInverse, benjaminiHochberg } from "./statsCore.js";
+import { unitForKey } from "./collect.js";
 import { logError } from "../lib/logger.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
@@ -781,6 +782,7 @@ function collectGroupedMeasurements(sessions, groups, labelIds, calibration) {
   for (const g of groups) {
     const gSessions = (g.caseIds || []).map(id => sessions.find(s => s.id === id)).filter(Boolean);
     const byLabel = {};
+    const units = {};
     for (const s of gSessions) {
       const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
       const markups = s.markups || [];
@@ -791,15 +793,17 @@ function collectGroupedMeasurements(sessions, groups, labelIds, calibration) {
         if (!m.visible || !m.placed) continue;
         try {
           const vals = computeMeasurements(m, cal);
-          const firstNum = Object.values(vals).find(v => typeof v === "number" && isFinite(v));
+          const firstKey = Object.keys(vals).find(k => typeof vals[k] === "number" && isFinite(vals[k]) && !k.startsWith("_"));
+          const firstNum = firstKey != null ? vals[firstKey] : undefined;
           if (firstNum != null) {
             if (!byLabel[m.label]) byLabel[m.label] = [];
             byLabel[m.label].push(firstNum);
+            if (!units[m.label]) units[m.label] = unitForKey(firstKey, vals._unit);
           }
         } catch (e) { logError("comparative/label", e); }
       }
     }
-    byGroup[g.label] = { group: g, sessions: gSessions, byLabel };
+    byGroup[g.label] = { group: g, sessions: gSessions, byLabel, units };
   }
   return byGroup;
 }
@@ -844,6 +848,10 @@ export function runComparativeAll(sessions, config, calibration) {
     }
     results.labels[label] = selectAndRunTest(labelData, design, alpha || 0.05);
     results.labels[label].label = label;
+    for (const gLabel of groupLabels) {
+      const u = byGroup[gLabel]?.units?.[label];
+      if (u) { results.labels[label].unit = u; break; }
+    }
   }
 
   // Group descriptive data

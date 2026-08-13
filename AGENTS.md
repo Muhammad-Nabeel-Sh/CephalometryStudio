@@ -456,6 +456,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **PWA/OS icon pipeline fixed**: Manifest referenced a missing PNG (`cephalostudio_logo_concepts.png` → 404) and relied on SVG icons (ignored by Android for install/splash). `scripts/generate-icons.mjs` (sharp) rasterizes the pure-vector `public/favicon.svg` to `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png` (180), 7 iOS splash images, and `og-image.png`; manifest + index.html now reference them (apple-touch-startup-image links included). Note: `favicon_new.svg` embeds a 90×90 PNG, so it must NOT be used as a rasterization source.
 
+- **Research units end-to-end (R8/R9)**: `unitForKey`/`dominantUnit` helpers in `collect.js`; units attached to reliability `details`, descriptive group/combined labels, comparative labels, longitudinal labels/changeScores/pairwise; Unit columns in Reliability/Descriptive/Comparative/Longitudinal panels + CSV exports; reliability + superimposition charts derive units from results instead of hardcoded "mm"; 13 new tests in `src/test/unitPropagation.test.js`
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — `markups`, `calibration`, projects, sessions, undo/redo are still in App.jsx `useReducer`; should be migrated to Zustand stores for consistency
@@ -464,4 +466,4 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 6 pre-existing warnings in App.jsx only (`react-hooks/exhaustive-deps`)
-- `npm test` — 446 tests pass (20 test files, 0 failures)
+- `npm test` — 459 tests pass (21 test files, 0 failures)

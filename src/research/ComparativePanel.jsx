@@ -483,7 +483,7 @@ function PostHocView({ results, t }) {
     <div>
       {labels.map(label => (
         <div key={label} style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: t.tx, marginBottom: 4, fontFamily: "'DM Mono',monospace" }}>{label}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: t.tx, marginBottom: 4, fontFamily: "'DM Mono',monospace" }}>{label}{results.labels?.[label]?.unit ? ` (${results.labels[label].unit})` : ""}</div>
           <div style={{ fontSize: 9, color: t.tx3, marginBottom: 4 }}>{isPaired ? "Bonferroni-corrected paired t-tests" : "Tukey's HSD"}</div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
             <thead>
