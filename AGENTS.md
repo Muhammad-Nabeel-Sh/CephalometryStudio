@@ -32,6 +32,9 @@ npx eslint src/panels.jsx
 
 # Run lint with auto-fix
 npm run lint -- --fix
+
+# Regenerate PWA/OS icons (PNGs from public/favicon.svg via sharp)
+npm run icons
 ```
 
 **Vitest** is configured and used for all tests (matches Vite ecosystem).
@@ -450,6 +453,8 @@ Recommended settings for `.vscode/settings.json`:
 - **ID-based landmark linking**: Template points get an immutable `templateId` (`<analysis>::<landmark>`); auto-created measurements store `refTemplateIds` alongside `refLabels`; `refreshAutoMeasurements` + `syncRefDeps` resolve by templateId → templateLabel → label (legacy fallback). Renaming a landmark no longer breaks dependent measurements or drag propagation. Template reload is duplicate-proof after renames (label OR templateLabel match). Airway landmark lookups also match templateLabel/templateId. 15 new tests in `src/test/templateLinking.test.js`
 - **`getMeasValue` correctness**: Now returns the type's primary measure (angle/length/area/value) instead of the first numeric value (x-coordinate); infinite-mode line refs fall back to segment length; `refreshAutoMeasurements` threads calibration through (computed sums/differences stay in mm)
 - **`PREDEFINED_NORMS` collision resolved**: Alias removed from `constants.js`; consumers (`MeasurementsPanel`, `NormsReferenceModal`) import `DEFAULT_NORMS` directly from `norms.js` (single source of truth; `descriptive.js` already used `RESEARCH_NORMS`)
+
+- **PWA/OS icon pipeline fixed**: Manifest referenced a missing PNG (`cephalostudio_logo_concepts.png` → 404) and relied on SVG icons (ignored by Android for install/splash). `scripts/generate-icons.mjs` (sharp) rasterizes the pure-vector `public/favicon.svg` to `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png` (180), 7 iOS splash images, and `og-image.png`; manifest + index.html now reference them (apple-touch-startup-image links included). Note: `favicon_new.svg` embeds a 90×90 PNG, so it must NOT be used as a rasterization source.
 
 ### Ongoing
 
