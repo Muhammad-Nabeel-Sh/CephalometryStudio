@@ -1,6 +1,29 @@
 # Cephalometry Studio
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21953110.svg)](https://doi.org/10.5281/zenodo.21953110)
+
 A web-based cephalometric analysis application for orthodontics and maxillofacial surgery. Built with React 19, Vite 8, and Canvas 2D. Supports image markup, calibration, formula computation, template library, batch import, session metadata management, and eight research analysis modules (reliability with guided workflow, descriptive/normative, comparative, longitudinal, correlation, diagnostic, superimposition/growth, airway).
+
+---
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Homepage](screenshots/1-homepage.png) | ![Canvas](screenshots/2-canvas.png) |
+| ![Examples](screenshots/3-example.png) | ![Interpretation](screenshots/4-interpretation.png) |
+
+*Home screen, tracing workspace, interactive examples, and clinical interpretation.*
+
+---
+
+## Citing
+
+If you use Cephalometry Studio in your research, please cite the archived software:
+
+> **Cephalometry Studio** (2026). Zenodo. https://doi.org/10.5281/zenodo.21953110
+
+A `CITATION.cff` file is included for GitHub/Zotero integration.
 
 ---
 

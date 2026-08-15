@@ -41,7 +41,7 @@ correlation and regression, diagnostic performance (ROC/AUC), and
 superimposition/growth analysis — with publication-style tables, charts, and
 CSV export. The entire application runs in the browser; measurements, images,
 and projects are stored locally (encrypted at rest), so patient data never
-leaves the user's device [@webceph; @dolphin].
+leaves the user's device.
 
 # Statement of need
 
@@ -58,7 +58,7 @@ OnyxCeph) offer sophisticated tracing workflows but require paid licenses,
 upload patient images to vendor servers, and provide no integrated
 reproducibility statistics — researchers must export measurements to
 spreadsheets and re-implement ICC, Bland-Altman, and Dahlberg analyses in
-external statistical packages [@webceph; @dolphin; @onyxceph]. Free alternatives offer only a small subset of
+external statistical packages. Free alternatives offer only a small subset of
 analyses and no research tooling.
 
 Cephalometry Studio fills this gap: a single, freely accessible tool in which a
@@ -73,6 +73,8 @@ the methodological requirements of orthodontic research [@walter1998;
 
 # Functionality
 
+![The Cephalometry Studio home screen, with project management and the analysis launcher.](screenshots/1-homepage.png){ width=90% }
+
 Cephalometry Studio is a client-side React application (JavaScript) with a Canvas
 2D tracing engine; it requires no server and can be used offline as a
 progressive web app. Images are imported as PNG/JPEG (plus browser-rendered
@@ -84,6 +86,8 @@ renaming a landmark never breaks dependent measurements. A clinical
 interpretation engine compares each measurement against age- and
 sex-stratified norms and generates plain-language findings, visualized as a
 normogram.
+
+![Tracing workspace: landmarks, planes, and auto-generated measurements on a calibrated lateral cephalogram.](screenshots/2-canvas.png){ width=90% }
 
 The research module operates on study designs built from sessions (subject ×
 timepoint × operator): reliability studies with ICC(2,1) and exact F-based
@@ -100,6 +104,8 @@ Procrustes or structural alignment, displacement analysis, and growth-pattern
 classification. All results render as tables and charts and export to CSV,
 PDF, or DOCX.
 
+![Clinical interpretation engine output with normative comparison.](screenshots/4-interpretation.png){ width=90% }
+
 Statistical implementations are guarded by a test suite of 459 automated
 tests, including golden-value regression tests that check core distributions
 and estimators against published reference values (e.g., Shrout-Fleiss ICC,
@@ -112,6 +118,7 @@ subject to magnification, and reference norms are population-specific.
 
 # Acknowledgements
 
-We thank the reviewers of this manuscript for their constructive feedback.
+The authors declare no funding associated with this software. This work was
+developed as an independent open-source project.
 
 # References

@@ -7,10 +7,14 @@ authors:
     given-names: "Mohamed"
     orcid: "https://orcid.org/0009-0004-7190-1364"
 version: 1.0.0
-date-released: 2026-08-15
+date-released: 2026-08-14
 repository-code: "https://github.com/Muhammad-Nabeel-Sh/CephalometryStudio"
 url: "https://cephalometry-studio.vercel.app/"
 license: MIT
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21953110
+    description: "Zenodo archive of the released software"
 keywords:
   - cephalometry
   - orthodontics
