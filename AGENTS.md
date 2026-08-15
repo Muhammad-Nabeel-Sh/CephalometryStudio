@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **300 tests (Vitest)**
+- **No TypeScript**, **459 tests (Vitest)**
 
 ---
 
@@ -47,7 +47,7 @@ npm run icons
 
 ```
 src/
-├── App.jsx                     Root component (~1850 lines)
+├── App.jsx                     Root component (~6150 lines)
 ├── main.jsx                    Entry point
 ├── index.css                   Global styles
 │
@@ -168,7 +168,7 @@ src/
 │   ├── template.js             autoCreateMeasurements, getMeasValue
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (300 tests)
+└── test/                       Vitest test files (459 tests)
 ```
 
 ### File Organization
@@ -415,7 +415,7 @@ Recommended settings for `.vscode/settings.json`:
 - **Diagnostic module**: ROC/AUC with DeLong CI, optimal thresholds (Youden/F1/distance/accuracy), Hosmer-Lemeshow calibration, logistic composite index, cross-validated AUC (LOOCV/k-fold, seeded PRNG for reproducibility) — config + results UI (`DiagnosticPanel.jsx`)
 - **Superimposition/Growth module** (F3): Procrustes + structural alignment (rotation-only 2-point), alignment-aware displacements with error propagation, rotation tracking (mandibular/palatal/occlusal/Y-axis), plane intersections, delta norms (age/sex-stratified), clinical pattern detection (8 pattern types), multi-timepoint longitudinal analysis, group-level research, centroid size — config + results UI (`SuperimpositionPanel.jsx`) with 7 tabs, engine in `superimposition.js` (~920 lines)
 - **Charts module** (`moduleCharts.jsx`): ICC forest plot, Bland-Altman plot, Error map, Distribution+normal curve, Box plots, Group means bar, Effect size forest, P-value dot chart, Longitudinal trajectories, Change score chart, Displacement bar/polar/vector field, Rotation tracking bar, Plane angle dot, Delta norm bar, Pattern severity bar (all Plotly basic-dist-compatible)
-- **ResultsDialog**: Floating modal (normogram pattern) with Tables/Charts tabs for all 7 modules (incl. superimposition)
+- **ResultsDialog**: Floating modal (normogram pattern) with Tables/Charts tabs for all 8 modules (incl. superimposition)
 - **Study guides**: `PanelGuideModal.jsx` — 17+ guides (incl. superimposition); `StudyGuideModal.jsx` — 7 study-type-specific guides with diagrams
 - **Guide Dialog Boxes**: PanelGuideModal.jsx with superimposition guide; StudyGuideModal.jsx covers all 7 research modules
 - **New LUTs**: magma, inferno, cividis color maps; grayscale legend fix
@@ -460,10 +460,10 @@ Recommended settings for `.vscode/settings.json`:
 
 ### Ongoing
 
-- **Remaining workspace-reducer migration** — `markups`, `calibration`, projects, sessions, undo/redo are still in App.jsx `useReducer`; should be migrated to Zustand stores for consistency
+- **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
 
 ### Build Status
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
-- `npm run lint` — 0 errors, 6 pre-existing warnings in App.jsx only (`react-hooks/exhaustive-deps`)
+- `npm run lint` — 0 errors, 0 warnings
 - `npm test` — 459 tests pass (21 test files, 0 failures)

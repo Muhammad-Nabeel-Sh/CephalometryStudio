@@ -94,9 +94,9 @@
 | **3D / CBCT**                      | ❌ No                               | ✅ Yes      | ❌ No      | ✅ Ceph  | ✅ Yes      | ❌ No      | ✅ Yes           | ✅ Full     | ❌ No    | ❌ No      |
 | **Treatment simulation**           | ❌ No                               | ✅ Yes      | ✅ VTO/STO | ❌ No    | ❌ No       | ✅ VTO/STO | ✅ VTO/STO/Morph | ✅ VTO/STO  | ❌ No    | ✅ VTO     |
 | **VTO**                            | ❌ No                               | ✅ Yes      | ✅ Yes     | ❌ No    | ✅ Yes      | ✅ Yes     | ✅ Yes           | ✅ Yes      | ❌ No    | ✅ Yes     |
-| **Superimposition**                | ⚠️ Version overlay                  | ✅ Yes      | ✅ Yes     | ✅ Yes   | ✅ Yes      | ✅ Yes     | ✅ Yes           | ✅ Yes      | ❌ No    | ✅ Yes     |
-| **Growth tracking**                | ❌ No                               | ✅ Yes      | ❌ No      | ❌ No    | ✅ Yes      | ✅ Yes     | ✅ Yes           | ❌ No       | ❌ No    | ❌ No      |
-| **Airway analysis**                | ✅ Basic                            | ✅ Yes      | ❌ No      | ❌ No    | ✅ Yes      | ❌ No      | ❌ No            | ✅ Yes      | ❌ No    | ❌ No      |
+| **Superimposition**                | ✅ Full module                      | ✅ Yes      | ✅ Yes     | ✅ Yes   | ✅ Yes      | ✅ Yes     | ✅ Yes           | ✅ Yes      | ❌ No    | ✅ Yes     |
+| **Growth tracking**                | ✅ Growth patterns                  | ✅ Yes      | ❌ No      | ❌ No    | ✅ Yes      | ✅ Yes     | ✅ Yes           | ❌ No       | ❌ No    | ❌ No      |
+| **Airway analysis**                | ✅ Extended                         | ✅ Yes      | ❌ No      | ❌ No    | ✅ Yes      | ❌ No      | ❌ No            | ✅ Yes      | ❌ No    | ❌ No      |
 | **Image anonymization**            | ✅ Yes                              | ❌ No       | ❌ No      | ❌ No    | ❌ No       | ❌ No      | ❌ No            | ❌ No       | ❌ No    | ❌ No      |
 | **Version management**             | ✅ Yes                              | ❌ No       | ❌ No      | ❌ No    | ❌ No       | ❌ No      | ❌ No            | ❌ No       | ❌ No    | ❌ No      |
 | **Clinical interpretation**        | ✅ **Auto**                         | ⚠️ Basic    | ❌ No      | ❌ No    | ❌ No       | ❌ No      | ❌ No            | ⚠️ Basic    | ❌ No    | ✅ Guided  |
@@ -252,7 +252,7 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 
 ### 3.8 Statistics & Reproducibility — **Unique Advantage**
 
-**Cephalometry Studio** has a **built-in research engine** with 6 integrated modules that no other cephalometric software offers:
+**Cephalometry Studio** has a **built-in research engine** with 8 integrated modules that no other cephalometric software offers:
 
 | Module                    | Key Features                                                                                                                                                                                                                                                                               |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -262,6 +262,8 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 | **Longitudinal**          | RM-ANOVA with Mauchly sphericity test, GG/HF/LB epsilon corrections, LMM (two-level REML), pairwise Bonferroni, change scores with MDC                                                                                                                                                     |
 | **Correlation**           | Pearson/Spearman/partial correlation, correlation matrix, linear regression, logistic regression with ROC/AUC                                                                                                                                                                              |
 | **Diagnostic**            | Sensitivity/specificity, ROC curves, AUC, likelihood ratios, predictive values, cross-validation, calibration                                                                                                                                                                              |
+| **Superimposition/Growth** | Procrustes + structural (rotation-only 2-point) alignment, alignment-aware displacements with error propagation, rotation tracking (mandibular/palatal/occlusal), plane intersections, delta norms, growth-pattern classification, centroid size                                             |
+| **Airway Study**          | 12-standard airway measurements with age/sex-stratified norms, z-scores, traffic-light severity, auto-tracing from landmarks                                                                                                                           |
 
 | Feature                            | Cephalometry Studio                    | Any Competitor |
 | ---------------------------------- | -------------------------------------- | -------------- |
@@ -442,7 +444,7 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 ### Cephalometry Studio Strengths
 
-1. **Built-in Research Engine** — Unmatched. 6 integrated modules (Reliability, Descriptive, Comparative, Longitudinal, Correlation, Diagnostic) with guided data collection, MANOVA, LMM, ROC analysis, and golden-value regression tests. No competitor offers anything comparable.
+1. **Built-in Research Engine** — Unmatched. 8 integrated modules (Reliability, Descriptive, Comparative, Longitudinal, Correlation, Diagnostic, Superimposition/Growth, Airway) with guided data collection, MANOVA, LMM, ROC analysis, and golden-value regression tests. No competitor offers anything comparable.
 
 2. **Custom Formula Engine** — One of the few tools (alongside AudaxCeph) that lets users define their own cephalometric indices. Combined with KaTeX rendering, this is a powerful research enabler.
 
@@ -466,7 +468,7 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 12. **PDF Report Generation** — jsPDF-based export with measurement tables, norms comparison, and clinical interpretation. Closes the most significant export gap.
 
-13. **Test Coverage** — 269 tests across 15 files with golden-value stat regression tests and coverage thresholds. Unique quality assurance for a medical measurement tool.
+13. **Test Coverage** — 459 tests across 21 files with golden-value stat regression tests and coverage thresholds. Unique quality assurance for a medical measurement tool.
 
 ### Critical Gaps
 
@@ -476,7 +478,7 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 3. **No Treatment Simulation / VTO** — WebCeph (free tier), NemoCeph, AudaxCeph, Dolphin, Romexis, and even LabCeph offer VTO. Absent here.
 
-4. **No True Superimposition** — Version displacement vectors exist but no structural superimposition (Ba-N, S-N overlay).
+4. **Superimposition is Research-Focused** — Full structural/Procrustes superimposition exists inside the research module (with displacement, rotation tracking, and growth patterns), but there is no one-click clinical Ba-N/S-N overlay workflow yet.
 
 5. **No True DICOM Parser** — UI mentions DICOM but relies on browser rendering. No tag reading, modality detection, or multi-frame support.
 

@@ -1,6 +1,6 @@
 # Examples Panel — Interactive Illustration Plan
 
-> Status: **all 7 phases done (45 examples tests). Practice-placing (Phase 4) skipped — explicitly out of scope.** Community feed + authoring docs shipped in Phase 7; final verification green (lint 0, 425 tests, build OK).
+> Status: **all 7 phases done (46 examples tests). Practice-placing (Phase 4) skipped — explicitly out of scope.** Community feed + authoring docs shipped in Phase 7; final verification green (lint 0, 459 tests, build OK).
 > Feature: Turn the Examples panel into a library of **interactive teaching
 > illustrations** that guide users in placing points and understanding
 > cephalometric analyses.

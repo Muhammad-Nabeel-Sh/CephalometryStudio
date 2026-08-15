@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        # Vite 8 (rolldown) requires Node ^20.19.0 || >=22.12.0; Node 18 is unsupported.
+        node-version: [20, 22]
 
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +45,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "npm"
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=high

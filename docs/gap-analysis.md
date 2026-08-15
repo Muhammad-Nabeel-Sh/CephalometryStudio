@@ -130,7 +130,6 @@
 - **VTO/Growth prediction** — requires growth forecasting algorithms
 - **CBCT/3D analysis** — volumetric assessment with 3D norms
 - **Patient database with search/analytics** — sessions model exists but no cross-patient search/analytics
-- **Superimposition** — true structural superimposition (Ba-N, S-N) rather than just displacement vectors
 - **Research collaboration hub** — multi-center studies, shared protocols
 - **Cloud collaboration** — shared workspaces, multi-user concurrent access
 
@@ -141,7 +140,7 @@
 | Change                                 | Description                                                                                                                                                                                                                                                             |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Statistical Correctness (Critical)** | Fixed betaCF, chi2CDF, KW/Friedman — p-values now accurate app-wide; golden-value regression tests guard against regression                                                                                                                                             |
-| **Research Modules**                   | 6 integrated modules: Reliability (ICC, Bland-Altman, Dahlberg, error mapping), Descriptive/Normative, Comparative (auto-test selection, MANOVA), Longitudinal (RM-ANOVA, LMM), Correlation (Pearson/Spearman/logistic), Diagnostic (ROC, AUC, sensitivity/specificity) |
+| **Research Modules**                   | 8 integrated modules: Reliability (ICC, Bland-Altman, Dahlberg, error mapping), Descriptive/Normative, Comparative (auto-test selection, MANOVA), Longitudinal (RM-ANOVA, LMM), Correlation (Pearson/Spearman/logistic), Diagnostic (ROC, AUC, sensitivity/specificity), Superimposition/Growth (Procrustes/structural, patterns, delta norms), Airway Study |
 | **ResultsDialog**                      | Floating modal with Tables/Charts tabs for all research modules; Plotly-based charts (ICC forest, Bland-Altman, box plots, effect size forest, longitudinal trajectories, etc.)                                                                                         |
 | **Session Model**                      | Replaced version-based storage with session-based project model; session CRUD, subject/group/timepoint/operator metadata                                                                                                                                                |
 | **Session Filmstrip**                  | Floating bottom-center horizontal thumbnail bar with image previews, add/delete, keyboard navigation                                                                                                                                                                    |
@@ -152,7 +151,7 @@
 | **Privacy/Security**                   | console.error gated behind DEV in clinical paths, IDB image storage, anonymization module                                                                                                                                                                               |
 | **Accessibility**                      | Modal focus trap, filmstrip ARIA, theme aria-pressed, loading role="status", placing-mode floating panel                                                                                                                                                                |
 | **Canvas Improvements**                | DPR scaling, null-check getContext("2d"), pan via ref, unified undo snapshots                                                                                                                                                                                           |
-| **Test Suite**                         | 269 tests across 15 files including golden-value stat regression tests; coverage thresholds enforced                                                                                                                                                                    |
+| **Test Suite**                         | 459 tests across 21 files including golden-value stat regression tests; coverage thresholds enforced                                                                                                                                                                    |
 | **Silhouettes**                        | 23 SVG anatomical silhouettes across 7 categories (Spine, Craniofacial, Soft Tissue, Mandible, Teeth, Airway, Composite)                                                                                                                                                |
 | **Clinical Interpretation Engine**     | 100+ rule-based engine auto-generates plain-English clinical text for 11 diagnostic categories                                                                                                                                                                          |
 | **Normogram Panel**                    | SVG polygon/radar/wiggle chart + list view showing all measurements on SD-scaled axes with color-coded severity                                                                                                                                                         |
@@ -163,7 +162,7 @@
 | **Predefined Analyses**                | 40+ analyses across Lateral, AP/PA, SMV, OPG, Airway, Photo, Hand-Wrist projections                                                                                                                                                                                     |
 | **Theme System**                       | 4 themes (Plasticity, GitHub Dark, Paper, GitHub Light) with consistent color tokens                                                                                                                                                                                    |
 | **UI Icons to SVG**                    | All toolbar and panel icons migrated from text/emoji to inline SVG                                                                                                                                                                                                      |
-| **CI Pipeline**                        | GitHub Actions: lint→test→build across Node 18/20/22, npm audit, CodeQL security analysis, dependency review                                                                                                                                                            |
+| **CI Pipeline**                        | GitHub Actions: lint→test→build across Node 20/22, npm audit, CodeQL security analysis, dependency review                                                                                                                                                            |
 
 ---
 
@@ -216,9 +215,9 @@
 | Snap/alignment                 | ✅      | Grid snap, angle snap, point snap                                            |
 | Floating KaTeX panel           | ✅      | LaTeX formula preview                                                        |
 | DPR canvas scaling             | ✅      | Sharp rendering on 2×/3× displays                                            |
-| Research modules               | ✅      | Reliability, Descriptive, Comparative, Longitudinal, Correlation, Diagnostic |
+| Research modules               | ✅      | Reliability, Descriptive, Comparative, Longitudinal, Correlation, Diagnostic, Superimposition, Airway |
 | Golden-value stat tests        | ✅      | 18 regression tests for fCDF, tDistributeCDF, chi2CDF, betaIncomplete        |
-| 269 tests                      | ✅      | 15 test files with coverage thresholds                                       |
+| 459 tests                      | ✅      | 21 test files with coverage thresholds                                       |
 | CI pipeline                    | ✅      | Lint→test→build, npm audit, CodeQL, dependency review                        |
 | Focus trap modals              | ✅      | Autofocus, Tab cycling, focus restore on unmount                             |
 | Theme system                   | ✅      | 4 themes with consistent color tokens and aria-pressed                       |
@@ -237,7 +236,6 @@
 ### Medium-Term
 
 - Study model analysis (Bolton discrepancy, Schwarz arch analysis)
-- True superimposition module (structural superimposition)
 - AI landmark pipeline (TensorFlow.js or ONNX runtime)
 - Multi-language support
 - Structured export (DICOM SR, FHIR)

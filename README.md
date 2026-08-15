@@ -1,6 +1,6 @@
 # Cephalometry Studio
 
-A web-based cephalometric analysis application for orthodontics and maxillofacial surgery. Built with React 19, Vite 8, and Canvas 2D. Supports image markup, calibration, formula computation, template library, batch import, session metadata management, and seven research analysis modules (reliability with guided workflow, descriptive/normative, comparative, longitudinal, correlation, diagnostic, superimposition/growth).
+A web-based cephalometric analysis application for orthodontics and maxillofacial surgery. Built with React 19, Vite 8, and Canvas 2D. Supports image markup, calibration, formula computation, template library, batch import, session metadata management, and eight research analysis modules (reliability with guided workflow, descriptive/normative, comparative, longitudinal, correlation, diagnostic, superimposition/growth, airway).
 
 ---
 
@@ -30,7 +30,7 @@ Requires ES2020 support, Canvas 2D, and IndexedDB. Not supported in Internet Exp
 | Math       | mathjs (formula evaluation), custom stats               |
 | LaTeX      | KaTeX (CDN-loaded, lazy)                                |
 | Testing    | Vitest 4 + @testing-library/react, code coverage via v8 |
-| CI         | GitHub Actions (3 Node versions, lint → test → build)   |
+| CI         | GitHub Actions (Node 20, 22 — lint → test → build)   |
 | Linting    | ESLint 9 flat config, react-hooks, react-refresh        |
 | Language   | JavaScript (JSX), no TypeScript                         |
 
@@ -48,7 +48,7 @@ Requires ES2020 support, Canvas 2D, and IndexedDB. Not supported in Internet Exp
 ├── Data/                       # CSV reference data
 ├── src/
 │   ├── main.jsx
-│   ├── App.jsx                 # Root component (~1844 lines)
+│   ├── App.jsx                 # Root component (~6150 lines)
 │   ├── main.jsx                # Entry point
 │   ├── index.css               # Global styles
 │   ├── canvas/                 # Canvas rendering + image processing
@@ -142,25 +142,29 @@ Requires ES2020 support, Canvas 2D, and IndexedDB. Not supported in Internet Exp
 │   │   └── resultsExport.js
 │   └── test/
 │       ├── setup.js
-│       ├── utils.test.js           # 97 tests
+│       ├── utils.test.js           # 120 tests
+│       ├── airway.test.js          # 57 tests
+│       ├── examples.test.js        # 46 tests
+│       ├── cephxFormat.test.js     # 40 tests
 │       ├── researchGolden.test.js  # 31 tests
 │       ├── distributions.test.js   # 27 tests
-│       ├── cephxFormat.test.js     # 40 tests
 │       ├── comparative.test.js     # 18 tests
 │       ├── statGoldenValues.test.js # 18 tests
+│       ├── templateLinking.test.js # 15 tests
 │       ├── imageStore.test.js      # 14 tests
+│       ├── unitPropagation.test.js # 13 tests
 │       ├── descriptive.test.js     # 12 tests
 │       ├── anonymize.test.js       # 10 tests
 │       ├── validation.test.js      # 9 tests
 │       ├── diagnostic.test.js      # 5 tests
 │       ├── engine.test.js          # 5 tests
 │       ├── secureStorage.test.js   # 5 tests
-│       ├── reliability.test.js     # 3 tests
+│       ├── sessionStore.test.js    # 5 tests
 │       ├── longitudinal.test.js    # 3 tests
 │       ├── MarkupsPanel.test.jsx   # 3 tests
-│       └── NormsReferenceModal.test.jsx # 3 tests
+│       └── reliability.test.js     # 3 tests
 ```
-**Total: 377 tests across 17 test files**
+**Total: 459 tests across 21 test files**
 
 ### Scripts
 
@@ -210,9 +214,8 @@ App
 
 ### State Management
 
-- **Global Zustand stores**: `toolStore` (tool/canvas state) and `uiStore` (UI chrome state) — components subscribe to individual slices via selectors, avoiding re-renders from unrelated state changes
-- **Root state**: `projects` array + `activeId` (React useState)
-- **Workspace (useReducer)**: markups, calibration, processing, LUT, image loading — remaining reducer in App.jsx pending migration to Zustand
+- **Global Zustand stores**: `toolStore` (tool/canvas state), `uiStore` (UI chrome state), and `sessionStore` (active session data — markups, calibration, norms, formulas, processing, images + undo/redo) — components subscribe to individual slices via selectors, avoiding re-renders from unrelated state changes
+- **Root state**: `projects` array + `activeId` (React useState) — the remaining non-Zustand slice
 - **Undo/Redo**: In-memory stacks of markup snapshots
 - **Auto-save**: Debounced localStorage (500ms), key `"cephalo-autosave"`, cleared on `.cephx` export
 - **Project updates**: `updateProject(id, patch)` cascades with `modified` timestamp
@@ -471,32 +474,36 @@ Floating bottom-center horizontal thumbnail bar showing all sessions. Supports q
 
 ## 14. Testing & CI
 
-### Test Suite (377 tests, 17 files)
+### Test Suite (459 tests, 21 files)
 
-| Test File                      | Tests | Coverage                                                                                                                       |
-| ------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `utils.test.js`                | 97    | All geometry, statistics, formulas, ICC, Bland-Altman utilities                                                                |
-| `cephxFormat.test.js`          | 40    | Import/export format validation                                                                                                |
-| `researchGolden.test.js`       | 31    | Golden-value tests for t-test, ANOVA, Mann-Whitney, Wilcoxon, Spearman, BH, Shapiro-Wilk, Cohen's d, ICC, Dahlberg, regression |
-| `distributions.test.js`        | 27    | Statistical distributions                                                                                                      |
-| `statGoldenValues.test.js`     | 18    | Reference-value regression guards for fCDF, tDistributeCDF, chi2CDF, betaIncomplete                                            |
-| `comparative.test.js`          | 18    | Test selection routing, Mann-Whitney, Wilcoxon, Box's M, multi-group structure                                                 |
-| `imageStore.test.js`           | 14    | IDB image storage                                                                                                              |
-| `descriptive.test.js`          | 12    | `runDescriptiveAll`, norm stratum selection, predefined norms                                                                  |
-| `anonymize.test.js`            | 10    | PHI anonymization                                                                                                              |
-| `validation.test.js`           | 9     | Cepht validation                                                                                                               |
-| `diagnostic.test.js`           | 5     | Diagnostic tests                                                                                                               |
-| `engine.test.js`               | 5     | Research engine                                                                                                                |
-| `secureStorage.test.js`        | 5     | Secure storage                                                                                                                 |
-| `reliability.test.js`          | 3     | ICC computation, Landmark error map                                                                                            |
-| `longitudinal.test.js`         | 3     | RM-ANOVA, error handling                                                                                                       |
-| `MarkupsPanel.test.jsx`        | 3     | Component smoke tests                                                                                                          |
-| `NormsReferenceModal.test.jsx` | 3     | Component smoke tests                                                                                                          |
+| Test File                  | Tests | Coverage                                                                                                                       |
+| -------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `utils.test.js`            | 120   | Geometry, statistics, formulas, ICC, Bland-Altman utilities                                                                    |
+| `airway.test.js`           | 57    | Airway measurements, norms, z-scores                                                                                           |
+| `examples.test.js`         | 46    | Example projects validation and manifest handling                                                                              |
+| `cephxFormat.test.js`      | 40    | Import/export format validation                                                                                                |
+| `researchGolden.test.js`   | 31    | Golden-value tests for t-test, ANOVA, Mann-Whitney, Wilcoxon, Spearman, BH, Shapiro-Wilk, Cohen's d, ICC, Dahlberg, regression |
+| `distributions.test.js`    | 27    | Statistical distributions                                                                                                      |
+| `comparative.test.js`      | 18    | Test selection routing, Mann-Whitney, Wilcoxon, Box's M, multi-group structure                                                 |
+| `statGoldenValues.test.js` | 18    | Reference-value regression guards for fCDF, tDistributeCDF, chi2CDF, betaIncomplete                                            |
+| `templateLinking.test.js`  | 15    | Rename-resilient template/landmark linking                                                                                     |
+| `imageStore.test.js`       | 14    | IDB image storage                                                                                                              |
+| `unitPropagation.test.js`  | 13    | Unit (mm/px/°) propagation through research modules                                                                            |
+| `descriptive.test.js`      | 12    | `runDescriptiveAll`, norm stratum selection, predefined norms                                                                  |
+| `anonymize.test.js`        | 10    | PHI anonymization                                                                                                              |
+| `validation.test.js`       | 9     | Cepht validation                                                                                                               |
+| `diagnostic.test.js`       | 5     | Diagnostic tests                                                                                                               |
+| `engine.test.js`           | 5     | Research engine                                                                                                                |
+| `secureStorage.test.js`    | 5     | Secure storage                                                                                                                 |
+| `sessionStore.test.js`     | 5     | Zustand session store undo/redo                                                                                                |
+| `longitudinal.test.js`     | 3     | RM-ANOVA, error handling                                                                                                       |
+| `MarkupsPanel.test.jsx`    | 3     | Component smoke tests                                                                                                          |
+| `reliability.test.js`      | 3     | ICC computation, Landmark error map                                                                                            |
 
 ### CI Pipeline (`.github/workflows/test.yml`)
 
 Runs on push/PR to main:
-1. **Test matrix** — `npm ci` → `npm run lint` → `npm test` → `npm run build` across Node 18, 20, 22
+1. **Test matrix** — `npm ci` → `npm run lint` → `npm test` → `npm run build` across Node 20, 22
 2. **Audit** — `npm audit --omit=dev --audit-level=high` (blocks on high/critical)
 3. **CodeQL** — GitHub semantic security analysis (security-extended queries)
 4. **Dependency Review** — Blocks PRs introducing high/critical vulnerabilities

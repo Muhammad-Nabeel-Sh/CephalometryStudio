@@ -1,7 +1,7 @@
 # Cephalometry Studio — Code Review Critique & Remediation Plan (Updated)
 
 **Scope:** Full review of `src/` (clinical, statistical, security, UX, architecture, regulatory).
-**Codebase state:** 300 Vitest tests (16 files), `npm run build` OK, `npm run lint` 1 pre-existing warning.
+**Codebase state:** 459 Vitest tests (21 files), `npm run build` OK, `npm run lint` 0 errors, 0 warnings.
 
 > **Status:** The majority of the original critique items have been resolved. This document now reflects only **remaining/deferred issues** and **newly discovered issues** from a second-pass review. A new **Feature Improvements** section has been added at the end.
 
@@ -9,7 +9,7 @@
 
 ## Completed Items Summary
 
-All items marked ✅ below have been fixed and verified (300 tests pass, lint clean):
+All items marked ✅ below have been fixed and verified (459 tests pass, lint clean):
 
 ### Clinical Correctness (C1–C17) — ALL COMPLETED
 
@@ -197,7 +197,7 @@ Every research results table rendered raw numbers (meanDiff, sdDiff, LoA, Dahlbe
 ### R12. State-mirroring refs pattern (A1)
 
 **Severity: Low (maintainability)**
-App.jsx Workspace (~1600 lines) uses many state-mirroring refs (`updMarkupRef`, `delMarkupRef`, etc.) reassigned every render.
+App.jsx Workspace (~6150 lines) uses many state-mirroring refs (`updMarkupRef`, `delMarkupRef`, etc.) reassigned every render.
 
 **Remediation:** Move logic into `useCallback`/`useMemo` with explicit deps or a `useReducer`; eliminate mirror refs.
 
