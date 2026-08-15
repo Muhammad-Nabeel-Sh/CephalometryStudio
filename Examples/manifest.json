@@ -4,7 +4,7 @@
   "examples": [
     {
       "id": "Landmarks",
-      "url": "https://raw.githubusercontent.com/Muhammad-Nabeel-Sh/Cephalometry Studio-Website/main/Examples/Landmarks.cepht",
+      "url": "https://raw.githubusercontent.com/Muhammad-Nabeel-Sh/CephalometryStudio/main/Examples/Landmarks.cepht",
       "label": "Landmarks",
       "author": "Cephalometry Studio",
       "description": "The 35 key cephalometric landmarks, grouped into teaching sets with placement hints and a measurement explanation table.",

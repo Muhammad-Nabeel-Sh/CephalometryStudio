@@ -14,7 +14,7 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 // ─── CONFIG — Update these to match your GitHub repo ────────────────────────
 const GITHUB_OWNER = "Muhammad-Nabeel-Sh";
-const GITHUB_REPO = "Cephalometry Studio-Website";
+const GITHUB_REPO = "CephalometryStudio";
 const GITHUB_BRANCH = "main";
 
 export const COMMUNITY_REPO_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/norms/community.json`;

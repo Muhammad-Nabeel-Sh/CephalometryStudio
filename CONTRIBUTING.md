@@ -9,8 +9,8 @@ All patient data stays on the user's device — there is no backend.
 Prerequisites: Node.js 18+ and npm.
 
 ```bash
-git clone https://github.com/Muhammad-Nabeel-Sh/Cephalometry Studio-Website.git
-cd Cephalometry Studio-Website
+git clone https://github.com/Muhammad-Nabeel-Sh/CephalometryStudio.git
+cd CephalometryStudio
 npm install
 npm run dev        # development server with hot reload
 npm run build      # production build
