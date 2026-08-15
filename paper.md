@@ -73,7 +73,7 @@ the methodological requirements of orthodontic research [@walter1998;
 
 # Functionality
 
-![The Cephalometry Studio home screen, with project management and the analysis launcher.](screenshots/1-homepage.png){ width=90% }
+![The Cephalometry Studio home screen, with project management and the analysis launcher.](Screenshots/1-homepage.png){ width=90% }
 
 Cephalometry Studio is a client-side React application (JavaScript) with a Canvas
 2D tracing engine; it requires no server and can be used offline as a
@@ -87,7 +87,7 @@ interpretation engine compares each measurement against age- and
 sex-stratified norms and generates plain-language findings, visualized as a
 normogram.
 
-![Tracing workspace: landmarks, planes, and auto-generated measurements on a calibrated lateral cephalogram.](screenshots/2-canvas.png){ width=90% }
+![Tracing workspace: landmarks, planes, and auto-generated measurements on a calibrated lateral cephalogram.](Screenshots/2-canvas.png){ width=90% }
 
 The research module operates on study designs built from sessions (subject ×
 timepoint × operator): reliability studies with ICC(2,1) and exact F-based
@@ -104,7 +104,7 @@ Procrustes or structural alignment, displacement analysis, and growth-pattern
 classification. All results render as tables and charts and export to CSV,
 PDF, or DOCX.
 
-![Clinical interpretation engine output with normative comparison.](screenshots/4-interpretation.png){ width=90% }
+![Clinical interpretation engine output with normative comparison.](Screenshots/4-interpretation.png){ width=90% }
 
 Statistical implementations are guarded by a test suite of 459 automated
 tests, including golden-value regression tests that check core distributions

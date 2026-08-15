@@ -8,10 +8,10 @@ A web-based cephalometric analysis application for orthodontics and maxillofacia
 
 ## Screenshots
 
-| | |
-| --- | --- |
-| ![Homepage](screenshots/1-homepage.png) | ![Canvas](screenshots/2-canvas.png) |
-| ![Examples](screenshots/3-example.png) | ![Interpretation](screenshots/4-interpretation.png) |
+|                                         |                                                     |
+| --------------------------------------- | --------------------------------------------------- |
+| ![Homepage](Screenshots/1-homepage.png) | ![Canvas](Screenshots/2-canvas.png)                 |
+| ![Examples](Screenshots/3-example.png)  | ![Interpretation](Screenshots/4-interpretation.png) |
 
 *Home screen, tracing workspace, interactive examples, and clinical interpretation.*
 
@@ -53,7 +53,7 @@ Requires ES2020 support, Canvas 2D, and IndexedDB. Not supported in Internet Exp
 | Math       | mathjs (formula evaluation), custom stats               |
 | LaTeX      | KaTeX (CDN-loaded, lazy)                                |
 | Testing    | Vitest 4 + @testing-library/react, code coverage via v8 |
-| CI         | GitHub Actions (Node 20, 22 — lint → test → build)   |
+| CI         | GitHub Actions (Node 20, 22 — lint → test → build)      |
 | Linting    | ESLint 9 flat config, react-hooks, react-refresh        |
 | Language   | JavaScript (JSX), no TypeScript                         |
 
