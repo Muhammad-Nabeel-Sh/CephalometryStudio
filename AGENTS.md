@@ -1,8 +1,8 @@
-# AGENTS.md - CephaloStudio Development Guide
+# AGENTS.md - Cephalometry Studio Development Guide
 
 ## Project Overview
 
-CephaloStudio is a React + Vite application for cephalometric analysis (medical imaging analysis).
+Cephalometry Studio is a React + Vite application for cephalometric analysis (medical imaging analysis).
 
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
@@ -454,7 +454,7 @@ Recommended settings for `.vscode/settings.json`:
 - **`getMeasValue` correctness**: Now returns the type's primary measure (angle/length/area/value) instead of the first numeric value (x-coordinate); infinite-mode line refs fall back to segment length; `refreshAutoMeasurements` threads calibration through (computed sums/differences stay in mm)
 - **`PREDEFINED_NORMS` collision resolved**: Alias removed from `constants.js`; consumers (`MeasurementsPanel`, `NormsReferenceModal`) import `DEFAULT_NORMS` directly from `norms.js` (single source of truth; `descriptive.js` already used `RESEARCH_NORMS`)
 
-- **PWA/OS icon pipeline fixed**: Manifest referenced a missing PNG (`cephalostudio_logo_concepts.png` → 404) and relied on SVG icons (ignored by Android for install/splash). `scripts/generate-icons.mjs` (sharp) rasterizes the pure-vector `public/favicon.svg` to `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png` (180), 7 iOS splash images, and `og-image.png`; manifest + index.html now reference them (apple-touch-startup-image links included). Note: `favicon_new.svg` embeds a 90×90 PNG, so it must NOT be used as a rasterization source.
+- **PWA/OS icon pipeline fixed**: Manifest referenced a missing PNG (`Cephalometry Studio_logo_concepts.png` → 404) and relied on SVG icons (ignored by Android for install/splash). `scripts/generate-icons.mjs` (sharp) rasterizes the pure-vector `public/favicon.svg` to `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png` (180), 7 iOS splash images, and `og-image.png`; manifest + index.html now reference them (apple-touch-startup-image links included). Note: `favicon_new.svg` embeds a 90×90 PNG, so it must NOT be used as a rasterization source.
 
 - **Research units end-to-end (R8/R9)**: `unitForKey`/`dominantUnit` helpers in `collect.js`; units attached to reliability `details`, descriptive group/combined labels, comparative labels, longitudinal labels/changeScores/pairwise; Unit columns in Reliability/Descriptive/Comparative/Longitudinal panels + CSV exports; reliability + superimposition charts derive units from results instead of hardcoded "mm"; 13 new tests in `src/test/unitPropagation.test.js`
 

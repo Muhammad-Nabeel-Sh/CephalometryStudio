@@ -9,16 +9,56 @@
       "ageRange": "Adult",
       "sex": "Pooled (male + female)",
       "stratification": "Not stratified. Single adult value.",
-      "contributor": "CephaloStudio Team",
+      "contributor": "Cephalometry Studio Team",
       "norms": [
-        { "label": "SNA", "mean": 80.4, "sd": 3.3, "type": "angle" },
-        { "label": "SNB", "mean": 77.6, "sd": 3.3, "type": "angle" },
-        { "label": "ANB", "mean": 2.8, "sd": 2.0, "type": "angle" },
-        { "label": "SN-MP", "mean": 30.5, "sd": 5.0, "type": "angle" },
-        { "label": "U1-SN", "mean": 103.0, "sd": 5.0, "type": "angle" },
-        { "label": "L1-MP", "mean": 93.0, "sd": 5.0, "type": "angle" },
-        { "label": "Interincisal", "mean": 131.0, "sd": 5.0, "type": "angle" },
-        { "label": "FH-NPog", "mean": 86.5, "sd": 3.0, "type": "angle" }
+        {
+          "label": "SNA",
+          "mean": 80.4,
+          "sd": 3.3,
+          "type": "angle"
+        },
+        {
+          "label": "SNB",
+          "mean": 77.6,
+          "sd": 3.3,
+          "type": "angle"
+        },
+        {
+          "label": "ANB",
+          "mean": 2.8,
+          "sd": 2.0,
+          "type": "angle"
+        },
+        {
+          "label": "SN-MP",
+          "mean": 30.5,
+          "sd": 5.0,
+          "type": "angle"
+        },
+        {
+          "label": "U1-SN",
+          "mean": 103.0,
+          "sd": 5.0,
+          "type": "angle"
+        },
+        {
+          "label": "L1-MP",
+          "mean": 93.0,
+          "sd": 5.0,
+          "type": "angle"
+        },
+        {
+          "label": "Interincisal",
+          "mean": 131.0,
+          "sd": 5.0,
+          "type": "angle"
+        },
+        {
+          "label": "FH-NPog",
+          "mean": 86.5,
+          "sd": 3.0,
+          "type": "angle"
+        }
       ]
     }
   ]

@@ -1,4 +1,4 @@
-# CephaloStudio — Comprehensive Technical & Clinical Audit Report
+# Cephalometry Studio — Comprehensive Technical & Clinical Audit Report
 
 > **Date:** 2026-07-29  
 > **Scope:** Full application with deep-dive into the research module  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-CephaloStudio is a well-engineered, feature-rich cephalometric analysis platform. The statistics engine is substantially above average for a browser-based clinical tool — it implements exact non-parametric distributions, F-based ICC CIs, Welch-Satterthwaite df, Jacobi eigendecomposition for MANOVA, DeLong AUC CIs, and proper BH adjustment. The core math has been audited and corrected in multiple rounds. However, several **clinically important weaknesses** and **technical gaps** remain that could mislead clinicians or researchers if left unaddressed.
+Cephalometry Studio is a well-engineered, feature-rich cephalometric analysis platform. The statistics engine is substantially above average for a browser-based clinical tool — it implements exact non-parametric distributions, F-based ICC CIs, Welch-Satterthwaite df, Jacobi eigendecomposition for MANOVA, DeLong AUC CIs, and proper BH adjustment. The core math has been audited and corrected in multiple rounds. However, several **clinically important weaknesses** and **technical gaps** remain that could mislead clinicians or researchers if left unaddressed.
 
 ---
 

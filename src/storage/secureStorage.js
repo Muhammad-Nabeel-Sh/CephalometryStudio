@@ -21,7 +21,7 @@
 // the app still works — the UI is told via `secureStorageAvailable()` so it can
 // warn the user.
 
-const KEY_DB = "CephaloStudio_Secure";
+const KEY_DB = "Cephalometry Studio_Secure";
 const KEY_STORE = "keys";
 const KEY_ID = "autosave_v1";
 
@@ -88,7 +88,7 @@ function fromB64(str) {
 // `secureStorageAvailable()` to decide whether to warn the user.
 export async function encryptJSON(obj) {
   if (!secureStorageAvailable()) {
-    try { window.dispatchEvent(new CustomEvent("cephalostudio:storage-warning", { detail: { kind: "encryption-unavailable", message: "Encryption is not available (requires HTTPS + modern browser). Patient data is stored in plaintext in localStorage — do not use this app on a shared machine without HTTPS." } })); } catch { /* dispatchEvent is best-effort */ }
+    try { window.dispatchEvent(new CustomEvent("Cephalometry Studio:storage-warning", { detail: { kind: "encryption-unavailable", message: "Encryption is not available (requires HTTPS + modern browser). Patient data is stored in plaintext in localStorage — do not use this app on a shared machine without HTTPS." } })); } catch { /* dispatchEvent is best-effort */ }
     return { v: 1, enc: false, plaintext: JSON.stringify(obj) };
   }
   try {
@@ -98,7 +98,7 @@ export async function encryptJSON(obj) {
     const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
     return { v: 1, enc: true, iv: b64(iv), ct: b64(ct) };
   } catch {
-    try { window.dispatchEvent(new CustomEvent("cephalostudio:storage-warning", { detail: { kind: "encryption-unavailable", message: "Encryption failed unexpectedly. Patient data stored in plaintext — check browser security settings." } })); } catch { /* dispatchEvent is best-effort */ }
+    try { window.dispatchEvent(new CustomEvent("Cephalometry Studio:storage-warning", { detail: { kind: "encryption-unavailable", message: "Encryption failed unexpectedly. Patient data stored in plaintext — check browser security settings." } })); } catch { /* dispatchEvent is best-effort */ }
     return { v: 1, enc: false, plaintext: JSON.stringify(obj) };
   }
 }

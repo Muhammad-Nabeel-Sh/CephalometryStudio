@@ -1,24 +1,24 @@
-# CephaloStudio: Market Comparison & Strategic Recommendations
+# Cephalometry Studio: Market Comparison & Strategic Recommendations
 
 > **Date:** July 2026 (updated July 14)
 
-When comparing CephaloStudio to established web-based cephalometric platforms like **WebCeph**, **BCeph**, and **Cephalyzer**, your application exhibits a unique identity. It leans heavily into advanced statistical modeling and research workflows—an area where most commercial apps fall short.
+When comparing Cephalometry Studio to established web-based cephalometric platforms like **WebCeph**, **BCeph**, and **Cephalyzer**, your application exhibits a unique identity. It leans heavily into advanced statistical modeling and research workflows—an area where most commercial apps fall short.
 
 Recent additions (context menu, grid overlay, group system, refLabels self-healing propagation, bezier CP preservation, calibration-aware norms, flash highlight) have significantly improved the markup interaction UX, closing the gap with commercial tools in workflow efficiency.
 
-## 1. How CephaloStudio Compares to the Market
+## 1. How Cephalometry Studio Compares to the Market
 
-### 🟢 Where CephaloStudio Wins (The "Blue Ocean")
+### 🟢 Where Cephalometry Studio Wins (The "Blue Ocean")
 
-* **The Research Engine:** None of the major clinical apps (WebCeph, Cephalyzer) have built-in MANOVA, Linear Mixed Models, or Bland-Altman analysis. Researchers usually have to export CSVs to SPSS or R. By integrating the statistical engine directly into the tracing app, CephaloStudio is a **game-changer for academic research, master's theses, and clinical trials.**
-* **100% Client-Side Privacy:** WebCeph requires uploading patient data to their servers, which raises HIPAA/GDPR concerns for many institutions. CephaloStudio’s approach (handling everything in-browser and exporting `.cephx` files) is a massive selling point for privacy-conscious hospitals and universities.
+* **The Research Engine:** None of the major clinical apps (WebCeph, Cephalyzer) have built-in MANOVA, Linear Mixed Models, or Bland-Altman analysis. Researchers usually have to export CSVs to SPSS or R. By integrating the statistical engine directly into the tracing app, Cephalometry Studio is a **game-changer for academic research, master's theses, and clinical trials.**
+* **100% Client-Side Privacy:** WebCeph requires uploading patient data to their servers, which raises HIPAA/GDPR concerns for many institutions. Cephalometry Studio’s approach (handling everything in-browser and exporting `.cephx` files) is a massive selling point for privacy-conscious hospitals and universities.
 * **Customizability:** The formula editor (`math.js` + KaTeX) and the ability to define custom normative datasets and templates give power-users unparalleled control. Most competitors lock users into rigid, pre-defined analyses (like Steiner or McNamara).
 
-### 🔴 Where CephaloStudio Lags Behind (The "Table Stakes")
+### 🔴 Where Cephalometry Studio Lags Behind (The "Table Stakes")
 
-* **AI Auto-Tracing:** WebCeph’s explosive popularity is largely due to its AI. Clinicians no longer want to manually place 50 landmarks. Without an AI model for automatic landmark identification, CephaloStudio will struggle to capture the busy, daily clinical market.
-* **VTO / Soft-Tissue Morphing:** Advanced apps allow users to simulate orthognathic surgery or orthodontic tooth movement (STO/VTO) and automatically warp the soft-tissue profile to show the patient a predicted outcome. CephaloStudio has silhouettes and displacement vectors, but lacks interactive predictive morphing.
-* **Cloud Collaboration:** While local `.cephx` files are great for privacy, clinicians often want to share a link with a colleague or access a case from their phone. CephaloStudio currently lacks a seamless, encrypted cloud backend.
+* **AI Auto-Tracing:** WebCeph’s explosive popularity is largely due to its AI. Clinicians no longer want to manually place 50 landmarks. Without an AI model for automatic landmark identification, Cephalometry Studio will struggle to capture the busy, daily clinical market.
+* **VTO / Soft-Tissue Morphing:** Advanced apps allow users to simulate orthognathic surgery or orthodontic tooth movement (STO/VTO) and automatically warp the soft-tissue profile to show the patient a predicted outcome. Cephalometry Studio has silhouettes and displacement vectors, but lacks interactive predictive morphing.
+* **Cloud Collaboration:** While local `.cephx` files are great for privacy, clinicians often want to share a link with a colleague or access a case from their phone. Cephalometry Studio currently lacks a seamless, encrypted cloud backend.
 
 ---
 
@@ -51,4 +51,4 @@ Based on the market landscape and your app's current architecture, here is a roa
 
 ## Summary Verdict
 
-CephaloStudio is an incredibly impressive piece of engineering. **Do not try to be a clone of WebCeph.** WebCeph is a clinical tool for busy orthodontists; CephaloStudio has the architecture to be the **premier scientific and academic cephalometric platform.** Lean hard into your statistical and longitudinal modules, add AI to speed up the tracing process, and you will have a highly competitive, specialized product.
+Cephalometry Studio is an incredibly impressive piece of engineering. **Do not try to be a clone of WebCeph.** WebCeph is a clinical tool for busy orthodontists; Cephalometry Studio has the architecture to be the **premier scientific and academic cephalometric platform.** Lean hard into your statistical and longitudinal modules, add AI to speed up the tracing process, and you will have a highly competitive, specialized product.

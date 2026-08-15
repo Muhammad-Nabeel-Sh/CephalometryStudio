@@ -1,4 +1,4 @@
-# CephaloStudio — Code Review Critique & Remediation Plan (Updated)
+# Cephalometry Studio — Code Review Critique & Remediation Plan (Updated)
 
 **Scope:** Full review of `src/` (clinical, statistical, security, UX, architecture, regulatory).
 **Codebase state:** 300 Vitest tests (16 files), `npm run build` OK, `npm run lint` 1 pre-existing warning.

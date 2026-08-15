@@ -23,7 +23,7 @@
 // Storage shape (v1): a single `images` object store keyed by image id, value
 // = Blob. No indexes (keys are looked up directly).
 
-const DB_NAME = "CephaloStudio";
+const DB_NAME = "Cephalometry Studio";
 const DB_VERSION = 1;
 const STORE_NAME = "images";
 

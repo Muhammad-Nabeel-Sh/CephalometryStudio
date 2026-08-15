@@ -69,7 +69,7 @@ function pageHeader(doc) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
     doc.setTextColor(C.tx);
-    doc.text("CephaloStudio", MARGIN + 7, 6.5);
+    doc.text("Cephalometry Studio", MARGIN + 7, 6.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(C.tx3);
     doc.text("Cephalometric Analysis Report", MARGIN + 36, 6.5);
@@ -77,7 +77,7 @@ function pageHeader(doc) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
     doc.setTextColor(C.acc);
-    doc.text("CephaloStudio", MARGIN, 6);
+    doc.text("Cephalometry Studio", MARGIN, 6);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(C.tx3);
     doc.text("Cephalometric Analysis Report", MARGIN + 30, 6);

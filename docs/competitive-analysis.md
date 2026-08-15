@@ -1,4 +1,4 @@
-# CephaloStudio — Competitive Analysis
+# Cephalometry Studio — Competitive Analysis
 
 > **Date:** July 2026
 > **Scope:** Feature-by-feature comparison against the most common and most powerful cephalometric analysis software packages currently available.
@@ -7,7 +7,7 @@
 
 ## Table of Contents
 
-- [CephaloStudio — Competitive Analysis](#cephalostudio--competitive-analysis)
+- [Cephalometry Studio — Competitive Analysis](#Cephalometry Studio--competitive-analysis)
   - [Table of Contents](#table-of-contents)
   - [1. Competitor Landscape](#1-competitor-landscape)
   - [2. Feature Comparison Matrix](#2-feature-comparison-matrix)
@@ -29,7 +29,7 @@
     - [3.15 Treatment Simulation \& VTO](#315-treatment-simulation--vto)
     - [3.16 Pricing Model](#316-pricing-model)
   - [4. Strengths \& Gaps](#4-strengths--gaps)
-    - [CephaloStudio Strengths](#cephalostudio-strengths)
+    - [Cephalometry Studio Strengths](#Cephalometry Studio-strengths)
     - [Critical Gaps](#critical-gaps)
   - [5. Strategic Recommendations](#5-strategic-recommendations)
     - [Near-Term (0–3 months)](#near-term-03-months)
@@ -43,7 +43,7 @@
 
 | Software                    | Type                  | Price                               | Platform      | Key Differentiator                                                              |
 | --------------------------- | --------------------- | ----------------------------------- | ------------- | ------------------------------------------------------------------------------- |
-| **CephaloStudio**           | Browser (local-first) | **Free**                            | Any (browser) | Full reproducibility suite, custom formulas, 40+ analyses, local-only privacy   |
+| **Cephalometry Studio**     | Browser (local-first) | **Free**                            | Any (browser) | Full reproducibility suite, custom formulas, 40+ analyses, local-only privacy   |
 | **Dolphin Imaging**         | Desktop               | ~$1,000–2,000/yr                    | Windows       | 3D CBCT, treatment simulation, industry incumbent                               |
 | **WebCeph**                 | Cloud browser         | Free tier / $9.99–19.99/mo          | Any (browser) | AI auto-tracing, VTO/STO, low-cost entry                                        |
 | **CephX**                   | Cloud browser         | $79–199/mo                          | Any (browser) | 100+ analyses, 3D ceph from CBCT, deep AI                                       |
@@ -60,7 +60,7 @@
 
 ## 2. Feature Comparison Matrix
 
-| Feature                            | CephaloStudio                      | Dolphin    | WebCeph   | CephX   | OnyxCeph   | AudaxCeph | NemoCeph        | Romexis    | BCeph   | LabCeph   |
+| Feature                            | Cephalometry Studio                | Dolphin    | WebCeph   | CephX   | OnyxCeph   | AudaxCeph | NemoCeph        | Romexis    | BCeph   | LabCeph   |
 | ---------------------------------- | ---------------------------------- | ---------- | --------- | ------- | ---------- | --------- | --------------- | ---------- | ------- | --------- |
 | **Browser-based**                  | ✅ Yes                              | ❌ No       | ✅ Yes     | ✅ Yes   | ❌ No       | ❌ No      | ❌ No            | ❌ No       | ✅ Yes   | ❌ No      |
 | **Fully local / offline**          | ✅ Yes                              | ❌ No       | ❌ No      | ❌ No    | ✅ Yes      | ✅ Yes     | ✅ Yes           | ⚠️ Partial  | ✅ Yes   | ✅ Yes     |
@@ -115,7 +115,7 @@
 
 ### 3.1 Image Management & DICOM
 
-**CephaloStudio** supports image loading via file dialog or drag-and-drop (PNG, JPEG, GIF, BMP, WebP, SVG, TIFF). Image adjustments include brightness, contrast, saturation, sharpen, blur, denoise, auto-adjust, and reset. 13 built-in LUT presets (grayscale, hot, cool, jet, viridis, bone, rainbow, ice, sepia, red/green/blue channel, fire). A histogram panel shows pixel intensity distribution. Flip (horizontal/vertical) and 90-degree rotation are supported. Zoom up to 10x with cursor-centered scaling.
+**Cephalometry Studio** supports image loading via file dialog or drag-and-drop (PNG, JPEG, GIF, BMP, WebP, SVG, TIFF). Image adjustments include brightness, contrast, saturation, sharpen, blur, denoise, auto-adjust, and reset. 13 built-in LUT presets (grayscale, hot, cool, jet, viridis, bone, rainbow, ice, sepia, red/green/blue channel, fire). A histogram panel shows pixel intensity distribution. Flip (horizontal/vertical) and 90-degree rotation are supported. Zoom up to 10x with cursor-centered scaling.
 
 The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag reading, DICOMDIR browsing, modality detection, or multi-frame support. DICOM files may load via browser's native image rendering but this is unreliable.
 
@@ -125,11 +125,11 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 - WebCeph/CephX expect AI-ready images, minimal processing.
 - BCeph has basic image enhancement (brightness, contrast, sharpen, invert).
 
-**Verdict:** CephaloStudio has decent image adjustment tools and the best LUT selection, but lacks a real DICOM parser. Mid-pack overall.
+**Verdict:** Cephalometry Studio has decent image adjustment tools and the best LUT selection, but lacks a real DICOM parser. Mid-pack overall.
 
 ### 3.2 Markup & Tracing Tools
 
-**CephaloStudio** offers 23+ tool types:
+**Cephalometry Studio** offers 23+ tool types:
 - **Points** (landmarks) with guided placement mode
 - **Lines / planes** (infinite-line rendering with dash style options)
 - **Angles** (3-point, 4-point)
@@ -155,14 +155,14 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 - Comparable to Dolphin, NemoCeph, Romexis in manual tool variety.
 - Behind OnyxCeph (arc tracing, ellipse fitting) and AudaxCeph (100+ auto-landmarks).
 - The curve tool with Bezier/spline rendering is a differentiator — most competitors only do straight-line tracing.
-- NemoCeph has guided point wizard; CephaloStudio's guided mode is similar.
+- NemoCeph has guided point wizard; Cephalometry Studio's guided mode is similar.
 - No automatic tracing or AI-assisted landmarking.
 
 **Verdict:** Strong manual toolset. Lacks AI, but the variety of tools (spline, perp dist, parallel, ratio/sum/diff) exceeds most mid-range competitors.
 
 ### 3.3 Measurement & Analysis Engine
 
-**CephaloStudio** computes measurements directly from markups:
+**Cephalometry Studio** computes measurements directly from markups:
 - Lines → length, angle
 - Angles (3pt) → angle
 - Angles (4pt) → incAngle
@@ -180,7 +180,7 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 
 ### 3.4 Analysis Templates
 
-**CephaloStudio** ships **40+ predefined analysis sets** organized by projection:
+**Cephalometry Studio** ships **40+ predefined analysis sets** organized by projection:
 
 | Projection | Analyses                                                                                                                                                                                                                                                                                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -202,16 +202,16 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 - LabCeph: 19+
 - Romexis: 20+
 
-**Verdict:** 40+ templates places CephaloStudio solidly in the upper-mid range — more than WebCeph, BCeph, LabCeph, Romexis; comparable to AudaxCeph/NemoCeph; behind Dolphin/CephX/OnyxCeph. The CSV-defined analysis system is unique — no competitor offers user-editable CSV analysis definitions.
+**Verdict:** 40+ templates places Cephalometry Studio solidly in the upper-mid range — more than WebCeph, BCeph, LabCeph, Romexis; comparable to AudaxCeph/NemoCeph; behind Dolphin/CephX/OnyxCeph. The CSV-defined analysis system is unique — no competitor offers user-editable CSV analysis definitions.
 
 ### 3.5 AI / Automation
 
-**CephaloStudio has no AI** — all landmarks are placed manually.
+**Cephalometry Studio has no AI** — all landmarks are placed manually.
 
 **Comparison:**
 - WebCeph, CephX, AudaxCeph, NemoCeph, Romexis, Ceppro all offer AI auto-tracing.
 - LabCeph/LightningCeph offers guided step-by-step placement (not AI).
-- BCeph: manual only (same as CephaloStudio).
+- BCeph: manual only (same as Cephalometry Studio).
 
 **Critical Context — Recent Research (2024–2025):**
 - A 2024 BMC Oral Health study comparing WebCeph, Cephio, and Ceppro found:
@@ -225,10 +225,10 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 
 ### 3.6 Calibration
 
-**CephaloStudio** supports ruler-based calibration with pxPerMm computed from a drawn line of known length. Manual px/mm entry (for DICOM with known metadata) is also supported. Calibration status shown in Measurements panel.
+**Cephalometry Studio** supports ruler-based calibration with pxPerMm computed from a drawn line of known length. Manual px/mm entry (for DICOM with known metadata) is also supported. Calibration status shown in Measurements panel.
 
 **Comparison:**
-- All competitors support calibration. CephaloStudio's is simple and effective.
+- All competitors support calibration. Cephalometry Studio's is simple and effective.
 - CephX and WebCeph offer automatic ruler detection in AI pipeline.
 - No automatic calibration (ruler detection in image).
 
@@ -236,7 +236,7 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 
 ### 3.7 Norms & Reference Values
 
-**CephaloStudio** has 6+ predefined norm sets (Steiner, Ricketts, Downs, McNamara, Bjork-Jarabak, Tweed) with 57+ individual norm entries from `AnalysisMeasurements.csv`. Norms include `type` field (angle/length) for context-aware matching. The Normogram panel provides visual polygon/radar chart + list view with SD-scaled axes. Norms are used in three contexts:
+**Cephalometry Studio** has 6+ predefined norm sets (Steiner, Ricketts, Downs, McNamara, Bjork-Jarabak, Tweed) with 57+ individual norm entries from `AnalysisMeasurements.csv`. Norms include `type` field (angle/length) for context-aware matching. The Normogram panel provides visual polygon/radar chart + list view with SD-scaled axes. Norms are used in three contexts:
 - **Main workspace** — per-measurement comparison with color-coded deviation badges
 - **StudyDashboard** — reproducibility study means vs. norms
 - **DatabaseDashboard** — multi-patient sample means vs. norms
@@ -246,13 +246,13 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 - CephX claims 100+ analyses but norms embedded in AI pipeline.
 - WebCeph/BCeph have no norms comparison feature.
 - LabCeph has basic norm comparison.
-- CephaloStudio's norm system is **more transparent** than any competitor — norms are fully editable, source-cited, and user-extensible via CSV.
+- Cephalometry Studio's norm system is **more transparent** than any competitor — norms are fully editable, source-cited, and user-extensible via CSV.
 
 **Verdict:** Norms feature is strong — not the largest library, but the most user-accessible and transparent.
 
 ### 3.8 Statistics & Reproducibility — **Unique Advantage**
 
-**CephaloStudio** has a **built-in research engine** with 6 integrated modules that no other cephalometric software offers:
+**Cephalometry Studio** has a **built-in research engine** with 6 integrated modules that no other cephalometric software offers:
 
 | Module                    | Key Features                                                                                                                                                                                                                                                                               |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -263,7 +263,7 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 | **Correlation**           | Pearson/Spearman/partial correlation, correlation matrix, linear regression, logistic regression with ROC/AUC                                                                                                                                                                              |
 | **Diagnostic**            | Sensitivity/specificity, ROC curves, AUC, likelihood ratios, predictive values, cross-validation, calibration                                                                                                                                                                              |
 
-| Feature                            | CephaloStudio                          | Any Competitor |
+| Feature                            | Cephalometry Studio                    | Any Competitor |
 | ---------------------------------- | -------------------------------------- | -------------- |
 | Intra/inter-operator study setup   | ✅ Guided workflow                      | ❌ None         |
 | ICC (absolute agreement, 3 models) | ✅ + CI calculation                     | ❌              |
@@ -283,11 +283,11 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 
 **No competitor** includes a statistical research framework. Researchers using Dolphin, OnyxCeph, NemoCeph, Romexis, or any other tool must export data and run analyses in SPSS, R, or Excel — an error-prone manual process.
 
-**This is CephaloStudio's strongest differentiator and uncontested advantage.**
+**This is Cephalometry Studio's strongest differentiator and uncontested advantage.**
 
 ### 3.9 Database & Multi-Patient Analytics
 
-**CephaloStudio** has a **database mode** that aggregates measurements across multiple patient images:
+**Cephalometry Studio** has a **database mode** that aggregates measurements across multiple patient images:
 - Descriptive statistics (mean, SD, median, IQR, skewness, kurtosis, CV)
 - Outlier detection (IQR and Z-score methods)
 - Confidence intervals for any variable
@@ -308,7 +308,7 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 
 ### 3.10 Custom Formulas & Computations
 
-**CephaloStudio** has a full **formula system** in `panels.jsx`:
+**Cephalometry Studio** has a full **formula system** in `panels.jsx`:
 - Users define named formulas using measurement names as variables
 - Expressions compiled with mathjs (sandboxed eval)
 - KaTeX rendering for LaTeX display in floating panel
@@ -323,13 +323,13 @@ The UI mentions DICOM support but there is no true DICOM parser — no DICOM tag
 - NemoCeph/Romexis: no custom formulas
 - AudaxCeph: analysis type creation module (200+ types with custom measurements) — closest competitor
 - LabCeph: customizable analyses
-- **CephaloStudio is one of the only tools with user-extensible formulas alongside AudaxCeph**
+- **Cephalometry Studio is one of the only tools with user-extensible formulas alongside AudaxCeph**
 
 **Verdict:** Unique feature among browser-based tools. Enables researchers to define novel cephalometric indices without needing a software update.
 
 ### 3.11 Clinical Interpretation Engine
 
-**CephaloStudio** has a **rule-based clinical interpretation engine** with 100+ rules organized into 11 diagnostic categories:
+**Cephalometry Studio** has a **rule-based clinical interpretation engine** with 100+ rules organized into 11 diagnostic categories:
 - Skeletal classification (Class I/II/III)
 - Growth pattern / vertical dimension (hypo/hyperdivergent)
 - Maxillary/mandibular position (prognathic/retrognathic)
@@ -350,26 +350,26 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 - LabCeph/LightningCeph: step-by-step guided interpretation with diagnostic report.
 - Ceppro: auto-interpretation with treatment simulation.
 - Most other tools (WebCeph, CephX, BCeph): **no auto-interpretation at all**.
-- CephaloStudio's rule engine is more comprehensive than any competitor's.
+- Cephalometry Studio's rule engine is more comprehensive than any competitor's.
 
-**Verdict:** Strong differentiator. Only LabCeph and Romexis offer anything comparable, and neither has the breadth of CephaloStudio's 100+ rule categories.
+**Verdict:** Strong differentiator. Only LabCeph and Romexis offer anything comparable, and neither has the breadth of Cephalometry Studio's 100+ rule categories.
 
 ### 3.12 Export & Interoperability
 
-| Format             | CephaloStudio | Dolphin | WebCeph | CephX  | OnyxCeph | NemoCeph | Romexis   | BCeph   |
-| ------------------ | ------------- | ------- | ------- | ------ | -------- | -------- | --------- | ------- |
-| CSV                | ✅             | ✅       | ✅       | ✅      | ✅        | ✅        | ✅         | ❌       |
-| PNG/Screenshot     | ✅             | ✅       | ✅       | ✅      | ✅        | ✅        | ✅         | ✅       |
-| PDF Report         | ✅             | ✅       | ✅       | ✅      | ✅        | ✅        | ✅         | ✅       |
-| DICOM              | ⚠️ Basic read  | ✅ Full  | ✅ Read  | ✅ Read | ✅ Full   | ✅ Full   | ✅ Full    | ✅ Read  |
-| Proprietary format | ✅ .cephx      | ✅ .dpf  | —       | —      | ✅ .cpr   | ✅ .ncm   | ✅ .romxis | ✅ .json |
-| Template (.cepht)  | ✅             | ❌       | ❌       | ❌      | ✅        | ❌        | ❌         | ❌       |
+| Format             | Cephalometry Studio | Dolphin | WebCeph | CephX  | OnyxCeph | NemoCeph | Romexis   | BCeph   |
+| ------------------ | ------------------- | ------- | ------- | ------ | -------- | -------- | --------- | ------- |
+| CSV                | ✅                   | ✅       | ✅       | ✅      | ✅        | ✅        | ✅         | ❌       |
+| PNG/Screenshot     | ✅                   | ✅       | ✅       | ✅      | ✅        | ✅        | ✅         | ✅       |
+| PDF Report         | ✅                   | ✅       | ✅       | ✅      | ✅        | ✅        | ✅         | ✅       |
+| DICOM              | ⚠️ Basic read        | ✅ Full  | ✅ Read  | ✅ Read | ✅ Full   | ✅ Full   | ✅ Full    | ✅ Read  |
+| Proprietary format | ✅ .cephx            | ✅ .dpf  | —       | —      | ✅ .cpr   | ✅ .ncm   | ✅ .romxis | ✅ .json |
+| Template (.cepht)  | ✅                   | ❌       | ❌       | ❌      | ✅        | ❌        | ❌         | ❌       |
 
 **Verdict:** Missing PDF report generation is the most significant export gap. CSV export is functional. .cephx format is a differentiator for multi-user workflows. DICOM reading is unreliable (no proper parser) — this needs attention.
 
 ### 3.13 Data Privacy & Deployment
 
-**CephaloStudio:**
+**Cephalometry Studio:**
 - ✅ 100% client-side (no server)
 - ✅ No data ever leaves the browser
 - ✅ No account required
@@ -383,11 +383,11 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 - BCeph: also local, same privacy model
 - Romexis: hybrid (local install with optional cloud)
 
-**Verdict:** CephaloStudio and BCeph have the strongest privacy postures — fully local with zero telemetry. This is a major selling point for institutions with strict data governance (GDPR, HIPAA).
+**Verdict:** Cephalometry Studio and BCeph have the strongest privacy postures — fully local with zero telemetry. This is a major selling point for institutions with strict data governance (GDPR, HIPAA).
 
 ### 3.14 3D / CBCT
 
-**CephaloStudio:** ❌ No 3D support at all.
+**Cephalometry Studio:** ❌ No 3D support at all.
 
 **Comparison:**
 - Dolphin: full 3D CBCT with airway, TMJ, surgical planning
@@ -401,7 +401,7 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 ### 3.15 Treatment Simulation & VTO
 
-**CephaloStudio:** ❌ None.
+**Cephalometry Studio:** ❌ None.
 
 **Comparison:**
 - Dolphin: full VTO, surgical simulation, morphing
@@ -418,29 +418,29 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 ### 3.16 Pricing Model
 
-| Software          | Annual Cost (1 seat)  | Cost per Analysis (est.) | Lock-in                        |
-| ----------------- | --------------------- | ------------------------ | ------------------------------ |
-| **CephaloStudio** | **$0**                | **$0**                   | **None (open format)**         |
-| BCeph             | $0                    | $0                       | None                           |
-| LabCeph Free      | $0                    | $0                       | None                           |
-| WebCeph           | $0–240                | $0–1.50                  | Cloud                          |
-| AudaxCeph         | $500 once             | ~$0.50                   | Desktop                        |
-| OnyxCeph          | $200–6,600            | ~$0.20–6.00              | Desktop                        |
-| LightningCeph     | ~$50–100 (shareware)  | ~$0.05–0.10              | Desktop                        |
-| Dolphin           | $1,000–2,000          | ~$1.00–2.00              | Desktop + ecosystem            |
-| CephX             | $948–2,388            | ~$0.80–2.00              | Cloud                          |
-| NemoCeph          | Custom ($2,000–5,000) | —                        | Desktop + NemoStudio ecosystem |
-| Planmeca Romexis  | Custom ($3,000+)      | —                        | Hardware bundle                |
-| Ceppro            | Subscription          | Per-case                 | Cloud                          |
-| 3Shape            | Custom ($3,000+)      | —                        | Hardware bundle                |
+| Software                | Annual Cost (1 seat)  | Cost per Analysis (est.) | Lock-in                        |
+| ----------------------- | --------------------- | ------------------------ | ------------------------------ |
+| **Cephalometry Studio** | **$0**                | **$0**                   | **None (open format)**         |
+| BCeph                   | $0                    | $0                       | None                           |
+| LabCeph Free            | $0                    | $0                       | None                           |
+| WebCeph                 | $0–240                | $0–1.50                  | Cloud                          |
+| AudaxCeph               | $500 once             | ~$0.50                   | Desktop                        |
+| OnyxCeph                | $200–6,600            | ~$0.20–6.00              | Desktop                        |
+| LightningCeph           | ~$50–100 (shareware)  | ~$0.05–0.10              | Desktop                        |
+| Dolphin                 | $1,000–2,000          | ~$1.00–2.00              | Desktop + ecosystem            |
+| CephX                   | $948–2,388            | ~$0.80–2.00              | Cloud                          |
+| NemoCeph                | Custom ($2,000–5,000) | —                        | Desktop + NemoStudio ecosystem |
+| Planmeca Romexis        | Custom ($3,000+)      | —                        | Hardware bundle                |
+| Ceppro                  | Subscription          | Per-case                 | Cloud                          |
+| 3Shape                  | Custom ($3,000+)      | —                        | Hardware bundle                |
 
-**Verdict:** CephaloStudio, BCeph, and LabCeph Free are the only free options. CephaloStudio offers drastically more features than both.
+**Verdict:** Cephalometry Studio, BCeph, and LabCeph Free are the only free options. Cephalometry Studio offers drastically more features than both.
 
 ---
 
 ## 4. Strengths & Gaps
 
-### CephaloStudio Strengths
+### Cephalometry Studio Strengths
 
 1. **Built-in Research Engine** — Unmatched. 6 integrated modules (Reliability, Descriptive, Comparative, Longitudinal, Correlation, Diagnostic) with guided data collection, MANOVA, LMM, ROC analysis, and golden-value regression tests. No competitor offers anything comparable.
 
@@ -454,7 +454,7 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 6. **Breadth of Analyses** — 40+ analysis templates across 8 projections. More than WebCeph (20+), BCeph (9+), LabCeph (19+), or Romexis (20+). Comparable to AudaxCeph and NemoCeph.
 
-7. **Pricing** — Free with no feature gating. BCeph is comparable but has 9+ analyses vs. CephaloStudio's 40+ and none of the statistical features.
+7. **Pricing** — Free with no feature gating. BCeph is comparable but has 9+ analyses vs. Cephalometry Studio's 40+ and none of the statistical features.
 
 8. **Extensible via CSV** — Analysis templates can be customized by editing CSV files, enabling users to define entirely new analysis frameworks. No other tool offers this.
 
@@ -516,12 +516,12 @@ Produces structured output with category, severity (mild/moderate/severe/normal)
 
 ### Defend the Unique Moat
 
-The reproducibility and statistics suite is **CephaloStudio's uncontested advantage**. Invest in:
+The reproducibility and statistics suite is **Cephalometry Studio's uncontested advantage**. Invest in:
 - More statistical outputs (meta-analysis, forest plots, funnel plots)
-- Published validation studies using CephaloStudio's reproducibility framework
+- Published validation studies using Cephalometry Studio's reproducibility framework
 - Integration with research platforms (Open Science Framework, PubMed-compatible reporting)
 - Dedicated "Research Mode" that guides users through study design to publication-ready outputs
 
 ---
 
-*Analysis updated July 2026. Competitor feature data sourced from published comparative studies, vendor documentation, and independent reviews. CephaloStudio feature data extracted from source code at commit time of analysis.*
+*Analysis updated July 2026. Competitor feature data sourced from published comparative studies, vendor documentation, and independent reviews. Cephalometry Studio feature data extracted from source code at commit time of analysis.*

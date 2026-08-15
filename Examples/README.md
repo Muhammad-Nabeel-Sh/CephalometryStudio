@@ -1,16 +1,16 @@
 # Examples — Authoring Guide
 
-Examples in CephaloStudio are **interactive teaching illustrations**, not a
+Examples in Cephalometry Studio are **interactive teaching illustrations**, not a
 loadable-analysis library. Each example is a single `.cepht` template file whose
 markups (points + optional silhouette) are annotated so the **Examples** panel
 can drive four teaching modes:
 
-| Mode    | What the viewer shows |
-| ------- | --------------------- |
-| Browse  | Hover any point to read its `definition`; clickable group legend dims groups |
+| Mode    | What the viewer shows                                                            |
+| ------- | -------------------------------------------------------------------------------- |
+| Browse  | Hover any point to read its `definition`; clickable group legend dims groups     |
 | Guide   | Step-by-step placement order (groups or single points) with hints + pulsing ring |
 | Measure | Mapping table: which points combine into each measurement, and what it tells you |
-| Build   | Step-by-step tracing overlay: markups reveal in `stage` order, then all visible |
+| Build   | Step-by-step tracing overlay: markups reveal in `stage` order, then all visible  |
 
 ---
 

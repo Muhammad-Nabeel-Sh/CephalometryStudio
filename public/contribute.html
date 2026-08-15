@@ -1,284 +1,617 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CephaloStudio — Contribute Norm Preset</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a22; color: #e2e8f0; min-height: 100vh; padding: 24px; background-image: linear-gradient(rgba(51,65,85,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(51,65,85,0.12) 1px, transparent 1px); background-size: 50px 50px; }
-    .container { max-width: 720px; margin: 0 auto; }
-    h1 { font-size: 22px; margin-bottom: 4px; }
-    .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
-    .card { background: #252530; border: 1px; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-    .card h2 { font-size: 14px; color: #a855f7; margin-bottom: 12px; }
-    label { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 4px; font-weight: 600; }
-    input, textarea, select { width: 100%; padding: 8px 10px; border: 1px; border-radius: 6px; background: #1a1a22; color: #e2e8f0; font-size: 13px; font-family: inherit; margin-bottom: 10px; }
-    input:focus, textarea:focus, select:focus { outline: none; border-color: #a855f7; }
-    textarea { resize: vertical; min-height: 60px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .row-3 { display: grid; grid-template-columns: 1fr 80px 60px 80px 32px; gap: 6px; align-items: end; }
-    .norms-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .norms-table th { text-align: left; padding: 6px 8px; color: #94a3b8; font-weight: 600; font-size: 10px; border-bottom: 1px; }
-    .norms-table td { padding: 4px 2px; }
-    .norms-table input, .norms-table select { margin-bottom: 0; font-size: 12px; padding: 6px 8px; }
-    .norms-table .remove-btn { background: none; border: none; color: #f87171; cursor: pointer; font-size: 18px; padding: 0 4px; }
-    .btn { display: inline-block; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
-    .btn-primary { background: #451e6a; color: #e2e8f0; }
-    .btn-primary:hover { background: #633093; }
-    .btn-secondary { background: #334155; color: #e2e8f0; }
-    .btn-secondary:hover { background: #475569; }
-    .btn-success { background: #11428b; color: #e2e8f0; }
-    .btn-success:hover { background: #1d54a6; }
-    .btn-small { padding: 4px 10px; font-size: 11px; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-    .error { background: #cb3636; border: 1px; border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 12px; color: #e2e8f0; white-space: pre-wrap; display: none; }
-    .success { background: #1d703e; border: 1px; border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 12px; color: #e2e8f0; display: none; }
-    .preview { background: #1a1a22; border: 1px; border-radius: 6px; padding: 12px; margin-top: 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: #94a3b8; white-space: pre-wrap; max-height: 300px; overflow-y: auto; display: none; }
-    .help { font-size: 10px; color: #64748b; margin-top: -8px; margin-bottom: 10px; }
-    a { color: #a855f7; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Contribute a Norm Preset</h1>
-    <p class="subtitle">Share cephalometric reference values with the CephaloStudio community. Fill in the form below, then submit via GitHub.</p>
-
-    <div id="errorBox" class="error"></div>
-    <div id="successBox" class="success"></div>
-
-    <div class="card">
-      <h2>Preset Information</h2>
-      <label for="presetName">Preset Name *</label>
-      <input type="text" id="presetName" placeholder="e.g. Harvold (Norwegian Adults)" required>
-
-      <div class="row">
-        <div>
-          <label for="source">Source / Citation *</label>
-          <input type="text" id="source" placeholder="e.g. Harvold, 1974 / Eur J Orthod">
-        </div>
-        <div>
-          <label for="population">Population</label>
-          <input type="text" id="population" placeholder="e.g. Norwegian">
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label for="ageRange">Age Range</label>
-          <input type="text" id="ageRange" placeholder="e.g. Adult / Mixed / 12-17y">
-        </div>
-        <div>
-          <label for="sex">Sex</label>
-          <select id="sex">
-            <option value="">-- Select --</option>
-            <option value="Pooled (male + female)">Pooled (male + female)</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Stratified (male / female)">Stratified (male / female)</option>
-          </select>
-        </div>
-      </div>
-
-      <label for="stratification">Stratification Notes</label>
-      <textarea id="stratification" placeholder="Notes about age/sex/ethnic stratification, sample size, etc."></textarea>
-    </div>
-
-    <div class="card">
-      <h2>Norms <span id="normCount" style="font-weight:400; color:#94a3b8; font-size:12px">(0)</span></h2>
-      <p class="help">Add each measurement with its reference mean, standard deviation, and type.</p>
-
-      <table class="norms-table">
-        <thead>
-          <tr>
-            <th style="width:35%">Label *</th>
-            <th style="width:18%">Mean *</th>
-            <th style="width:15%">SD *</th>
-            <th style="width:18%">Type</th>
-            <th style="width:14%"></th>
-          </tr>
-        </thead>
-        <tbody id="normsBody"></tbody>
-      </table>
-
-      <div style="margin-top: 10px">
-        <button class="btn btn-secondary btn-small" onclick="addNormRow()">+ Add Norm</button>
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="btn btn-primary" onclick="previewJSON()">Preview JSON</button>
-      <button class="btn btn-success" onclick="submitToGitHub()">Submit via GitHub</button>
-      <button class="btn btn-secondary" onclick="downloadJSON()">Download JSON</button>
-    </div>
-
-    <pre id="preview" class="preview"></pre>
-
-    <p style="margin-top: 16px; font-size: 11px; color: #64748b;">
-      Submissions are reviewed by maintainers before being added to the community library.
-      By contributing, you confirm the data is from a published source and accurately transcribed.
-    </p>
-  </div>
-
-  <script>
-    const REPO = "Muhammad-Nabeel-Sh/CephaloStudio-Website";
-    const ISSUE_URL = "https://github.com/" + REPO + "/issues/new";
-    let normRows = [];
-
-    function addNormRow(label, mean, sd, type) {
-      normRows.push({ label: label || "", mean: mean || "", sd: sd || "", type: type || "angle" });
-      renderNorms();
-    }
-
-    function removeNormRow(i) {
-      normRows.splice(i, 1);
-      renderNorms();
-    }
-
-    function renderNorms() {
-      const tbody = document.getElementById("normsBody");
-      tbody.innerHTML = "";
-      normRows.forEach((r, i) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML =
-          '<td><input value="' + esc(r.label) + '" onchange="normRows[' + i + '].label=this.value" placeholder="e.g. SNA"></td>' +
-          '<td><input type="number" value="' + esc(r.mean) + '" onchange="normRows[' + i + '].mean=parseFloat(this.value)||0" step="0.1"></td>' +
-          '<td><input type="number" value="' + esc(r.sd) + '" onchange="normRows[' + i + '].sd=parseFloat(this.value)||0" step="0.1" min="0"></td>' +
-          '<td><select onchange="normRows[' + i + '].type=this.value">' +
-            '<option value="angle"' + (r.type === "angle" ? " selected" : "") + '>angle</option>' +
-            '<option value="length"' + (r.type === "length" ? " selected" : "") + '>length</option>' +
-            '<option value="area"' + (r.type === "area" ? " selected" : "") + '>area</option>' +
-            '<option value="ratio"' + (r.type === "ratio" ? " selected" : "") + '>ratio</option>' +
-            '<option value="value"' + (r.type === "value" ? " selected" : "") + '>value</option>' +
-          '</select></td>' +
-          '<td><button class="remove-btn" onclick="removeNormRow(' + i + ')">&times;</button></td>';
-        tbody.appendChild(tr);
-      });
-      document.getElementById("normCount").textContent = "(" + normRows.length + ")";
-    }
-
-    function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-
-    function gatherData() {
-      const name = document.getElementById("presetName").value.trim();
-      const source = document.getElementById("source").value.trim();
-      const population = document.getElementById("population").value.trim();
-      const ageRange = document.getElementById("ageRange").value.trim();
-      const sex = document.getElementById("sex").value;
-      const stratification = document.getElementById("stratification").value.trim();
-      const norms = normRows.filter(n => n.label.trim()).map(n => ({
-        label: n.label.trim(),
-        mean: Number(n.mean) || 0,
-        sd: Number(n.sd) || 1,
-        type: ["angle","length","area","ratio","value"].includes(n.type) ? n.type : "angle"
-      }));
-      return { name, source, population, ageRange, sex, stratification, norms };
-    }
-
-    function validate(data) {
-      const errors = [];
-      if (!data.name) errors.push("Preset name is required");
-      if (!data.source) errors.push("Source / citation is required");
-      if (data.norms.length === 0) errors.push("At least one norm is required");
-      data.norms.forEach((n, i) => {
-        if (!n.label) errors.push("Norm " + (i+1) + ": label is required");
-        if (typeof n.mean !== "number" || !isFinite(n.mean)) errors.push("Norm " + (i+1) + " (" + (n.label||"?") + "): invalid mean");
-        if (typeof n.sd !== "number" || !isFinite(n.sd) || n.sd <= 0) errors.push("Norm " + (i+1) + " (" + (n.label||"?") + "): SD must be positive");
-      });
-      return errors;
-    }
-
-    function showError(msg) {
-      const box = document.getElementById("errorBox");
-      box.textContent = msg;
-      box.style.display = "block";
-      document.getElementById("successBox").style.display = "none";
-    }
-
-    function showSuccess(msg) {
-      const box = document.getElementById("successBox");
-      box.textContent = msg;
-      box.style.display = "block";
-      document.getElementById("errorBox").style.display = "none";
-    }
-
-    function buildJSON(data) {
-      return JSON.stringify({
-        format: "ceph-norms",
-        version: "1.0",
-        exported: new Date().toISOString(),
-        presets: [{
-          name: data.name,
-          source: data.source,
-          population: data.population,
-          ageRange: data.ageRange,
-          sex: data.sex,
-          stratification: data.stratification,
-          norms: data.norms
-        }]
-      }, null, 2);
-    }
-
-    function previewJSON() {
-      const data = gatherData();
-      const errors = validate(data);
-      if (errors.length > 0) { showError(errors.join("\n")); return; }
-      document.getElementById("errorBox").style.display = "none";
-      const pre = document.getElementById("preview");
-      pre.textContent = buildJSON(data);
-      pre.style.display = pre.style.display === "block" ? "none" : "block";
-    }
-
-    function downloadJSON() {
-      const data = gatherData();
-      const errors = validate(data);
-      if (errors.length > 0) { showError(errors.join("\n")); return; }
-      document.getElementById("errorBox").style.display = "none";
-      const blob = new Blob([buildJSON(data)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = data.name.replace(/\s+/g, "_") + ".json";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    }
-
-    function submitToGitHub() {
-      const data = gatherData();
-      const errors = validate(data);
-      if (errors.length > 0) { showError(errors.join("\n")); return; }
-      document.getElementById("errorBox").style.display = "none";
-
-      const body = "## Preset: " + data.name + "\n\n" +
-        "**Source:** " + data.source + "\n" +
-        "**Population:** " + (data.population || "Not specified") + "\n" +
-        "**Age Range:** " + (data.ageRange || "Not specified") + "\n" +
-        "**Sex:** " + (data.sex || "Not specified") + "\n" +
-        "**Stratification:** " + (data.stratification || "None") + "\n\n" +
-        "### Norms (" + data.norms.length + ")\n\n" +
-        "| Label | Mean | SD | Type |\n|---|---|---|---|\n" +
-        data.norms.map(n => "| " + n.label + " | " + n.mean + " | " + n.sd + " | " + n.type + " |").join("\n") +
-        "\n\n### JSON\n\n```json\n" + buildJSON(data) + "\n```";
-
-      const params = new URLSearchParams({
-        title: "Norm Preset: " + data.name,
-        body: body,
-        labels: "norm-preset"
-      });
-
-      const url = ISSUE_URL + "?" + params.toString();
-      if (url.length > 8000) {
-        navigator.clipboard.writeText(buildJSON(data)).catch(() => {});
-        showError("Preset is too large for the GitHub URL (" + url.length + " chars). The JSON has been copied to your clipboard — open the issue page and paste it in.");
-        window.open(ISSUE_URL + "?title=" + encodeURIComponent("Norm Preset: " + data.name) + "&labels=norm-preset", "_blank");
-        return;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cephalometry Studio — Contribute Norm Preset</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-      window.open(url, "_blank");
-      showSuccess("GitHub Issue opened! Paste the JSON from the preview into the issue body if needed, then submit.");
-    }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #1a1a22;
+        color: #e2e8f0;
+        min-height: 100vh;
+        padding: 24px;
+        background-image:
+          linear-gradient(rgba(51, 65, 85, 0.12) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(51, 65, 85, 0.12) 1px, transparent 1px);
+        background-size: 50px 50px;
+      }
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 4px;
+      }
+      .subtitle {
+        color: #94a3b8;
+        font-size: 13px;
+        margin-bottom: 24px;
+      }
+      .card {
+        background: #252530;
+        border: 1px;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .card h2 {
+        font-size: 14px;
+        color: #a855f7;
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: #94a3b8;
+        margin-bottom: 4px;
+        font-weight: 600;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px;
+        border-radius: 6px;
+        background: #1a1a22;
+        color: #e2e8f0;
+        font-size: 13px;
+        font-family: inherit;
+        margin-bottom: 10px;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: #a855f7;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .row-3 {
+        display: grid;
+        grid-template-columns: 1fr 80px 60px 80px 32px;
+        gap: 6px;
+        align-items: end;
+      }
+      .norms-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .norms-table th {
+        text-align: left;
+        padding: 6px 8px;
+        color: #94a3b8;
+        font-weight: 600;
+        font-size: 10px;
+        border-bottom: 1px;
+      }
+      .norms-table td {
+        padding: 4px 2px;
+      }
+      .norms-table input,
+      .norms-table select {
+        margin-bottom: 0;
+        font-size: 12px;
+        padding: 6px 8px;
+      }
+      .norms-table .remove-btn {
+        background: none;
+        border: none;
+        color: #f87171;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0 4px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.15s;
+      }
+      .btn-primary {
+        background: #451e6a;
+        color: #e2e8f0;
+      }
+      .btn-primary:hover {
+        background: #633093;
+      }
+      .btn-secondary {
+        background: #334155;
+        color: #e2e8f0;
+      }
+      .btn-secondary:hover {
+        background: #475569;
+      }
+      .btn-success {
+        background: #11428b;
+        color: #e2e8f0;
+      }
+      .btn-success:hover {
+        background: #1d54a6;
+      }
+      .btn-small {
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+      .error {
+        background: #cb3636;
+        border: 1px;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        display: none;
+      }
+      .success {
+        background: #1d703e;
+        border: 1px;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: #e2e8f0;
+        display: none;
+      }
+      .preview {
+        background: #1a1a22;
+        border: 1px;
+        border-radius: 6px;
+        padding: 12px;
+        margin-top: 12px;
+        font-family: "DM Mono", monospace;
+        font-size: 11px;
+        color: #94a3b8;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+      }
+      .help {
+        font-size: 10px;
+        color: #64748b;
+        margin-top: -8px;
+        margin-bottom: 10px;
+      }
+      a {
+        color: #a855f7;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Contribute a Norm Preset</h1>
+      <p class="subtitle">
+        Share cephalometric reference values with the Cephalometry Studio
+        community. Fill in the form below, then submit via GitHub.
+      </p>
 
-    // Start with 3 empty rows
-    addNormRow(); addNormRow(); addNormRow();
-  </script>
-</body>
+      <div id="errorBox" class="error"></div>
+      <div id="successBox" class="success"></div>
+
+      <div class="card">
+        <h2>Preset Information</h2>
+        <label for="presetName">Preset Name *</label>
+        <input
+          type="text"
+          id="presetName"
+          placeholder="e.g. Harvold (Norwegian Adults)"
+          required
+        />
+
+        <div class="row">
+          <div>
+            <label for="source">Source / Citation *</label>
+            <input
+              type="text"
+              id="source"
+              placeholder="e.g. Harvold, 1974 / Eur J Orthod"
+            />
+          </div>
+          <div>
+            <label for="population">Population</label>
+            <input type="text" id="population" placeholder="e.g. Norwegian" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="ageRange">Age Range</label>
+            <input
+              type="text"
+              id="ageRange"
+              placeholder="e.g. Adult / Mixed / 12-17y"
+            />
+          </div>
+          <div>
+            <label for="sex">Sex</label>
+            <select id="sex">
+              <option value="">-- Select --</option>
+              <option value="Pooled (male + female)">
+                Pooled (male + female)
+              </option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Stratified (male / female)">
+                Stratified (male / female)
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <label for="stratification">Stratification Notes</label>
+        <textarea
+          id="stratification"
+          placeholder="Notes about age/sex/ethnic stratification, sample size, etc."
+        ></textarea>
+      </div>
+
+      <div class="card">
+        <h2>
+          Norms
+          <span
+            id="normCount"
+            style="font-weight: 400; color: #94a3b8; font-size: 12px"
+            >(0)</span
+          >
+        </h2>
+        <p class="help">
+          Add each measurement with its reference mean, standard deviation, and
+          type.
+        </p>
+
+        <table class="norms-table">
+          <thead>
+            <tr>
+              <th style="width: 35%">Label *</th>
+              <th style="width: 18%">Mean *</th>
+              <th style="width: 15%">SD *</th>
+              <th style="width: 18%">Type</th>
+              <th style="width: 14%"></th>
+            </tr>
+          </thead>
+          <tbody id="normsBody"></tbody>
+        </table>
+
+        <div style="margin-top: 10px">
+          <button class="btn btn-secondary btn-small" onclick="addNormRow()">
+            + Add Norm
+          </button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="previewJSON()">
+          Preview JSON
+        </button>
+        <button class="btn btn-success" onclick="submitToGitHub()">
+          Submit via GitHub
+        </button>
+        <button class="btn btn-secondary" onclick="downloadJSON()">
+          Download JSON
+        </button>
+      </div>
+
+      <pre id="preview" class="preview"></pre>
+
+      <p style="margin-top: 16px; font-size: 11px; color: #64748b">
+        Submissions are reviewed by maintainers before being added to the
+        community library. By contributing, you confirm the data is from a
+        published source and accurately transcribed.
+      </p>
+    </div>
+
+    <script>
+      const REPO = "Muhammad-Nabeel-Sh/Cephalometry Studio-Website";
+      const ISSUE_URL = "https://github.com/" + REPO + "/issues/new";
+      let normRows = [];
+
+      function addNormRow(label, mean, sd, type) {
+        normRows.push({
+          label: label || "",
+          mean: mean || "",
+          sd: sd || "",
+          type: type || "angle",
+        });
+        renderNorms();
+      }
+
+      function removeNormRow(i) {
+        normRows.splice(i, 1);
+        renderNorms();
+      }
+
+      function renderNorms() {
+        const tbody = document.getElementById("normsBody");
+        tbody.innerHTML = "";
+        normRows.forEach((r, i) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            '<td><input value="' +
+            esc(r.label) +
+            '" onchange="normRows[' +
+            i +
+            '].label=this.value" placeholder="e.g. SNA"></td>' +
+            '<td><input type="number" value="' +
+            esc(r.mean) +
+            '" onchange="normRows[' +
+            i +
+            '].mean=parseFloat(this.value)||0" step="0.1"></td>' +
+            '<td><input type="number" value="' +
+            esc(r.sd) +
+            '" onchange="normRows[' +
+            i +
+            '].sd=parseFloat(this.value)||0" step="0.1" min="0"></td>' +
+            '<td><select onchange="normRows[' +
+            i +
+            '].type=this.value">' +
+            '<option value="angle"' +
+            (r.type === "angle" ? " selected" : "") +
+            ">angle</option>" +
+            '<option value="length"' +
+            (r.type === "length" ? " selected" : "") +
+            ">length</option>" +
+            '<option value="area"' +
+            (r.type === "area" ? " selected" : "") +
+            ">area</option>" +
+            '<option value="ratio"' +
+            (r.type === "ratio" ? " selected" : "") +
+            ">ratio</option>" +
+            '<option value="value"' +
+            (r.type === "value" ? " selected" : "") +
+            ">value</option>" +
+            "</select></td>" +
+            '<td><button class="remove-btn" onclick="removeNormRow(' +
+            i +
+            ')">&times;</button></td>';
+          tbody.appendChild(tr);
+        });
+        document.getElementById("normCount").textContent =
+          "(" + normRows.length + ")";
+      }
+
+      function esc(s) {
+        return String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function gatherData() {
+        const name = document.getElementById("presetName").value.trim();
+        const source = document.getElementById("source").value.trim();
+        const population = document.getElementById("population").value.trim();
+        const ageRange = document.getElementById("ageRange").value.trim();
+        const sex = document.getElementById("sex").value;
+        const stratification = document
+          .getElementById("stratification")
+          .value.trim();
+        const norms = normRows
+          .filter((n) => n.label.trim())
+          .map((n) => ({
+            label: n.label.trim(),
+            mean: Number(n.mean) || 0,
+            sd: Number(n.sd) || 1,
+            type: ["angle", "length", "area", "ratio", "value"].includes(n.type)
+              ? n.type
+              : "angle",
+          }));
+        return {
+          name,
+          source,
+          population,
+          ageRange,
+          sex,
+          stratification,
+          norms,
+        };
+      }
+
+      function validate(data) {
+        const errors = [];
+        if (!data.name) errors.push("Preset name is required");
+        if (!data.source) errors.push("Source / citation is required");
+        if (data.norms.length === 0)
+          errors.push("At least one norm is required");
+        data.norms.forEach((n, i) => {
+          if (!n.label) errors.push("Norm " + (i + 1) + ": label is required");
+          if (typeof n.mean !== "number" || !isFinite(n.mean))
+            errors.push(
+              "Norm " + (i + 1) + " (" + (n.label || "?") + "): invalid mean",
+            );
+          if (typeof n.sd !== "number" || !isFinite(n.sd) || n.sd <= 0)
+            errors.push(
+              "Norm " +
+                (i + 1) +
+                " (" +
+                (n.label || "?") +
+                "): SD must be positive",
+            );
+        });
+        return errors;
+      }
+
+      function showError(msg) {
+        const box = document.getElementById("errorBox");
+        box.textContent = msg;
+        box.style.display = "block";
+        document.getElementById("successBox").style.display = "none";
+      }
+
+      function showSuccess(msg) {
+        const box = document.getElementById("successBox");
+        box.textContent = msg;
+        box.style.display = "block";
+        document.getElementById("errorBox").style.display = "none";
+      }
+
+      function buildJSON(data) {
+        return JSON.stringify(
+          {
+            format: "ceph-norms",
+            version: "1.0",
+            exported: new Date().toISOString(),
+            presets: [
+              {
+                name: data.name,
+                source: data.source,
+                population: data.population,
+                ageRange: data.ageRange,
+                sex: data.sex,
+                stratification: data.stratification,
+                norms: data.norms,
+              },
+            ],
+          },
+          null,
+          2,
+        );
+      }
+
+      function previewJSON() {
+        const data = gatherData();
+        const errors = validate(data);
+        if (errors.length > 0) {
+          showError(errors.join("\n"));
+          return;
+        }
+        document.getElementById("errorBox").style.display = "none";
+        const pre = document.getElementById("preview");
+        pre.textContent = buildJSON(data);
+        pre.style.display = pre.style.display === "block" ? "none" : "block";
+      }
+
+      function downloadJSON() {
+        const data = gatherData();
+        const errors = validate(data);
+        if (errors.length > 0) {
+          showError(errors.join("\n"));
+          return;
+        }
+        document.getElementById("errorBox").style.display = "none";
+        const blob = new Blob([buildJSON(data)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = data.name.replace(/\s+/g, "_") + ".json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      }
+
+      function submitToGitHub() {
+        const data = gatherData();
+        const errors = validate(data);
+        if (errors.length > 0) {
+          showError(errors.join("\n"));
+          return;
+        }
+        document.getElementById("errorBox").style.display = "none";
+
+        const body =
+          "## Preset: " +
+          data.name +
+          "\n\n" +
+          "**Source:** " +
+          data.source +
+          "\n" +
+          "**Population:** " +
+          (data.population || "Not specified") +
+          "\n" +
+          "**Age Range:** " +
+          (data.ageRange || "Not specified") +
+          "\n" +
+          "**Sex:** " +
+          (data.sex || "Not specified") +
+          "\n" +
+          "**Stratification:** " +
+          (data.stratification || "None") +
+          "\n\n" +
+          "### Norms (" +
+          data.norms.length +
+          ")\n\n" +
+          "| Label | Mean | SD | Type |\n|---|---|---|---|\n" +
+          data.norms
+            .map(
+              (n) =>
+                "| " +
+                n.label +
+                " | " +
+                n.mean +
+                " | " +
+                n.sd +
+                " | " +
+                n.type +
+                " |",
+            )
+            .join("\n") +
+          "\n\n### JSON\n\n```json\n" +
+          buildJSON(data) +
+          "\n```";
+
+        const params = new URLSearchParams({
+          title: "Norm Preset: " + data.name,
+          body: body,
+          labels: "norm-preset",
+        });
+
+        const url = ISSUE_URL + "?" + params.toString();
+        if (url.length > 8000) {
+          navigator.clipboard.writeText(buildJSON(data)).catch(() => {});
+          showError(
+            "Preset is too large for the GitHub URL (" +
+              url.length +
+              " chars). The JSON has been copied to your clipboard — open the issue page and paste it in.",
+          );
+          window.open(
+            ISSUE_URL +
+              "?title=" +
+              encodeURIComponent("Norm Preset: " + data.name) +
+              "&labels=norm-preset",
+            "_blank",
+          );
+          return;
+        }
+        window.open(url, "_blank");
+        showSuccess(
+          "GitHub Issue opened! Paste the JSON from the preview into the issue body if needed, then submit.",
+        );
+      }
+
+      // Start with 3 empty rows
+      addNormRow();
+      addNormRow();
+      addNormRow();
+    </script>
+  </body>
 </html>

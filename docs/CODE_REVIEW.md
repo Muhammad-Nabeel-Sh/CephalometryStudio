@@ -1,4 +1,4 @@
-# CephaloStudio — Comprehensive Code Review
+# Cephalometry Studio — Comprehensive Code Review
 
 > **Snapshot date**: 2026-07-11 (review conducted against codebase ~1721-line App.jsx). Line references may be stale; current App.jsx is ~2190 lines. Issues remain open unless noted.
 

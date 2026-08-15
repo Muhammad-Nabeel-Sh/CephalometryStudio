@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+type: software
+title: "Cephalometry Studio: an open-source, browser-based platform for cephalometric analysis and orthodontic research"
+authors:
+  - family-names: "Nabil Ibrahim Salem Shaesha"
+    given-names: "Mohamed"
+    orcid: "https://orcid.org/0009-0004-7190-1364"
+version: 1.0.0
+date-released: 2026-08-15
+repository-code: "https://github.com/Muhammad-Nabeel-Sh/Cephalometry Studio-Website"
+url: "https://cephalometry-studio.vercel.app/"
+license: MIT
+keywords:
+  - cephalometry
+  - orthodontics
+  - medical imaging
+  - statistics
+  - browser
+abstract: >-
+  Cephalometry Studio is a free, open-source, browser-based application for
+  cephalometric analysis. It combines manual and template-assisted landmarking
+  (40+ analyses, 500+ landmarks, 23 markup types), calibration-aware
+  measurements, a clinical interpretation engine, and seven integrated research
+  modules (reliability, descriptive/normative, comparative, longitudinal,
+  correlation, diagnostic, and superimposition) with publication-style tables,
+  charts, and CSV export. All computation and storage is client-side, so
+  patient data never leaves the user's device.

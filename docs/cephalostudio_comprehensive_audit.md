@@ -1,10 +1,10 @@
-# CephaloStudio Comprehensive Architecture & Implementation Audit
+# Cephalometry Studio Comprehensive Architecture & Implementation Audit
 
-This report expands on the initial Research Module audit, providing a complete 360-degree review of the CephaloStudio application. It evaluates architectural decisions, data persistence, canvas rendering, clinical tooling, and UI/UX implementation, highlighting both technical strengths and areas requiring remediation.
+This report expands on the initial Research Module audit, providing a complete 360-degree review of the Cephalometry Studio application. It evaluates architectural decisions, data persistence, canvas rendering, clinical tooling, and UI/UX implementation, highlighting both technical strengths and areas requiring remediation.
 
 ## 1. Executive Summary
 
-CephaloStudio is a highly capable, zero-dependency (aside from `mathjs`, `katex`, `plotly`) client-side application. It achieves remarkable complexity—including offline persistence, advanced statistical engines, and real-time medical image processing—entirely within the browser. 
+Cephalometry Studio is a highly capable, zero-dependency (aside from `mathjs`, `katex`, `plotly`) client-side application. It achieves remarkable complexity—including offline persistence, advanced statistical engines, and real-time medical image processing—entirely within the browser. 
 
 However, the architecture exhibits **"God Object" antipatterns**, particularly within `App.jsx`, where interaction logic, canvas event handling, and state management are heavily centralized. While recent refactoring (e.g., extracting `redraw.js` and UI panels) has improved modularity, the core interaction loop remains deeply coupled and fragile.
 
@@ -67,7 +67,7 @@ However, the architecture exhibits **"God Object" antipatterns**, particularly w
 
 ## 7. Conclusion and Strategic Next Steps
 
-CephaloStudio is a production-tier application masquerading as a prototype. The mathematical and rendering foundations are incredibly strong. The immediate focus must shift toward **technical debt reduction and architectural decoupling**.
+Cephalometry Studio is a production-tier application masquerading as a prototype. The mathematical and rendering foundations are incredibly strong. The immediate focus must shift toward **technical debt reduction and architectural decoupling**.
 
 **Actionable Roadmap:**
 1.  **Phase 1: Refactor the Interaction Loop**: Extract the `handleMouseMove`, `handleMouseDown`, and `handleMouseUp` functions into a dedicated CanvasController class or a custom hook (`useCanvasInteractions`).
