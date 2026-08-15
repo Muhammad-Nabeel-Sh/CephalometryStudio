@@ -5772,9 +5772,19 @@ export default function CephalometryStudio() {
   const dirtyRef = useRef(false);
   // D3: surface IDB-unavailable / storage-quota failures as a dismissible banner
   // instead of silently degrading (incognito mode, full storage). The autosave
-  // emits `Cephalometry Studio:storage-warning` events; this listens + seeds the
-  // persistent "IDB unavailable" warning on mount.
-  const [storageWarn, setStorageWarn] = useState(null);
+  // emits `Cephalometry Studio:storage-warning` events; this listens for them.
+  // The initial "IDB unavailable" seed is computed lazily on first render
+  // (idbAvailable() is a synchronous, cached check) so no setState runs in
+  // an effect body.
+  const [storageWarn, setStorageWarn] = useState(() =>
+    idbAvailable()
+      ? null
+      : {
+          kind: "idb-unavailable",
+          message:
+            "Image storage is unavailable in this browser/session (e.g. private mode). Images won't persist across sessions — export your work as .cephx to keep it.",
+        }
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -5807,13 +5817,6 @@ export default function CephalometryStudio() {
   }, []);
 
   useEffect(() => {
-    if (!idbAvailable()) {
-      setStorageWarn({
-        kind: "idb-unavailable",
-        message:
-          "Image storage is unavailable in this browser/session (e.g. private mode). Images won't persist across sessions — export your work as .cephx to keep it.",
-      }); // eslint-disable-line react-hooks/set-state-in-effect
-    }
     const onWarn = (e) => setStorageWarn((e && e.detail) || null);
     window.addEventListener("Cephalometry Studio:storage-warning", onWarn);
     return () =>
