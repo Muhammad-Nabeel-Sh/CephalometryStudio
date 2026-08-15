@@ -4,6 +4,8 @@
 > **Scope:** Full application with deep-dive into the research module  
 > **Files reviewed:** All 30 files in `src/research/`, `src/lib/utils.js` (1447 lines), `src/research/superimposition.js` (945 lines), `src/research/comparative.js` (943 lines), `src/research/airway.js` (752 lines), and all supporting modules.
 
+> **Current status — 2026-08-15 update**: Historical snapshot, retained for the record. Changes since this audit: project renamed **Cephalometry Studio** (GitHub repo: `Muhammad-Nabeel-Sh/CephalometryStudio`); test suite grew from ~269 to **459 tests (21 files)**; research units (mm/px/°) now propagate end-to-end through results tables, charts, and CSV exports (R8/R9 fixed); landmarks are linked by immutable `templateId`s (rename-proof); PWA icon/splash pipeline rebuilt (`npm run icons`, `icon-192/512`, maskable, apple-touch, iOS splash set); CI matrix is Node 20/22; JOSS publication assets added (`paper.md`, `paper.bib`, `CITATION.cff`, `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`). The maintained tracking doc is [`CODE_REVIEW_CRITIQUE.md`](./CODE_REVIEW_CRITIQUE.md).
+
 ---
 
 ## Executive Summary

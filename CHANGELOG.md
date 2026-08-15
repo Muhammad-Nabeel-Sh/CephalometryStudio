@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.5.0] - 2026-08-15
+
+### Changed - Rebrand to Cephalometry Studio
+
+- Product renamed from CephaloStudio to **Cephalometry Studio** across the app, docs, and metadata
+- GitHub repository renamed to `Muhammad-Nabeel-Sh/CephalometryStudio`; all raw.githubusercontent.com references (community examples, community norms, contribute page, examples manifest) updated to the new name
+- `coverage/` untracked and gitignored — fixes GitHub language statistics (committed coverage HTML reports were ~9.3 MB / 64% of the repo)
+
+### Added - JOSS Publication Assets
+
+- `paper.md` + `paper.bib` (JOSS format, 14 references, ~700 words)
+- `LICENSE` (MIT), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`
+
+### Added - PWA/OS Icon Pipeline
+
+- `scripts/generate-icons.mjs` (sharp) — rasterizes the pure-vector `public/favicon.svg` into `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png` (180), 7 iOS splash images, and `og-image.png` (1200x630)
+- `site.webmanifest` now references real PNG icons (the previous 512 PNG reference 404'd); `index.html` adds apple-touch-startup-image links and a logo in the loading splash
+- `npm run icons` script added; sharp added as devDependency
+
+### Fixed - ID-Based Landmark Linking
+
+- Template points carry an immutable `templateId` (`<analysis>::<landmark>`); auto-created measurements store `refTemplateIds` alongside `refLabels`
+- Renaming a landmark no longer breaks drag propagation (`syncRefDeps`), reference refresh (`refreshAutoMeasurements`), or template reload (duplicate detection matches `templateLabel`)
+- Airway landmark lookups also match `templateLabel`/`templateId`
+- `getMeasValue` now returns the type's primary measure (angle/length/area/value) instead of the first numeric value (x-coordinate); infinite-line refs fall back to segment length; calibration threaded through `refreshAutoMeasurements` (computed sums/differences stay in mm)
+- 15 new tests in `src/test/templateLinking.test.js`
+
+### Fixed - Research Units End-to-End (R8/R9)
+
+- `unitForKey`/`dominantUnit` helpers in `collect.js`; units attached to reliability `details`, descriptive group/combined labels, comparative labels, longitudinal labels/changeScores/pairwise
+- Unit columns in Reliability/Descriptive tables, unit headers in Comparative/Longitudinal views, and `Unit` columns in all four CSV exports
+- Reliability and superimposition charts derive units from results (no more hardcoded "mm"/"px" mismatches)
+- 13 new tests in `src/test/unitPropagation.test.js`
+
+### Changed - CI & Tooling
+
+- CI matrix updated to Node 20/22 (Vite 8 requires `^20.19.0 || >=22.12.0`; Node 18 removed); `engines` field added to package.json
+- `react-hooks/set-state-in-effect` violation fixed — IDB-unavailable banner now seeds via lazy state initializer instead of setState in an effect body
+
+### Changed - Documentation
+
+- README/AGENTS refreshed: 459 tests / 21 files (per-file table), eight research modules, Zustand session store, Node 20/22 CI
+- Historical audits (`CODE_REVIEW.md`, `cephalostudio_audit_report.md`, `cephalostudio_comprehensive_audit.md`) annotated with current-status banners; `gap-analysis.md` and `competitive-analysis.md` updated (superimposition/airway now shipped)
+
 ## [1.4.0] - 2026-07-30
 
 ### Added — Zustand State Management

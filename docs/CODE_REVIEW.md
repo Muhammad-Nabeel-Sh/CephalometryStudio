@@ -2,6 +2,8 @@
 
 > **Snapshot date**: 2026-07-11 (review conducted against codebase ~1721-line App.jsx). Line references may be stale; current App.jsx is ~2190 lines. Issues remain open unless noted.
 
+> **Current status — 2026-08-15 update**: This document is retained as a **historical snapshot**. Most issues below were resolved in later passes; the maintained tracking document is [`CODE_REVIEW_CRITIQUE.md`](./CODE_REVIEW_CRITIQUE.md). State today: **459 tests across 21 files** (was 269/15 when this snapshot was updated), lint 0 errors / 0 warnings, build OK; App.jsx is now ~6150 lines; global state lives in three Zustand stores (`toolStore`, `uiStore`, `sessionStore`); the project was renamed **Cephalometry Studio** (repo: `Muhammad-Nabeel-Sh/CephalometryStudio`); CI matrix is Node 20/22; JOSS submission assets (`paper.md`, `paper.bib`, `CITATION.cff`, `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`) were added. "Current App.jsx is ~2190 lines" above is itself outdated — see the critique for up-to-date line counts.
+
 Verified against the deployed code. Findings grouped by domain, each with **Impact** (clinical/UX/perf/security) and **Burden** (engineering effort: S=hours, M=days, L=weeks).
 
 ---

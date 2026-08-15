@@ -1,5 +1,7 @@
 # Cephalometry Studio Comprehensive Architecture & Implementation Audit
 
+> **Current status — 2026-08-15 update**: Historical snapshot, retained for the record. Since this audit: global state was migrated to three Zustand stores (`toolStore`, `uiStore`, `sessionStore`) — the reducer-bloat concern below is largely resolved, though `projects`/`sessions` root state remains in App.jsx; App.jsx grew to ~6150 lines; the label-based template binding weakness was fixed with immutable `templateId` linking (15 tests in `templateLinking.test.js`); research result units propagate end-to-end (13 tests in `unitPropagation.test.js`); suite is now **459 tests / 21 files** with lint 0/0; CI runs Node 20/22; project renamed **Cephalometry Studio** (repo: `Muhammad-Nabeel-Sh/CephalometryStudio`); JOSS submission assets added. The maintained tracking doc is [`CODE_REVIEW_CRITIQUE.md`](./CODE_REVIEW_CRITIQUE.md).
+
 This report expands on the initial Research Module audit, providing a complete 360-degree review of the Cephalometry Studio application. It evaluates architectural decisions, data persistence, canvas rendering, clinical tooling, and UI/UX implementation, highlighting both technical strengths and areas requiring remediation.
 
 ## 1. Executive Summary
