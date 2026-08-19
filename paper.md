@@ -53,13 +53,7 @@ standard clinical practice today [@downs1948; @steiner1953; @ricketts1960;
 limitation: repeated tracing of the same radiograph yields measurable
 disagreement between and within observers, and any study using cephalometric
 measurements must quantify this error [@houston1983; @dahlberg1940;
-@bland1986; @shrout1979]. Commercial platforms (Dolphin Imaging, WebCeph,
-OnyxCeph) offer sophisticated tracing workflows but require paid licenses,
-upload patient images to vendor servers, and provide no integrated
-reproducibility statistics — researchers must export measurements to
-spreadsheets and re-implement ICC, Bland-Altman, and Dahlberg analyses in
-external statistical packages. Free alternatives offer only a small subset of
-analyses and no research tooling.
+@bland1986; @shrout1979].
 
 Cephalometry Studio fills this gap: a single, freely accessible tool in which a
 clinician or researcher can trace images, obtain calibrated measurements with
@@ -70,6 +64,32 @@ local device. The integrated reliability workflow (blinded re-tracing trials
 with minimum time-separation checks and trial locking) is designed to support
 the methodological requirements of orthodontic research [@walter1998;
 @carkeet2015].
+
+# State of the field
+
+Established cephalometric platforms fall into two groups. Commercial suites
+such as Dolphin Imaging, WebCeph, and OnyxCeph offer polished tracing
+workflows, practice management, and increasingly automated landmark
+detection, but require paid licenses, store patient imaging on vendor
+servers, and expose measurements only through proprietary formats. Free
+tools provide core tracing but a limited set of analyses and no research
+statistics. None of the widely used platforms offers integrated
+measurement-error statistics: ICC, Bland-Altman, Dahlberg, and SEM/MDC
+analyses are typically re-implemented by researchers in external statistical
+software after exporting measurements. Cephalometry Studio occupies the
+niche of an open, privacy-preserving platform whose tracing and reporting
+capabilities are coupled directly to the reproducibility statistics that
+cephalometric research requires.
+
+# Software design
+
+Cephalometry Studio is a single-page React application with no backend: all
+state lives in client-side Zustand stores, images persist in IndexedDB, and
+projects are encrypted at rest with WebCrypto. Canvas rendering and the
+research engine run in Web Workers, and user-defined formulas are evaluated
+through an AST-sandboxed mathjs scope. Core statistical distributions are
+guarded by golden-value regression tests (459 automated tests; CI on Node
+20/22).
 
 # Functionality
 
@@ -104,17 +124,27 @@ Procrustes or structural alignment, displacement analysis, and growth-pattern
 classification. All results render as tables and charts and export to CSV,
 PDF, or DOCX.
 
-![Clinical interpretation engine output with normative comparison.](Screenshots/4-interpretation.png){ width=90% }
-
-Statistical implementations are guarded by a test suite of 459 automated
-tests, including golden-value regression tests that check core distributions
-and estimators against published reference values (e.g., Shrout-Fleiss ICC,
-Bland-Altman limits of agreement), and continuous integration runs linting,
-tests, and builds across Node.js versions [@shrout1979; @bland1986].
+![Clinical interpretation engine output with normative comparison.](Screenshot/4-interpretation.png){ width=90% }
 
 The software is intended for research and clinical decision support; as with
 any 2D cephalometric tool, measurements assume a lateral projection and are
 subject to magnification, and reference norms are population-specific.
+
+# Research impact statement
+
+By integrating measurement-error and longitudinal statistics directly into a
+free, privacy-preserving tracing tool, Cephalometry Studio lowers the barrier
+to rigorous cephalometric research for students, clinicians, and researchers
+without access to commercial suites or statistical software, while its
+local-only architecture supports use in settings with strict data-protection
+requirements.
+
+# AI usage disclosure
+
+Cephalometry Studio contains no artificial-intelligence or machine-learning
+components; landmark identification is manual and all statistics are
+classical implementations. AI-assisted coding and editing tools were used
+during software development and manuscript preparation.
 
 # Acknowledgements
 

@@ -5765,6 +5765,26 @@ export default function CephalometryStudio() {
   const [projects, setProjects] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  // ── History-API navigation: HomePage ⇄ Workspace are in-app views, so the
+  // browser Back button (and the Android back gesture) must return to the
+  // homepage instead of leaving the site. Opening a project pushes a history
+  // entry; `popstate` then switches back to the homepage. A second Back
+  // (from the homepage) still leaves the site as usual.
+  const openProject = (id) => {
+    window.history.pushState({ cephView: "workspace" }, "");
+    setActiveId(id);
+  };
+  const goHome = () => {
+    if (window.history.state?.cephView === "workspace") window.history.back();
+    else setActiveId(null);
+  };
+  useEffect(() => {
+    const onPopState = () => {
+      if (activeId) setActiveId(null);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [activeId]);
   // On load, greet the user with a choice: jump straight into the most recent
   // project (canvas) or land on the homepage. `welcome` holds the project id to
   // offer; it is consumed by the first click and never re-shown during the session.
@@ -5976,7 +5996,7 @@ export default function CephalometryStudio() {
       }
     }
     setProjects((prev) => [...prev, p]);
-    setActiveId(p.id);
+    openProject(p.id);
   };
 
   const importCephxFile = (file) => {
@@ -5988,7 +6008,7 @@ export default function CephalometryStudio() {
       )
         return;
       setProjects((prev) => [...prev.filter((p) => p.id !== proj.id), proj]);
-      setActiveId(proj.id);
+      openProject(proj.id);
     });
   };
 
@@ -6088,7 +6108,7 @@ export default function CephalometryStudio() {
                   t={t}
                   active
                   onClick={() => {
-                    setActiveId(welcome.projectId);
+                    openProject(welcome.projectId);
                     setWelcome(null);
                   }}
                   style={
@@ -6125,7 +6145,7 @@ export default function CephalometryStudio() {
             theme={theme}
             setTheme={setTheme}
             projects={projects}
-            onOpen={(id) => setActiveId(id)}
+            onOpen={openProject}
             onCreate={createProject}
             onImport={importCephxFile}
             storageEncrypted={secureStorageAvailable()}
@@ -6137,7 +6157,7 @@ export default function CephalometryStudio() {
             key={activeId}
             project={activeProject}
             onUpdateProject={(patch) => updateProject(activeId, patch)}
-            onHome={() => setActiveId(null)}
+            onHome={goHome}
             t={t}
             theme={theme}
             setTheme={setTheme}
