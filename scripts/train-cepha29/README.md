@@ -82,15 +82,21 @@ LPM LIT LMT UPM UIA UIT UMT LIA Li Ls N` Pog` Sn
 
 ### 2. Train
 
-**Kaggle (recommended):** create a notebook with Accelerator *GPU T4 x2*, add
-the `felixtemko/cepha29` dataset, enable Internet, then run
+**Kaggle (recommended):** create a notebook with Accelerator *GPU T4 x2* and
+Internet **On** (the notebook downloads the dataset), then run
 `kaggle-notebook.ipynb`. Training command it uses:
 
 ```bash
 python train.py --data $DATASET --model hrnet_w32 \
   --imgsz 768 --batch 4 --epochs 200 --loss awing --amp --device 0 \
-  --pretrained --average_ann --workers 2 --patience 30 --name cepha29_w32_768
+  --pretrained --workers 2 --patience 30 --name cepha29_w32_768 \
+  --annotators "Junior Orthodontists" "Senior Orthodontists"
 ```
+
+`--annotators` accepts one or more annotation directory names; pass both
+Junior + Senior to average them (best quality), or omit for the default
+`Senior Orthodontists`. (`--average_ann` is **not** a valid flag in this
+CephaloHRNet build.)
 
 `imgsz` is **square** (the app resizes to `inputSize × inputSize`). ~5–10 h on a
 T4 at 768² (drop to `--imgsz 512` if needed). Enable “Save Version” and resume
