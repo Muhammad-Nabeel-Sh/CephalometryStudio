@@ -2,18 +2,34 @@
 // Statistical shape model (SSM) refinement
 //
 // Projects detector predictions onto a PCA shape subspace built from public
-// ISBI 2015 annotations (scripts/build-shape-model.py -> shapeModel.isbi19.json).
-// This suppresses implausible landmark configurations (gross outliers) without
-// changing the pose (the projection is done in a scale/rotation-normalized
-// frame and inverted back).
+// landmark annotations (scripts/build-shape-model.py). This suppresses
+// implausible landmark configurations (gross outliers) without changing the
+// pose (the projection is done in a scale/rotation-normalized frame and
+// inverted back).
+//
+// Priors are registered per landmark-set key ("isbi19", "cepha29", …). Only
+// ISBI-19 ships in the repo; a CEPHA29 prior (shapeModel.cepha29.json) is added
+// once generated, e.g. with `python scripts/build-shape-model.py --set cepha29`.
 //
 // Pure module: no DOM, no ML runtime — runs on the main thread after decoding,
 // and is unit-testable.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import model from "../data/shapeModel.isbi19.json";
+import isbi19 from "../data/shapeModel.isbi19.json";
 
-export const SHAPE_MODEL = model;
+const PRIORS = { isbi19 };
+
+// Register an additional set's prior (used once a CEPHA29 model is generated).
+export function registerShapeModel(setKey, model) {
+  if (setKey && model) PRIORS[setKey] = model;
+}
+
+export function getShapeModel(setKey) {
+  return PRIORS[setKey] || null;
+}
+
+// Backwards-compatible alias (the default ISBI-19 prior).
+export const SHAPE_MODEL = isbi19;
 
 // Similarity transform aligning `pts` onto `meanPts` (complex-multiplier form).
 // Returns { a, b, tx, ty } such that aligned = [[a,-b],[b,a]] · p + t.
@@ -60,10 +76,11 @@ function solveGauss(A, rhs) {
 // Returns refined [{x,y}] (same space), or the input unchanged on mismatch.
 export function refineShape(points, confidences, opts = {}) {
   const { alpha = 0.6, reg = 0.1, k = 6, wmin = 0.2, clip = 3 } = opts;
-  const meanFlat = model.mean;
+  const mdl = getShapeModel(opts.set) || isbi19;
+  const meanFlat = mdl.mean;
   const N = meanFlat.length / 2;
   if (!points || points.length !== N) return points;
-  const K = Math.min(k, model.components.length);
+  const K = Math.min(k, mdl.components.length);
 
   const mean = new Array(N);
   for (let i = 0; i < N; i++) mean[i] = { x: meanFlat[2 * i], y: meanFlat[2 * i + 1] };
@@ -71,8 +88,8 @@ export function refineShape(points, confidences, opts = {}) {
   const { a, b, tx, ty } = simTransform(points, mean);
   const xa = points.map((p) => ({ x: a * p.x - b * p.y + tx, y: b * p.x + a * p.y + ty }));
 
-  const V = model.components;
-  const sig = model.sigmas;
+  const V = mdl.components;
+  const sig = mdl.sigmas;
   const w = new Array(N);
   for (let i = 0; i < N; i++) {
     const c = confidences && Number.isFinite(confidences[i]) ? confidences[i] : 1;

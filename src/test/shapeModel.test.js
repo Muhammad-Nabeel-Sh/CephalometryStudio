@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { refineShape, SHAPE_MODEL } from "../lib/shapeModel.js";
+import { refineShape, SHAPE_MODEL, getShapeModel, registerShapeModel } from "../lib/shapeModel.js";
 
 const N = 19;
 const meanPts = [];
@@ -49,5 +49,20 @@ describe("refineShape", () => {
     const maxdev = (pts) => Math.max(...pts.map((p, i) => dist(p, meanPts[i])));
     const out = refineShape(bad, ones, { alpha: 1, reg: 0.05, k: 6 });
     expect(maxdev(out)).toBeLessThan(maxdev(bad));
+  });
+});
+
+describe("shape-model registry", () => {
+  it("registers ISBI-19 and reports unknown sets as null", () => {
+    expect(getShapeModel("isbi19")).toBe(SHAPE_MODEL);
+    expect(getShapeModel("does-not-exist")).toBeNull();
+  });
+
+  it("refines against a registered set's prior", () => {
+    registerShapeModel("unit", SHAPE_MODEL);
+    const bad = meanPts.map((p) => ({ ...p }));
+    bad[2] = { x: bad[2].x + 0.5, y: bad[2].y };
+    const out = refineShape(bad, ones, { set: "unit", alpha: 1, reg: 0.05, k: 6 });
+    expect(dist(out[2], meanPts[2])).toBeLessThan(dist(bad[2], meanPts[2]));
   });
 });

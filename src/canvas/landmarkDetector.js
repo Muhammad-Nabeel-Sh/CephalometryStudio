@@ -10,7 +10,7 @@
 
 import { preprocessGrayscale, decodeHeatmaps, decodeRegression, MODEL_INPUT_SIZE } from "../lib/landmarkModel.js";
 import { mockDetections, symbolAt, getLandmarkSet, DEFAULT_LANDMARK_SET } from "../data/landmarkMap.js";
-import { refineShape } from "../lib/shapeModel.js";
+import { refineShape, getShapeModel } from "../lib/shapeModel.js";
 
 let _ort = null;
 let _session = null;
@@ -139,12 +139,14 @@ export async function detectLandmarks(input, opts = {}) {
     index: d.index, symbol: symbolAt(setKey, d.index) ?? `L${d.index}`, x: d.x, y: d.y, confidence: d.confidence,
   }));
 
-  // Statistical shape-model refinement (ISBI-19 only, all landmarks present).
-  if (_refine?.shape && setKey === "isbi19" && landmarks.length === 19) {
+  // Statistical shape-model refinement — only when a prior exists for this
+  // landmark set and every landmark is present.
+  const prior = getShapeModel(setKey);
+  if (_refine?.shape && prior && landmarks.length === prior.mean.length / 2) {
     const refined = refineShape(
       landmarks.map((l) => ({ x: l.x, y: l.y })),
       landmarks.map((l) => l.confidence),
-      _refine,
+      { ..._refine, set: setKey },
     );
     for (let i = 0; i < landmarks.length; i++) {
       landmarks[i] = { ...landmarks[i], x: refined[i].x, y: refined[i].y };

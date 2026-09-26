@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **508 tests (Vitest)**
+- **No TypeScript**, **510 tests (Vitest)**
 
 ---
 
@@ -178,7 +178,7 @@ src/
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (508 tests)
+└── test/                       Vitest test files (510 tests)
 ```
 
 ### File Organization
@@ -470,6 +470,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **AI auto-trace (in-browser, landmark model)**: ONNX inference runs on the main thread in `canvas/landmarkDetector.js`; the ORT UMD runtime is self-hosted under `public/ort/` and loaded via a `<script>` tag (public files can't be module-imported through Vite), exposing `window.ort`. Pure preprocessing (grayscale→resize→optional ImageNet normalization) + heatmap/regression decode live in `lib/landmarkModel.js`; model manifest in `data/landmarkModelInfo.js`; weights fetched (SHA-256 verified, Cache Storage) via `storage/modelCache.js`. `data/landmarkMap.js` defines two vocabularies — `isbi19` (default, cwlachap HRNet-W32, MIT) and `cepha29` (CephaloHRNet) — mapping symbols onto in-app template labels and providing a deterministic demo detector used when no runtime/weights are configured. `workspace/autoTrace.js` inserts detected points (`placed:true`, linked by `templateId`) + auto-measurements as one undo step; "AI Trace" button + verify banner in `MarkupsPanel` (demo runs are labelled as non-anatomical placeholders). Conversion/training pipeline in `scripts/convert-hrnet19-onnx.py` + `scripts/export-landmark-onnx.py` + `scripts/setup-ort.mjs` (npm `setup:ort`) + `scripts/train-cepha29/README.md`. The 19-landmark model was converted and verified locally: FP32 `public/models/landmarks-hrnet19.onnx` (109 MB) + INT8 `.int8.onnx` (28 MB); ORT runtime in `public/ort/` (both gitignored). Defaults point at `/models/landmarks-hrnet19.int8.onnx` + `/ort/ort.min.js`. Browser-verified end-to-end (headless Chrome): ORT script load → session → inference `[1,19,192,192]`. Decoding uses **DARK** (Gaussian-smoothed log-heatmap + Taylor refinement) in `lib/landmarkModel.js` — the main accuracy win; measured on 20 ISBI test images (offline harness `scripts/eval-landmark-model.py`): **INT8+DARK ≈ 2.6 mm MRE / ~41% SDR@2 mm**, vs ~3.1 mm / 33% for argmax decoding. FP32 gives the same MRE; TTA (flip/scale) did **not** help and CLAHE was neutral, so both were dropped. The JS DARK decoder was cross-checked against the Python reference (max Δ ≈ 0.05 mm). 42 new tests (`landmarkMap`, `landmarkModel`, `shapeModel`, `autoTrace`, `modelCache`). A **statistical shape model (SSM)** refinement (`lib/shapeModel.js`; PCA prior `data/shapeModel.isbi19.json` built by `scripts/build-shape-model.py` from 350 ISBI shapes) projects predictions onto the shape subspace (pose-invariant, confidence-weighted, ±3σ clipped): measured **MRE 2.27 mm / ~52% SDR@2 mm** (further ~14% MRE cut, +10 pp SDR@2), verified against the Python reference (max Δ ≈ 0.008 mm). Note: `onnxruntime-web`/PyPI are blocked in the sandbox; wheels were fetched directly from PyPI and the ORT dist from jsDelivr to build this.
 
+- **CEPHA29 (A3) training tooling**: `scripts/train-cepha29/kaggle-notebook.ipynb` trains a 29-landmark HRNet-W32 on CEPHA29 via CephaloHRNet on a free Kaggle T4 (768², pretrained backbone, AMP) then exports ONNX; `scripts/export-landmark-onnx.py` now emits **web-compatible static QDQ INT8** (dynamic → ConvInteger → unusable in onnxruntime-web) with `--calib-dir` + `--verify`; `scripts/build-shape-model.py --set cepha29` builds the 29-landmark SSM prior; `scripts/eval-landmark-model.py` gained a `--set cepha29` path. `lib/shapeModel.js` now holds a per-set prior registry (`registerShapeModel`/`getShapeModel`) and `landmarkDetector` refines only when a prior exists for the active set. Activate by training → exporting → hosting the weights, then setting `landmarkSet: "cepha29"`, `enabled: true` in `landmarkModelInfo.js` (plus the Phase-2 CSP/asset work). 2 new tests.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -478,7 +480,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 508 tests pass (28 test files, 0 failures)
+- `npm test` — 510 tests pass (28 test files, 0 failures)
+
 
 
 

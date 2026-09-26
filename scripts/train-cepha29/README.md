@@ -45,10 +45,11 @@ copy landmarks-hrnet19.int8.onnx public\models\
 
 ## Full path — train CEPHA29 (29 landmarks)
 
-Uses the MIT-licensed [CephaloHRNet](https://github.com/Cestovatels/CephaloHRNet)
-project, then exports with `scripts/export-landmark-onnx.py`.
+Recommended: run the ready-made **Kaggle notebook**
+(`scripts/train-cepha29/kaggle-notebook.ipynb`) on a free **T4**. It clones
+CephaloHRNet, trains, and exports the ONNX.
 
-## 1. Get the dataset
+### 1. Get the dataset
 
 CEPHA29 / Aariz — 1,000 lateral cephalograms, 29 landmarks, free for research:
 
@@ -74,45 +75,66 @@ A ANS B Me N Or Pog PNS Pn R S Ar Co Gn Go Po
 LPM LIT LMT UPM UIA UIT UMT LIA Li Ls N` Pog` Sn
 ```
 
-## 2. Train
+### 2. Train
+
+**Kaggle (recommended):** create a notebook with Accelerator *GPU T4 x2*, add
+the `felixtemko/cepha29` dataset, enable Internet, then run
+`kaggle-notebook.ipynb`. Training command it uses:
 
 ```bash
-git clone https://github.com/Cestovatels/CephaloHRNet.git
-cd CephaloHRNet
-python -m venv venv && venv\Scripts\activate        # Windows
-pip install -r requirements.txt
-
-python train.py --data Dataset --model hrnet_w32 \
-  --epochs 200 --batch 8 --amp --device cuda
+python train.py --data $DATASET --model hrnet_w32 \
+  --imgsz 768 --batch 4 --epochs 200 --loss awing --amp --device 0 \
+  --pretrained --average_ann --workers 2 --patience 30 --name cepha29_w32_768
 ```
+
+`imgsz` is **square** (the app resizes to `inputSize × inputSize`). ~5–10 h on a
+T4 at 768² (drop to `--imgsz 512` if needed). Enable “Save Version” and resume
+from `last.pt` — Kaggle sessions cap at 12 h.
 
 `runs/train/<name>/best.pt` is the checkpoint to export.
 
-## 3. Export to ONNX
+### 3. Export to ONNX (web-compatible)
 
 ```bash
-python ../scripts/export-landmark-onnx.py \
-  --repo . \
-  --weights runs/train/<name>/best.pt \
-  --model hrnet_w32 --input-size 512 --quantize
+python scripts/export-landmark-onnx.py \
+  --repo ../CephaloHRNet \
+  --weights ../CephaloHRNet/runs/train/<name>/best.pt \
+  --model hrnet_w32 --num-landmarks 29 --input-size 768 \
+  --quantize --calib-dir ./sample-cephs --verify sample.jpg
 ```
 
-## 4. Publish + wire up
+INT8 is **static QDQ** (the script's default). **Never** use dynamic
+quantization — it emits `ConvInteger`, which onnxruntime-web cannot run, and the
+app silently falls back to its demo detector. `--verify` writes an overlay PNG
+labelling each channel with its index + symbol so you can confirm the CEPHA29
+order.
 
-1. Upload `landmarks-hrnet.int8.onnx` to a GitHub Release (or HuggingFace).
-2. Set in `src/data/landmarkModelInfo.js`:
+### 4. Publish + wire up
+
+1. Upload `landmarks-cepha29.int8.onnx` to a GitHub Release (or HuggingFace).
+2. Set in `src/data/landmarkModelInfo.js` (`enabled: true`, `landmarkSet: "cepha29"`):
 
 ```js
-url: "https://github.com/<you>/<repo>/releases/download/<tag>/landmarks-hrnet.int8.onnx",
-sha256: "<printed by the export script>",
-inputSize: 512,
+enabled: true,
+landmarkSet: "cepha29",
+inputSize: 768,
 inputChannels: 3,
-ortUrl: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js",
-wasmPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
+normalize: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
+decode: { dark: true, sigma: 2 },
+refine: { shape: true, alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2 },
+url: "https://github.com/<you>/<repo>/releases/download/<tag>/landmarks-cepha29.int8.onnx",
+sha256: "<printed by the export script>",
 ```
 
-Until `url` and `ortUrl` are both set, the app runs the deterministic demo
-detector so the auto-trace UI stays testable.
+3. Build the CEPHA29 shape prior (for the SSM refinement):
+
+```bash
+python scripts/build-shape-model.py --set cepha29 \
+  --ann-dir "<Dataset>/train/Annotations/Cephalometric Landmarks/Senior Orthodontists"
+```
+
+4. Deployment: `vercel.json` must allow WebAssembly (`'wasm-unsafe-eval'`) and
+   the model host (`connect-src`). See the top-level README / AGENTS notes.
 
 ## Licensing
 

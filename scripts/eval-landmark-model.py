@@ -35,8 +35,12 @@ ANN_URL = "https://raw.githubusercontent.com/stolariks/medical-landmark-detectio
 IMG_URL = "https://raw.githubusercontent.com/stolariks/medical-landmark-detection/main/data/isbi-2015/test/cepha400/{}"
 CACHE = os.path.join(os.environ.get("TEMP", "/tmp"), "opencode", "isbi")
 
-SYMS = ["S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
-        "L1", "U1", "UL", "LL", "Sn", "Pog'", "PNS", "ANS", "Ar"]
+ISBI19 = ["S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
+          "L1", "U1", "UL", "LL", "Sn", "Pog'", "PNS", "ANS", "Ar"]
+CEPHA29 = ["A", "ANS", "B", "Me", "N", "Or", "Pog", "PNS", "Pn", "R", "S",
+           "Ar", "Co", "Gn", "Go", "Po", "LPM", "LIT", "LMT", "UPM", "UIA",
+           "UIT", "UMT", "LIA", "Li", "Ls", "N`", "Pog`", "Sn"]
+SYMS = ISBI19
 NUM = len(SYMS)
 INPUT = 768
 MEAN = np.array([0.485, 0.456, 0.406], np.float32)
@@ -72,6 +76,43 @@ def load_image(name):
     os.makedirs(CACHE, exist_ok=True)
     path = _fetch(IMG_URL.format(name), os.path.join(CACHE, name))
     return Image.open(path).convert("RGB")
+
+
+def load_annotations_cepha29(ann_dir):
+    """Read CEPHA29 annotation JSONs -> {ceph_id: (NUM, 2)} in CEPHA29 order."""
+    import glob
+    import json
+
+    out = {}
+    for path in sorted(glob.glob(os.path.join(ann_dir, "*.json"))):
+        try:
+            data = json.load(open(path, "r", encoding="utf-8"))
+        except Exception:
+            continue
+        by = {}
+        for lm in data.get("landmarks", []):
+            v = lm.get("value") or {}
+            if lm.get("symbol") and "x" in v and "y" in v:
+                by[lm["symbol"]] = (float(v["x"]), float(v["y"]))
+        if not all(s in by for s in CEPHA29):
+            continue
+        cid = data.get("ceph_id") or os.path.splitext(os.path.basename(path))[0]
+        out[cid] = np.array([by[s] for s in CEPHA29], np.float32)
+    return out
+
+
+def load_spacing_csv(path):
+    """Optional CSV: ceph_id, mm_per_pixel (uses the first and last columns)."""
+    mapping = {}
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for i, row in enumerate(csv.reader(f)):
+            if not row:
+                continue
+            try:
+                mapping[row[0]] = float(row[-1])
+            except ValueError:
+                continue  # header
+    return mapping
 
 
 def clahe(gray_u8, clip=2.0, tiles=8):
@@ -246,6 +287,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="public/models/landmarks-hrnet19.onnx")
     ap.add_argument("--limit", type=int, default=20)
+    ap.add_argument("--set", default="isbi19", choices=["isbi19", "cepha29"], dest="set_name")
+    ap.add_argument("--ann-dir", default=None, help="cepha29: annotation JSON directory")
+    ap.add_argument("--images", default=None, help="cepha29: image directory")
+    ap.add_argument("--pixel-mm", type=float, default=PIXEL_MM, help="mm per pixel (ISBI default 0.1)")
+    ap.add_argument("--spacing-csv", default=None, help="cepha29: ceph_id,mm_per_px CSV")
     ap.add_argument("--dark", action="store_true", help="DARK sub-pixel decoding")
     ap.add_argument("--sigma", type=float, default=2.0, help="Gaussian sigma for DARK")
     ap.add_argument("--tta-flip", action="store_true")
@@ -260,24 +306,46 @@ def main():
     ap.add_argument("--labels", action="store_true", help="print per-landmark errors")
     args = ap.parse_args()
     args.scales = [float(s) for s in args.tta_scales.split(",")]
-    ssm = load_ssm(args.ssm) if args.ssm else None
 
-    ann = load_annotations()
-    names = [n for n in ann if n.endswith(".jpg")][: args.limit]
+    global SYMS, NUM
+    if args.set_name == "cepha29":
+        SYMS, NUM = CEPHA29, len(CEPHA29)
+
+    ssm = load_ssm(args.ssm) if args.ssm else None
     sess = ort.InferenceSession(args.model, providers=["CPUExecutionProvider"])
+
+    spacing = load_spacing_csv(args.spacing_csv) if args.spacing_csv else {}
+    cases = []  # (image_source, gt, mm_per_px)
+    if args.set_name == "cepha29":
+        if not (args.ann_dir and args.images):
+            raise SystemExit("--set cepha29 requires --ann-dir and --images")
+        import glob
+        ann = load_annotations_cepha29(args.ann_dir)
+        imgs = []
+        for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tif", "*.tiff"):
+            imgs += glob.glob(os.path.join(args.images, ext))
+        for path in sorted(imgs):
+            stem = os.path.splitext(os.path.basename(path))[0]
+            if stem in ann:
+                cases.append((path, ann[stem], spacing.get(stem, args.pixel_mm)))
+        cases = cases[: args.limit]
+    else:
+        ann = load_annotations()
+        names = [n for n in ann if n.endswith(".jpg")][: args.limit]
+        cases = [(n, ann[n], PIXEL_MM) for n in names]
 
     per = []
     used = 0
-    for name in names:
+    for src, gt, mm in cases:
         try:
-            img = load_image(name)
+            img = Image.open(src).convert("RGB") if os.path.exists(src) else load_image(src)
         except Exception as e:
-            print("skip", name, e)
+            print("skip", src, e)
             continue
         pred, conf = predict(sess, img, args)
         if ssm is not None:
             pred = refine_ssm(pred, conf, ssm, alpha=args.ssm_alpha, reg=args.ssm_reg, k=args.ssm_k, wmin=args.ssm_wmin, iters=args.ssm_iters)
-        per.append(np.linalg.norm(pred - ann[name], axis=1) * PIXEL_MM)
+        per.append(np.linalg.norm(pred - gt, axis=1) * mm)
         used += 1
 
     E = np.concatenate(per)
