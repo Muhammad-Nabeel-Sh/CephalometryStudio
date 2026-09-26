@@ -7,7 +7,8 @@ import { MarkupGearSettings } from "./MarkupGearSettings.jsx";
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUPS PANEL
 // ═══════════════════════════════════════════════════════════════════════════════
-export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete, onToggleVisible, onToggleLock, onToggleLabel, onToggleGroupVisible, onReplace, replacingId, calibration, placingMode, placingQueue, placingIdx, onStopPlacing, onPausePlacing, onResumePlacing, onClear, onAddPoint, norms, formatAngle, angleMode, setAngleMode, dispatch, showCpAlways, showAnchorAlways,
+export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete, onToggleVisible, onToggleLock, onToggleLabel, onToggleGroupVisible, onReplace, replacingId, calibration, placingMode, placingQueue, placingIdx, onStopPlacing, onPausePlacing, onResumePlacing,   onClear, onAddPoint, norms, formatAngle, angleMode, setAngleMode, dispatch, showCpAlways, showAnchorAlways,
+  onAutoTrace, autoTraceBusy, autoTraceInfo, onAutoTraceDismiss,
   showAnnotations, setShowAnnotations, annotationSize, setAnnotationSize,
   showDefTooltips, setShowDefTooltips, showDisplacement, setShowDisplacement,
   showGrid, setShowGrid, showAirwayOverlay, setShowAirwayOverlay,
@@ -63,6 +64,12 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
       )}
       <div style={{ padding: "8px 10px", display: "flex", gap: 4, borderBottom: `1px solid ${t.bdr}`, flexShrink: 0, flexWrap: "nowrap", overflowX: "auto" }}>
         <Btn t={t} small onClick={onAddPoint} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>+ Point</Btn>
+        {onAutoTrace && (
+          <Btn t={t} small onClick={autoTraceBusy ? undefined : onAutoTrace} title="AI auto-trace landmarks"
+            style={{ whiteSpace: "nowrap", flexShrink: 0, background: autoTraceBusy ? t.surf2 : t.accMuted, color: autoTraceBusy ? t.tx3 : t.acc, border: `1px solid ${t.acc}` }}>
+            {autoTraceBusy ? "Tracing…" : "AI Trace"}
+          </Btn>
+        )}
         {!placingMode && placingQueue.length === 0 && <Btn t={t} small onClick={onResumePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>▶ Start</Btn>}
         {!placingMode && placingQueue.length > 0 && <Btn t={t} small onClick={onResumePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>▶ Resume</Btn>}
         {placingMode && <Btn t={t} small onClick={onPausePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0, background: t.warn + "22", color: t.warn, border: `1px solid ${t.warn}` }}>⏸</Btn>}
@@ -90,6 +97,12 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
         <button onClick={() => setGuideKey("markups")}
           style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
       </div>
+      {autoTraceInfo && (
+        <div style={{ padding: "6px 10px", background: autoTraceInfo.tone === "err" ? t.err + "18" : autoTraceInfo.tone === "warn" ? t.warn + "18" : t.accMuted, borderBottom: `1px solid ${t.bdr}`, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ flex: 1, fontSize: 11, color: t.tx2 }}>{autoTraceInfo.message}</span>
+          {onAutoTraceDismiss && <button onClick={onAutoTraceDismiss} style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 13, flexShrink: 0 }}>×</button>}
+        </div>
+      )}
       {sections.map(sec => {
         const items = markups.filter(m => sec.types.includes(m.type));
         if (items.length === 0) return null;

@@ -60,6 +60,8 @@ import { loadNormLibrary, saveNormLibrary } from "./data/normLibrary.js";
 import { createRedraw } from "./canvas/redraw.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { autoCreateMeasurements } from "./workspace/template.js";
+import { runAutoTrace } from "./workspace/autoTrace.js";
+import { LANDMARK_MODEL } from "./data/landmarkModelInfo.js";
 import {
   refreshAutoMeasurements,
   markupDefaults,
@@ -1790,7 +1792,13 @@ function Workspace({
 
   const updSessionRef = useRef();
   updSessionRef.current = (patch) =>
-    onUpdateProject(updateSessionInProject(project, activeSession.id, patch));
+    // Apply to the LATEST project (functional update), not the render's snapshot.
+    // Two updSession calls in one tick (e.g. loadImageFile: images then
+    // calibration) would otherwise both rebuild from the same stale project and
+    // the second would clobber the first.
+    onUpdateProject((prev) =>
+      updateSessionInProject(prev, activeSession.id, patch),
+    );
   const updSession = useCallback((patch) => {
     updSessionRef.current(patch);
     // Mirror project-side session writes back into the Zustand store so the canvas
@@ -2082,17 +2090,24 @@ function Workspace({
     const lm = useSessionStore.getState().lutMode;
     const li = useSessionStore.getState().lutInvert;
     const key = `${imgEntry.id}-${JSON.stringify(p)}-${lm}-${li}`;
-    if (!procCache.current.has(key)) {
-      for (const k of procCache.current.keys())
-        if (k.startsWith(imgEntry.id + "-") && k !== key)
-          procCache.current.delete(k);
-      procCache.current.set(
-        key,
-        processImageToCanvas(imgRefs.current[imgEntry.id], p, lm, li),
-      );
-    }
+    const cached = procCache.current.get(key);
+    if (cached) return cached;
+    const processed = processImageToCanvas(
+      imgRefs.current[imgEntry.id],
+      p,
+      lm,
+      li,
+    );
+    // Don't cache a miss: the image may not be decoded yet (e.g. right after a
+    // session switch). Caching null here would permanently hide the image even
+    // after it loads.
+    if (!processed) return null;
+    for (const k of procCache.current.keys())
+      if (k.startsWith(imgEntry.id + "-") && k !== key)
+        procCache.current.delete(k);
+    procCache.current.set(key, processed);
     staticDirtyRef.current = true;
-    return procCache.current.get(key);
+    return processed;
   }, []);
 
   // F7: clear processed-image cache when switching sessions
@@ -4321,6 +4336,46 @@ function Workspace({
   const setSnapTolerance = (v) =>
     _set({ snapTolerance: typeof v === "function" ? v(snapTolerance) : v });
 
+  const [autoTraceBusy, setAutoTraceBusy] = useState(false);
+  const [autoTraceInfo, setAutoTraceInfo] = useState(null);
+  const handleAutoTrace = useCallback(async () => {
+    const target = sessionImage?.[0] ? imgRefs.current[sessionImage[0].id] : null;
+    if (!target) {
+      setAutoTraceInfo({ message: "Load an image before running auto-trace.", tone: "warn" });
+      return;
+    }
+    setAutoTraceBusy(true);
+    setAutoTraceInfo({ message: "Detecting landmarks…", tone: "info" });
+    try {
+      const template =
+        analysisTemplate && analysisTemplate !== "blank"
+          ? analysisTemplate
+          : "General Ceph Analysis";
+      const summary = await runAutoTrace({
+        imageInput: target,
+        templateName: template,
+        calibration,
+        store: useSessionStore.getState(),
+      });
+      const parts = [`AI placed ${summary.added} landmark${summary.added === 1 ? "" : "s"}`];
+      if (summary.measurements) parts.push(`${summary.measurements} measurement${summary.measurements === 1 ? "" : "s"}`);
+      if (summary.skipped) parts.push(`${summary.skipped} already placed`);
+      const isDemo = summary.backend === "mock";
+      const message = isDemo
+        ? summary.added
+          ? `Demo detector placed ${summary.added} placeholder points — these are NOT anatomically accurate. Configure a trained model to trace real landmarks.`
+          : "Demo detector found nothing to add."
+        : summary.added
+          ? `${parts.join(", ")}. Verify each point.`
+          : "No new landmarks detected.";
+      setAutoTraceInfo({ message, tone: isDemo || !summary.added ? "warn" : "ok" });
+    } catch (e) {
+      setAutoTraceInfo({ message: `Auto-trace failed: ${e?.message || e}`, tone: "err" });
+    } finally {
+      setAutoTraceBusy(false);
+    }
+  }, [sessionImage, analysisTemplate, calibration]);
+
   // ── Panel prop bundles ──
   const pMarkups = {
     markups,
@@ -4424,6 +4479,17 @@ function Workspace({
         payload: { activeTool: "point", currentDraw: null },
       });
     },
+    // AI auto-trace is gated off in production until the model/ORT assets are
+    // hosted (Phase 2). Dev always shows it. MarkupsPanel hides the button when
+    // `onAutoTrace` is absent.
+    ...(LANDMARK_MODEL.enabled || import.meta.env.DEV
+      ? {
+          onAutoTrace: handleAutoTrace,
+          autoTraceBusy,
+          autoTraceInfo,
+          onAutoTraceDismiss: () => setAutoTraceInfo(null),
+        }
+      : {}),
     onReplace: (type, id) => {
       if (replacingId === id) {
         dispatch({
@@ -5827,7 +5893,12 @@ export default function CephalometryStudio() {
       }
       setProjects(withRetention);
       if (withRetention.length > 0) {
-        setWelcome({ projectId: withRetention[0].id });
+        // Offer the MOST RECENTLY MODIFIED project (projects are stored in
+        // insertion order, so [0] would be the oldest).
+        const mostRecent = withRetention.reduce((a, b) =>
+          (b.modified || 0) > (a.modified || 0) ? b : a,
+        );
+        setWelcome({ projectId: mostRecent.id });
       }
       setLoaded(true);
     })();
@@ -5910,7 +5981,11 @@ export default function CephalometryStudio() {
     dirtyRef.current = true;
     setProjects((prev) =>
       prev.map((p) =>
-        p.id === id ? { ...p, ...patch, modified: Date.now() } : p,
+        p.id === id
+          ? typeof patch === "function"
+            ? patch(p)
+            : { ...p, ...patch, modified: Date.now() }
+          : p,
       ),
     );
   };

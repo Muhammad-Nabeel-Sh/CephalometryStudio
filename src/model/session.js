@@ -38,7 +38,10 @@ export function updateSession(session, patch) {
 export function mkReliabilitySession(baseSession, operatorId, trialNumber) {
   const s = mkSession({
     name: (baseSession.name || "Untitled") + " (Reliability)",
-    images: (baseSession.images || []).map(img => ({ ...img, id: uid() })),
+    // Keep image ids: image bytes are shared (IndexedDB blob keyed by id, and
+    // session.images[].dataUrl is stripped to null after a save). New ids would
+    // have neither a dataUrl nor a blob, so the image would never load.
+    images: (baseSession.images || []).map(img => ({ ...img })),
     calibration: baseSession.calibration,
     subjectId: baseSession.subjectId,
     processing: baseSession.processing,
@@ -59,7 +62,9 @@ export function duplicateSession(session) {
     ...session,
     label: session.label ? session.label + "c" : "",
     name: "Copy of " + session.name,
-    images: (session.images || []).map(img => ({ ...img, id: uid() })),
+    // Keep image ids — see mkReliabilitySession. Markups/formulas/norms are
+    // per-session objects, so those still get fresh ids.
+    images: (session.images || []).map(img => ({ ...img })),
     markups: (session.markups || []).map(m => ({ ...m, id: uid() })),
     formulas: (session.formulas || []).map(f => ({ ...f, id: uid() })),
     norms: (session.norms || []).map(n => ({ ...n, id: uid() })),

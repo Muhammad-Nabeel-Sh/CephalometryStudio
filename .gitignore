@@ -29,3 +29,10 @@ lint.txt
 lint_output.txt
 trace.cjs
 check.cjs
+
+# AI model assets (fetched/converted locally — not committed)
+public/ort/
+public/models/
+*.onnx
+*-verify.png
+__pycache__/

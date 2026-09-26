@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "icons": "node scripts/generate-icons.mjs",
+    "setup:ort": "node scripts/setup-ort.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
