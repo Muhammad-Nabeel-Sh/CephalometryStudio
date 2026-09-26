@@ -34,9 +34,9 @@ import os
 import sys
 
 # CEPHA29 output-channel order — must match src/data/landmarkMap.js `CEPHA29`.
-CEPHA29 = ["A", "ANS", "B", "Me", "N", "Or", "Pog", "PNS", "Pn", "R", "S",
-           "Ar", "Co", "Gn", "Go", "Po", "LPM", "LIT", "LMT", "UPM", "UIA",
-           "UIT", "UMT", "LIA", "Li", "Ls", "N`", "Pog`", "Sn"]
+CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
+           "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
+           "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
 MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
 

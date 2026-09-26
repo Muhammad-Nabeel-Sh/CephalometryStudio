@@ -36,9 +36,9 @@ ISBI_ANN_URL = "https://raw.githubusercontent.com/stolariks/medical-landmark-det
 ISBI19 = ["S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
           "L1", "U1", "UL", "LL", "Sn", "Pog'", "PNS", "ANS", "Ar"]
 
-CEPHA29 = ["A", "ANS", "B", "Me", "N", "Or", "Pog", "PNS", "Pn", "R", "S",
-           "Ar", "Co", "Gn", "Go", "Po", "LPM", "LIT", "LMT", "UPM", "UIA",
-           "UIT", "UMT", "LIA", "Li", "Ls", "N`", "Pog`", "Sn"]
+CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
+           "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
+           "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
 
 SETS = {"isbi19": ISBI19, "cepha29": CEPHA29}
 

@@ -23,10 +23,13 @@ describe("landmark sets", () => {
     expect(DEFAULT_LANDMARK_SET).toBe("isbi19");
   });
 
-  it("keeps the CEPHA29 channel order stable", () => {
-    expect(CEPHA29_ORDER[0]).toBe("A");
-    expect(CEPHA29_ORDER[28]).toBe("Sn");
-    expect(cepha29SymbolAt(10)).toBe("S");
+  it("keeps the CEPHA29 channel order stable (CephaloHRNet LANDMARK_SYMBOLS)", () => {
+    expect(CEPHA29_ORDER).toEqual([
+      "A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
+      "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
+      "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM",
+    ]);
+    expect(cepha29SymbolAt(10)).toBe("LPM");
     expect(cepha29SymbolAt(999)).toBeNull();
   });
 

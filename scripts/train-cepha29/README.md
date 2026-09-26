@@ -72,12 +72,13 @@ Dataset/
 └── test/
 ```
 
-The annotation JSON symbol order defines the model's output channel order and
-**must** match `CEPHA29` in `src/data/landmarkMap.js`:
+The annotation JSON symbol order defines the model's output channel order
+(CephaloHRNet `data/dataset.py` → `LANDMARK_SYMBOLS`) and **must** match
+`CEPHA29` in `src/data/landmarkMap.js`:
 
 ```
-A ANS B Me N Or Pog PNS Pn R S Ar Co Gn Go Po
-LPM LIT LMT UPM UIA UIT UMT LIA Li Ls N` Pog` Sn
+A ANS Ar B Co Gn Go LIA LIT LMT LPM Li Ls Me N N`
+Or PNS Pn Po Pog Pog` R S Sn UIA UIT UMT UPM
 ```
 
 ### 2. Train

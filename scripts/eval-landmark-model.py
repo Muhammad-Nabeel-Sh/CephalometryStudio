@@ -37,9 +37,9 @@ CACHE = os.path.join(os.environ.get("TEMP", "/tmp"), "opencode", "isbi")
 
 ISBI19 = ["S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
           "L1", "U1", "UL", "LL", "Sn", "Pog'", "PNS", "ANS", "Ar"]
-CEPHA29 = ["A", "ANS", "B", "Me", "N", "Or", "Pog", "PNS", "Pn", "R", "S",
-           "Ar", "Co", "Gn", "Go", "Po", "LPM", "LIT", "LMT", "UPM", "UIA",
-           "UIT", "UMT", "LIA", "Li", "Ls", "N`", "Pog`", "Sn"]
+CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
+           "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
+           "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
 SYMS = ISBI19
 NUM = len(SYMS)
 INPUT = 768
