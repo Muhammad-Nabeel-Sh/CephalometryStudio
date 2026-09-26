@@ -51,10 +51,15 @@ CephaloHRNet, trains, and exports the ONNX.
 
 ### 1. Get the dataset
 
-CEPHA29 / Aariz — 1,000 lateral cephalograms, 29 landmarks, free for research:
+CEPHA29 = the **Aariz Cephalometric Dataset** — 1,000 lateral cephalograms,
+29 landmarks, **CC BY 4.0** (attribution required):
 
-- Kaggle: <https://www.kaggle.com/datasets/felixtemko/cepha29>
-- Figshare (Aariz): <https://figshare.com/articles/dataset/Aariz/22149727>
+- Figshare (primary): <https://doi.org/10.6084/m9.figshare.27986417> — `Aariz.zip` (~1.95 GB)
+- Code: <https://github.com/manwaarkhd/aariz> (MIT)
+
+The Kaggle mirror (`felixtemko/cepha29`) no longer exists — the notebook now
+**auto-downloads `Aariz.zip` from Figshare** (Kaggle Internet must be On) and
+verifies its md5 before extracting.
 
 Expected layout (CephaloHRNet built-in support):
 
@@ -139,5 +144,5 @@ python scripts/build-shape-model.py --set cepha29 \
 ## Licensing
 
 - CephaloHRNet code: MIT.
-- CEPHA29/Aariz dataset: free for research — verify terms before commercial use.
-- Model weights derived from the dataset inherit those constraints.
+- CEPHA29 / Aariz dataset: **CC BY 4.0** (commercial use allowed with attribution).
+- Model weights derived from the dataset are subject to the same attribution.
