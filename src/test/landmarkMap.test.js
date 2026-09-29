@@ -60,10 +60,17 @@ describe("symbol → app label mapping", () => {
     expect(appLabelForSymbol("Pog`", "cepha29")).toBe("Pog'");
   });
 
-  it("drops CEPHA29 landmarks with no in-app equivalent", () => {
-    for (const s of ["R", "LPM", "LMT", "UPM", "UMT", "N`"]) {
-      expect(appLabelForSymbol(s, "cepha29")).toBeNull();
-    }
+  it("maps the CEPHA29 dental/soft-tissue landmarks", () => {
+    expect(appLabelForSymbol("R", "cepha29")).toBe("R");
+    expect(appLabelForSymbol("LPM", "cepha29")).toBe("LPM");
+    expect(appLabelForSymbol("LMT", "cepha29")).toBe("LMT");
+    expect(appLabelForSymbol("UPM", "cepha29")).toBe("UPM");
+    expect(appLabelForSymbol("UMT", "cepha29")).toBe("UMT");
+    expect(appLabelForSymbol("N`", "cepha29")).toBe("N'");
+  });
+
+  it("maps every CEPHA29 landmark to an app label", () => {
+    for (const l of CEPHA29) expect(l.app).toBeTruthy();
   });
 
   it("maps every ISBI-19 landmark to an app label", () => {

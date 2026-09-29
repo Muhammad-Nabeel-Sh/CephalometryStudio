@@ -4,6 +4,8 @@ import {
   buildDetectionMarkups,
   applyDetections,
 } from "../workspace/autoTrace.js";
+import { PREDEFINED } from "../data/constants.js";
+import { CEPHA29 } from "../data/landmarkMap.js";
 
 const CAL = { done: false, pxPerMm: 1 };
 
@@ -34,14 +36,21 @@ describe("findAnalysis", () => {
 });
 
 describe("buildDetectionMarkups — template-aware mapping", () => {
-  it("keeps landmarks present in the General Ceph template and drops the rest", () => {
+  it("keeps every detected landmark present in General Ceph (29-pt superset)", () => {
     const detections = [
       det("S", 10, 10), det("N", 20, 10), det("A", 15, 20), det("B", 15, 30),
       det("R", 40, 40), det("UIT", 12, 28), det("Ls", 5, 25),
     ];
     const { points, unmapped } = buildDetectionMarkups(detections, "General Ceph Analysis", [], "cepha29");
-    expect(points.map(p => p.label).sort()).toEqual(["A", "B", "Is", "N", "S"]);
-    expect(unmapped).toBe(2); // R has no app label, Ls→UL is not in this template
+    expect(points.map(p => p.label).sort()).toEqual(["A", "B", "Is", "N", "R", "S", "UL"]);
+    expect(unmapped).toBe(0);
+  });
+
+  it("drops landmarks not defined by a restrictive template", () => {
+    const detections = [det("S", 1, 1), det("N", 2, 2), det("A", 3, 3), det("B", 4, 4), det("UIT", 5, 5)];
+    const { points, unmapped } = buildDetectionMarkups(detections, "Wits Analysis", [], "cepha29");
+    expect(points.map(p => p.label).sort()).toEqual(["A", "B", "N"]); // Wits: A,B,Po,Or,Ba,N,APOcc,PPOcc
+    expect(unmapped).toBe(2); // S and Is are not in Wits
   });
 
   it("links points with the immutable templateId", () => {
@@ -95,5 +104,27 @@ describe("applyDetections — single undoable mutation", () => {
     const summary = applyDetections(store, [det("S", 5, 5)], "General Ceph Analysis", CAL);
     expect(summary.added).toBe(0);
     expect(store.pushUndo).not.toHaveBeenCalled();
+  });
+});
+
+describe("General Ceph Analysis — AI-ready superset", () => {
+  const general = PREDEFINED.lateral.find((a) => a.name === "General Ceph Analysis");
+  const steiner = PREDEFINED.lateral.find((a) => a.name === "Steiner Analysis");
+
+  it("defines a point for every CEPHA29 landmark (full 29)", () => {
+    const labels = new Set(general.pts.map((p) => p.l));
+    for (const l of CEPHA29) expect(labels.has(l.app)).toBe(true);
+  });
+
+  it("inherits every Steiner measurement", () => {
+    const labels = new Set((general.measurements || []).map((m) => m.l));
+    for (const m of steiner.measurements) expect(labels.has(m.l)).toBe(true);
+  });
+
+  it("places all 29 CEPHA29 landmarks under General Ceph", () => {
+    const detections = CEPHA29.map((l, i) => det(l.symbol, i, i));
+    const { points, unmapped } = buildDetectionMarkups(detections, "General Ceph Analysis", [], "cepha29");
+    expect(points).toHaveLength(29);
+    expect(unmapped).toBe(0);
   });
 });
