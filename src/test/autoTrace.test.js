@@ -57,9 +57,9 @@ describe("buildDetectionMarkups — template-aware mapping", () => {
     expect(unmapped).toBe(0);
   });
 
-  it("maps the ISBI-19 symbols (U1/L1/UL/LL/Pog') by default", () => {
+  it("maps the ISBI-19 symbols (U1/L1/UL/LL/Pog') when the set is isbi19", () => {
     const detections = [det("U1", 1, 1), det("L1", 1, 2), det("UL", 1, 3), det("LL", 1, 4), det("Pog'", 1, 5), det("S", 1, 6)];
-    const { points, unmapped } = buildDetectionMarkups(detections, "Steiner Analysis");
+    const { points, unmapped } = buildDetectionMarkups(detections, "Steiner Analysis", [], "isbi19");
     expect(points.map(p => p.label).sort()).toEqual(["Ii", "Is", "LL", "Pog'", "S", "UL"]);
     expect(unmapped).toBe(0);
   });

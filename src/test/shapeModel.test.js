@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { refineShape, SHAPE_MODEL, getShapeModel, registerShapeModel } from "../lib/shapeModel.js";
+import { CEPHA29_ORDER } from "../data/landmarkMap.js";
 
 const N = 19;
 const meanPts = [];
@@ -64,5 +65,27 @@ describe("shape-model registry", () => {
     bad[2] = { x: bad[2].x + 0.5, y: bad[2].y };
     const out = refineShape(bad, ones, { set: "unit", alpha: 1, reg: 0.05, k: 6 });
     expect(dist(out[2], meanPts[2])).toBeLessThan(dist(bad[2], meanPts[2]));
+  });
+});
+
+describe("CEPHA29 prior", () => {
+  const prior = getShapeModel("cepha29");
+
+  it("ships a 29-landmark prior in channel order", () => {
+    expect(prior).toBeTruthy();
+    expect(prior.landmarks).toEqual(CEPHA29_ORDER);
+    expect(prior.mean).toHaveLength(58);
+    expect(prior.components.length).toBeGreaterThan(0);
+  });
+
+  it("reduces deviation on a perturbed CEPHA29 shape", () => {
+    const pts = [];
+    for (let i = 0; i < 29; i++) pts.push({ x: prior.mean[2 * i], y: prior.mean[2 * i + 1] });
+    const ones29 = new Array(29).fill(1);
+    const bad = pts.map((p) => ({ ...p }));
+    bad[10] = { x: bad[10].x + 0.6, y: bad[10].y - 0.3 };
+    const maxdev = (a) => Math.max(...a.map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y)));
+    const out = refineShape(bad, ones29, { set: "cepha29", alpha: 1, reg: 0.05, k: 6 });
+    expect(maxdev(out)).toBeLessThan(maxdev(bad));
   });
 });

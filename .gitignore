@@ -30,8 +30,13 @@ lint_output.txt
 trace.cjs
 check.cjs
 
-# AI model assets (fetched/converted locally — not committed)
-public/ort/
+# AI model assets. The ONNX Runtime (wasm EP) is committed so the deployed site
+# can run inference offline; the model weights are fetched from Hugging Face at
+# runtime (checksum-verified, cached), so they are not committed.
+public/ort/*
+!public/ort/ort.wasm.min.js
+!public/ort/ort-wasm-simd-threaded.mjs
+!public/ort/ort-wasm-simd-threaded.wasm
 public/models/
 *.onnx
 *-verify.png

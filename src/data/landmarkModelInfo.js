@@ -1,58 +1,45 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // Landmark model manifest
 //
-// Defaults target the MIT-licensed 19-landmark HRNet-W32 (cwlachap / ISBI 2015).
-// The ONNX Runtime UMD build is self-hosted and loaded via a <script> tag:
+// Defaults target the CEPHA29 29-landmark HRNet-W32 (trained with CephaloHRNet on
+// the Aariz Cephalometric Dataset, CC BY 4.0). Weights are hosted on Hugging Face
+// and fetched (SHA-256 verified, Cache Storage) on first use; the ONNX Runtime
+// UMD build is self-hosted and loaded via a <script> tag:
 //
 //   npm run setup:ort            # copies onnxruntime-web dist -> public/ort/
 //
-// Then convert the checkpoint and drop it in place (no source edit needed):
-//
-//   python scripts/convert-hrnet19-onnx.py --quantize
-//   copy landmarks-hrnet19.onnx public\models\
-//
-// To host the weights elsewhere (GitHub Release / CDN) override `url` + `sha256`.
-// To load the runtime/wasm from a CDN instead of self-hosting, set `ortUrl` and
-// `wasmPaths` to the matching onnxruntime-web dist URLs, e.g.
-//   ortUrl:    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"
-//   wasmPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/"
+// The ISBI 19-landmark model (MIT, cwlachap) remains available by switching
+// `landmarkSet` to "isbi19" and pointing `url`/`sha256`/`version` at it.
 //
 // If `url` is blank the deterministic demo detector runs instead.
-//
-// For CEPHA29 (29 landmarks): run scripts/export-landmark-onnx.py and switch
-// `landmarkSet` to "cepha29" with the matching input size/channels.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const LANDMARK_MODEL = {
-  // Master switch for the AI auto-trace feature in production. The deployed
-  // site has no ONNX runtime/model assets yet (Phase 2), so this stays false
-  // until the model is hosted and the CSP allows wasm. Dev always enables it.
-  enabled: false,
-  version: "isbi19-hrnet-w32-v1",
-  landmarkSet: "isbi19",
+  // Master switch for the AI auto-trace feature in production. The weights are
+  // hosted on Hugging Face and the ORT runtime ships in public/ort/, so this is
+  // enabled everywhere; dev also enables it regardless.
+  enabled: true,
+  version: "cepha29-hrnet-w32-v1",
+  landmarkSet: "cepha29",
   inputSize: 768,
   inputChannels: 3,
   normalize: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
   decode: { dark: true, sigma: 2 },
   refine: { shape: true, alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2 },
-  url: "/models/landmarks-hrnet19.int8.onnx",
-  sha256: "284f07214ee5c126a29dc3933488df59ef7bea57b22639180118223da897ccec",
-  ortUrl: "/ort/ort.min.js",
+  url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-cepha29.int8.onnx",
+  sha256: "f7f1db9cc2de37c0fa94dab431d7d3446d1d8ffc62fa92e6610c2380af83080d",
+  ortUrl: "/ort/ort.wasm.min.js",
   wasmPaths: "/ort/",
 };
 
-// Measured on 20 ISBI test images (scripts/eval-landmark-model.py):
-//   argmax ~3.1 mm / 33% SDR@2  →  DARK ~2.6 mm / 41%  →  +SSM shape prior
-//   ~2.27 mm / ~52% SDR@2. DARK decoding + SSM refinement (`refine`) are the
-//   accuracy wins; FP32 gives the same MRE as INT8. TTA and CLAHE did not help.
-// The INT8 model MUST be static QDQ-quantized — dynamic quantization emits
-// ConvInteger, which onnxruntime-web does not implement (session create fails →
-// demo fallback). `sha256` is pinned so a stale/incompatible cached model is
-// rejected and re-fetched; update it whenever you regenerate the model.
-// For maximum size tolerance use "/models/landmarks-hrnet19.onnx" (109 MB FP32,
-// same ~2.6 mm); INT8 (28 MB) is the default.
+// CEPHA29 valid set (150 images), training-time metrics: MRE ~1.24 mm, SDR@2 mm
+// ~83%, SDR@3 mm ~94%. DARK decoding + SSM refinement (`refine`, prior in
+// shapeModel.cepha29.json) improve on this. The INT8 model MUST be static
+// QDQ-quantized — dynamic quantization emits ConvInteger, which onnxruntime-web
+// does not implement (session create fails → demo fallback). `sha256` is pinned
+// so a stale/incompatible cached model is rejected and re-fetched; update it
+// whenever you regenerate the model.
 
 export function isModelConfigured(model = LANDMARK_MODEL) {
   return Boolean(model?.url && model?.ortUrl);
 }
-

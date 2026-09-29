@@ -7,17 +7,18 @@
 // pose (the projection is done in a scale/rotation-normalized frame and
 // inverted back).
 //
-// Priors are registered per landmark-set key ("isbi19", "cepha29", …). Only
-// ISBI-19 ships in the repo; a CEPHA29 prior (shapeModel.cepha29.json) is added
-// once generated, e.g. with `python scripts/build-shape-model.py --set cepha29`.
+// Priors are registered per landmark-set key ("isbi19", "cepha29", …). Both
+// ship in the repo: shapeModel.isbi19.json and shapeModel.cepha29.json, the
+// latter built with `python scripts/build-shape-model.py --set cepha29`.
 //
 // Pure module: no DOM, no ML runtime — runs on the main thread after decoding,
 // and is unit-testable.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import isbi19 from "../data/shapeModel.isbi19.json";
+import cepha29 from "../data/shapeModel.cepha29.json";
 
-const PRIORS = { isbi19 };
+const PRIORS = { isbi19, cepha29 };
 
 // Register an additional set's prior (used once a CEPHA29 model is generated).
 export function registerShapeModel(setKey, model) {
