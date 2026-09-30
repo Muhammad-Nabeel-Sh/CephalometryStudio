@@ -59,8 +59,8 @@ import { ExamplesPanel } from "./panels/ExamplesPanel.jsx";
 import { loadNormLibrary, saveNormLibrary } from "./data/normLibrary.js";
 import { createRedraw } from "./canvas/redraw.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
-import { autoCreateMeasurements } from "./workspace/template.js";
-import { runAutoTrace } from "./workspace/autoTrace.js";
+import { autoCreateMeasurements, applyAnalysis, deriveNorms } from "./workspace/template.js";
+import { runAutoTrace, findAnalysis } from "./workspace/autoTrace.js";
 import { LANDMARK_MODEL } from "./data/landmarkModelInfo.js";
 import {
   refreshAutoMeasurements,
@@ -85,6 +85,7 @@ import { PANEL_ICONS, PANEL_TABS } from "./panels/panelIcons.jsx";
 import { RightPanelSidebar } from "./panels/RightPanelSidebar.jsx";
 import SessionFilmstrip from "./panels/SessionFilmstrip.jsx";
 import AnonModal from "./panels/AnonModal.jsx";
+import AnalysisModal from "./panels/AnalysisModal.jsx";
 import ResearchPanel from "./research/ResearchPanel.jsx";
 import InterpretationPanel from "./panels/InterpretationPanel.jsx";
 import NormogramPanel from "./panels/NormogramPanel.jsx";
@@ -2611,46 +2612,24 @@ function Workspace({
         const updatedMarkups = markups.map((m) =>
           m.id === qid ? { ...m, points: [ip], placed: true } : m,
         );
+        // Only instantiate measurements whose landmarks are all placed, so
+        // partially-placed analyses never show phantom (placeholder-coordinate) values.
+        const placedSet = new Set(
+          updatedMarkups
+            .filter((m) => m.type === "point" && m.placed)
+            .map((m) => m.templateLabel || m.label),
+        );
         const newAuto = autoCreateMeasurements(
           updatedMarkups,
           analysisTemplate,
           calibration,
+        ).filter((m) => (m.refLabels || []).every((rl) => placedSet.has(rl)));
+        const newNorms = deriveNorms(newAuto, analysisTemplate).filter(
+          (n) =>
+            !norms.some(
+              (x) => x.markupLabel === n.markupLabel && x.measureType === n.measureType,
+            ),
         );
-        const newNorms = [];
-        for (const m of newAuto) {
-          if (m.norm) {
-            const measureType =
-              m.type === "angle3" || m.type === "angle4"
-                ? "angle"
-                : m.type === "line"
-                  ? "length"
-                  : m.type === "polygon"
-                    ? "area"
-                    : m.type === "ratio" ||
-                        m.type === "sum" ||
-                        m.type === "difference" ||
-                        m.type === "percentage"
-                      ? "value"
-                      : m.type === "projDist"
-                        ? "projectedDistance"
-                        : "distance";
-            if (
-              !norms.some(
-                (n) =>
-                  n.markupLabel === m.label && n.measureType === measureType,
-              )
-            ) {
-              newNorms.push({
-                id: uid(),
-                markupLabel: m.label,
-                measureType,
-                mean: m.norm.mean,
-                sd: m.norm.sd,
-                source: analysisTemplate,
-              });
-            }
-          }
-        }
         pushUndo();
         updSession({
           markups: refreshAutoMeas([...updatedMarkups, ...newAuto]),
@@ -4338,6 +4317,7 @@ function Workspace({
 
   const [autoTraceBusy, setAutoTraceBusy] = useState(false);
   const [autoTraceInfo, setAutoTraceInfo] = useState(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const handleAutoTrace = useCallback(async () => {
     const target = sessionImage?.[0] ? imgRefs.current[sessionImage[0].id] : null;
     if (!target) {
@@ -4347,34 +4327,64 @@ function Workspace({
     setAutoTraceBusy(true);
     setAutoTraceInfo({ message: "Detecting landmarks…", tone: "info" });
     try {
-      const template =
-        analysisTemplate && analysisTemplate !== "blank"
-          ? analysisTemplate
-          : "General Ceph Analysis";
       const summary = await runAutoTrace({
         imageInput: target,
-        templateName: template,
         calibration,
         store: useSessionStore.getState(),
       });
-      const parts = [`AI placed ${summary.added} landmark${summary.added === 1 ? "" : "s"}`];
-      if (summary.measurements) parts.push(`${summary.measurements} measurement${summary.measurements === 1 ? "" : "s"}`);
-      if (summary.skipped) parts.push(`${summary.skipped} already placed`);
-      const isDemo = summary.backend === "mock";
-      const message = isDemo
-        ? summary.added
-          ? `Demo detector placed ${summary.added} placeholder points — these are NOT anatomically accurate. Configure a trained model to trace real landmarks.`
-          : "Demo detector found nothing to add."
-        : summary.added
-          ? `${parts.join(", ")}. Verify each point.`
-          : "No new landmarks detected.";
-      setAutoTraceInfo({ message, tone: isDemo || !summary.added ? "warn" : "ok" });
+      if (summary.backend === "mock") {
+        setAutoTraceInfo({
+          message: summary.added
+            ? `Demo detector placed ${summary.added} placeholder points — these are NOT anatomically accurate. Configure a trained model to trace real landmarks.`
+            : "Demo detector found nothing to add.",
+          tone: "warn",
+        });
+        return;
+      }
+      if (!summary.added) {
+        setAutoTraceInfo({ message: "No new landmarks detected.", tone: "warn" });
+        return;
+      }
+      setAutoTraceInfo({
+        message: `AI placed ${summary.added} landmark${summary.added === 1 ? "" : "s"}. Choose an analysis to build measurements.`,
+        tone: "ok",
+      });
+      setShowAnalysisModal(true);
     } catch (e) {
       setAutoTraceInfo({ message: `Auto-trace failed: ${e?.message || e}`, tone: "err" });
     } finally {
       setAutoTraceBusy(false);
     }
-  }, [sessionImage, analysisTemplate, calibration]);
+  }, [sessionImage, calibration]);
+
+  const handlePickAnalysis = useCallback((analysisName) => {
+    setShowAnalysisModal(false);
+    if (!analysisName) return;
+    const analysis = findAnalysis(analysisName);
+    if (!analysis) return;
+    const res = applyAnalysis(markups, analysis, calibration);
+    pushUndo();
+    const mergedNorms = [...norms];
+    for (const n of res.norms) {
+      if (!mergedNorms.some((x) => x.markupLabel === n.markupLabel && x.measureType === n.measureType)) mergedNorms.push(n);
+    }
+    updSession({
+      markups: refreshAutoMeas(res.markups),
+      analysisTemplate: analysis.name,
+      norms: mergedNorms,
+    });
+    const qids = res.missing.map((m) => m.id);
+    dispatch({ type: "SET", payload: { placingQueue: qids } });
+    dispatch({ type: "SET", payload: { placingIdx: 0 } });
+    dispatch({ type: "SET", payload: { placingMode: qids.length > 0 } });
+    dispatch({ type: "SET", payload: { rightPanel: "markups" } });
+    setAutoTraceInfo({
+      message: `${analysis.name}: ${res.measurements.length} measurement${res.measurements.length === 1 ? "" : "s"} computed from AI points${
+        res.missing.length ? `, ${res.missing.length} landmark${res.missing.length === 1 ? "" : "s"} left to place` : ""
+      }.`,
+      tone: res.missing.length ? "info" : "ok",
+    });
+  }, [markups, calibration, norms, refreshAutoMeas, pushUndo, updSession, dispatch]);
 
   // ── Panel prop bundles ──
   const pMarkups = {
@@ -5539,6 +5549,16 @@ function Workspace({
             formatAngle={formatAngle}
           />
         </Modal>
+      )}
+
+      {showAnalysisModal && (
+        <AnalysisModal
+          t={t}
+          projection={project.projection}
+          markups={markups}
+          onPick={handlePickAnalysis}
+          onClose={() => handlePickAnalysis(null)}
+        />
       )}
 
       {showFormulaEditor && (

@@ -114,3 +114,96 @@ export function autoCreateMeasurements(markups, templateName, calibration) {
   }
   return result;
 }
+
+// ─── Decoupled analysis application ──────────────────────────────────────────
+// AI auto-trace places every detected landmark first (no template); the user then
+// picks an analysis, which (a) enriches matched points with the analysis' defs /
+// colours / templateIds, (b) queues that analysis' undetected landmarks for
+// manual placement, and (c) instantiates the measurements whose landmarks are all
+// present. Detection and analysis are thereby decoupled.
+
+const NORM_MEASURE_TYPE = {
+  angle3: "angle", angle4: "angle", line: "length", polygon: "area",
+  ratio: "value", sum: "value", difference: "value", percentage: "value",
+  projDist: "projectedDistance",
+};
+
+export function placedLabelsOf(markups) {
+  return new Set(
+    (markups || [])
+      .filter(m => m.type === "point" && m.placed && m.points?.[0]?.x > -9000)
+      .map(m => m.templateLabel || m.label),
+  );
+}
+
+// Per-analysis summary used by the analysis-selection modal.
+export function analysisCoverage(analysis, markups) {
+  const placed = placedLabelsOf(markups);
+  const labels = (analysis?.pts || []).map(p => p.l);
+  const missing = labels.filter(l => !placed.has(l));
+  const meas = analysis?.measurements || [];
+  const measReady = meas.filter(mm => (mm.pts || []).length >= 2 && mm.pts.every(rl => placed.has(rl)));
+  return {
+    total: labels.length,
+    have: labels.length - missing.length,
+    missing,
+    measTotal: meas.length,
+    measReady: measReady.length,
+  };
+}
+
+// Build the markup/norm set for applying `analysis` on top of the AI-placed points.
+export function applyAnalysis(markups, analysis, calibration) {
+  const placed = placedLabelsOf(markups);
+  const defByLabel = new Map((analysis?.pts || []).map(p => [p.l, p]));
+
+  const enriched = (markups || []).map(m => {
+    if (m.type !== "point") return m;
+    const lbl = m.templateLabel || m.label;
+    const def = defByLabel.get(lbl);
+    if (!def) return m;
+    return {
+      ...m,
+      templateLabel: lbl,
+      templateId: m.templateId || `${analysis.name}::${lbl}`,
+      definition: m.definition || def.def,
+      color: def.color || m.color,
+    };
+  });
+
+  const missing = [];
+  for (const p of analysis?.pts || []) {
+    if (placed.has(p.l)) continue;
+    missing.push({
+      id: uid(), type: "point", points: [{ x: -99999, y: -99999 }],
+      label: p.l, templateLabel: p.l, templateId: `${analysis.name}::${p.l}`,
+      definition: p.def, color: p.color, size: 6, visible: true, placed: false,
+    });
+  }
+
+  const withPoints = [...enriched, ...missing];
+  const readyLabels = placedLabelsOf(withPoints);
+  const measurements = autoCreateMeasurements(withPoints, analysis.name, calibration)
+    .filter(m => (m.refLabels || []).every(rl => readyLabels.has(rl)));
+
+  return {
+    markups: [...withPoints, ...measurements],
+    missing,
+    measurements,
+    norms: deriveNorms(measurements, analysis.name),
+  };
+}
+
+// Norm entries derived from a measurement's embedded `norm` (mean ± SD), typed so
+// the Measurements/Normogram panels can match them. Mirrors the inline logic used
+// when placing points manually.
+export function deriveNorms(measurements, templateName) {
+  const out = [];
+  for (const m of measurements || []) {
+    if (!m.norm) continue;
+    const measureType = NORM_MEASURE_TYPE[m.type] || "distance";
+    if (out.some(n => n.markupLabel === m.label && n.measureType === measureType)) continue;
+    out.push({ id: uid(), markupLabel: m.label, measureType, mean: m.norm.mean, sd: m.norm.sd, source: templateName });
+  }
+  return out;
+}

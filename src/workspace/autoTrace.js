@@ -118,9 +118,12 @@ export function ensureDetectorReady(onProgress) {
   return _readyPromise;
 }
 
-export async function runAutoTrace({ imageInput, templateName, calibration, store, onProgress }) {
+export async function runAutoTrace({ imageInput, calibration, store, onProgress }) {
   await ensureDetectorReady(onProgress);
   const { landmarks, backend } = await detectLandmarks(imageInput, { landmarkSet: LANDMARK_MODEL.landmarkSet });
-  const summary = applyDetections(store, landmarks, templateName, calibration, LANDMARK_MODEL.landmarkSet);
+  // Decoupled: place every detected landmark now (no template filter, no
+  // measurements). The analysis + measurements are chosen afterwards from the
+  // analysis-selection modal (workspace/template.applyAnalysis).
+  const summary = applyDetections(store, landmarks, null, calibration, LANDMARK_MODEL.landmarkSet);
   return { ...summary, backend };
 }

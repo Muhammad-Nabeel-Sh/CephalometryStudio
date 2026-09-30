@@ -57,12 +57,6 @@ const _lateralHardcoded = [
     { l: "TMJ", def: "Temporomandibular joint point - on the contour of the glenoid fossa.", color: "#60a5fa" },
     { l: "Ids", def: "Infradentale superius - the highest point on the alveolar crest between the mandibular central incisors.", color: "#f472b6" },
     { l: "Pr", def: "Prosthion - the most anterior point on the maxillary alveolar process.", color: "#34d399" },
-    { l: "R", def: "Ramus — a point on the posterior border of the mandibular ramus.", color: "#a78bfa" },
-    { l: "LPM", def: "Lower 2nd premolar cusp tip.", color: "#f472b6" },
-    { l: "LMT", def: "Lower molar cusp tip.", color: "#f472b6" },
-    { l: "UPM", def: "Upper 2nd premolar cusp tip.", color: "#fb923c" },
-    { l: "UMT", def: "Upper molar cusp tip.", color: "#fb923c" },
-    { l: "N'", def: "Soft tissue nasion — the most concave point of the soft tissue frontonasal region.", color: "#fbbf24" },
   ],
   lines: [
     { l: "Sella-Nasion line", def: "Line connecting Sella to Nasion.", color: "#f59e0b" },
@@ -427,26 +421,6 @@ for (const a of PREDEFINED.photolateral) {
 for (const a of PREDEFINED.photofrontal) {
   if (_measurementLookup[a.name]) {
     a.measurements = _measurementLookup[a.name];
-  }
-}
-
-// Make "General Ceph Analysis" a superset of "Steiner Analysis": the default
-// template then auto-runs every Steiner landmark + measurement (plus the extra
-// CEPHA29 points added above), so AI Trace on a fresh case yields the full set.
-{
-  const general = PREDEFINED.lateral.find((a) => a.name === "General Ceph Analysis");
-  const steiner = PREDEFINED.lateral.find((a) => a.name === "Steiner Analysis");
-  if (general && steiner) {
-    const havePt = new Set((general.pts || []).map((p) => p.l));
-    general.pts = [
-      ...(general.pts || []),
-      ...((steiner.pts || []).filter((p) => !havePt.has(p.l))),
-    ];
-    const haveM = new Set((general.measurements || []).map((m) => m.l));
-    general.measurements = [
-      ...(general.measurements || []),
-      ...((steiner.measurements || []).filter((m) => !haveM.has(m.l))),
-    ];
   }
 }
 

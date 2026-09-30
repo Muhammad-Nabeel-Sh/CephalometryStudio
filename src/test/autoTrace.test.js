@@ -6,6 +6,7 @@ import {
 } from "../workspace/autoTrace.js";
 import { PREDEFINED } from "../data/constants.js";
 import { CEPHA29 } from "../data/landmarkMap.js";
+import { analysisCoverage, applyAnalysis } from "../workspace/template.js";
 
 const CAL = { done: false, pxPerMm: 1 };
 
@@ -36,14 +37,14 @@ describe("findAnalysis", () => {
 });
 
 describe("buildDetectionMarkups — template-aware mapping", () => {
-  it("keeps every detected landmark present in General Ceph (29-pt superset)", () => {
+  it("keeps landmarks present in the General Ceph template and drops the rest", () => {
     const detections = [
       det("S", 10, 10), det("N", 20, 10), det("A", 15, 20), det("B", 15, 30),
       det("R", 40, 40), det("UIT", 12, 28), det("Ls", 5, 25),
     ];
     const { points, unmapped } = buildDetectionMarkups(detections, "General Ceph Analysis", [], "cepha29");
-    expect(points.map(p => p.label).sort()).toEqual(["A", "B", "Is", "N", "R", "S", "UL"]);
-    expect(unmapped).toBe(0);
+    expect(points.map(p => p.label).sort()).toEqual(["A", "B", "Is", "N", "S"]);
+    expect(unmapped).toBe(2); // R and UL are not defined by General Ceph
   });
 
   it("drops landmarks not defined by a restrictive template", () => {
@@ -107,24 +108,47 @@ describe("applyDetections — single undoable mutation", () => {
   });
 });
 
-describe("General Ceph Analysis — AI-ready superset", () => {
-  const general = PREDEFINED.lateral.find((a) => a.name === "General Ceph Analysis");
-  const steiner = PREDEFINED.lateral.find((a) => a.name === "Steiner Analysis");
-
-  it("defines a point for every CEPHA29 landmark (full 29)", () => {
-    const labels = new Set(general.pts.map((p) => p.l));
-    for (const l of CEPHA29) expect(labels.has(l.app)).toBe(true);
-  });
-
-  it("inherits every Steiner measurement", () => {
-    const labels = new Set((general.measurements || []).map((m) => m.l));
-    for (const m of steiner.measurements) expect(labels.has(m.l)).toBe(true);
-  });
-
-  it("places all 29 CEPHA29 landmarks under General Ceph", () => {
+describe("decoupled auto-trace (no template)", () => {
+  it("places all 29 CEPHA29 landmarks when no template is given", () => {
     const detections = CEPHA29.map((l, i) => det(l.symbol, i, i));
-    const { points, unmapped } = buildDetectionMarkups(detections, "General Ceph Analysis", [], "cepha29");
+    const { points, unmapped } = buildDetectionMarkups(detections, null, [], "cepha29");
     expect(points).toHaveLength(29);
     expect(unmapped).toBe(0);
+    expect(points.every(p => p.placed)).toBe(true);
+  });
+
+  it("applyDetections with no template places points but creates no measurements", () => {
+    const store = makeStore([]);
+    const detections = CEPHA29.map((l, i) => det(l.symbol, i, i));
+    const summary = applyDetections(store, detections, null, CAL, "cepha29");
+    expect(summary.added).toBe(29);
+    expect(summary.measurements).toBe(0);
+  });
+});
+
+describe("analysisCoverage / applyAnalysis", () => {
+  const aiPoints = CEPHA29.map((l, i) => ({
+    id: l.symbol, type: "point", label: l.app, templateLabel: l.app,
+    placed: true, points: [{ x: i + 1, y: i + 1 }],
+  }));
+  const steiner = PREDEFINED.lateral.find((a) => a.name === "Steiner Analysis");
+
+  it("reports which analysis landmarks still need manual placement", () => {
+    const cov = analysisCoverage(steiner, aiPoints);
+    expect(cov.total).toBe(steiner.pts.length);
+    expect(cov.have).toBe(cov.total - cov.missing.length);
+    // APOcc/PPOcc are not part of the model's 29 outputs
+    expect(cov.missing).toEqual(expect.arrayContaining(["APOcc", "PPOcc"]));
+  });
+
+  it("queues missing landmarks and creates only measurements with all refs placed", () => {
+    const res = applyAnalysis(aiPoints, steiner, CAL);
+    expect(res.missing.map((m) => m.label).sort()).toEqual(["APOcc", "PPOcc"]);
+    expect(res.measurements.length).toBeGreaterThan(0);
+    const placedLabels = new Set(aiPoints.map((p) => p.label));
+    for (const m of res.measurements) {
+      for (const rl of m.refLabels || []) expect(placedLabels.has(rl)).toBe(true);
+    }
+    expect(res.norms.length).toBeGreaterThan(0);
   });
 });
