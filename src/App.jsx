@@ -4317,21 +4317,26 @@ function Workspace({
 
   const [autoTraceBusy, setAutoTraceBusy] = useState(false);
   const [autoTraceInfo, setAutoTraceInfo] = useState(null);
+  const [autoTraceQuality, setAutoTraceQuality] = useState(null);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const handleAutoTrace = useCallback(async () => {
+  const handleAutoTrace = useCallback(async (traceOpts = {}) => {
     const target = sessionImage?.[0] ? imgRefs.current[sessionImage[0].id] : null;
     if (!target) {
       setAutoTraceInfo({ message: "Load an image before running auto-trace.", tone: "warn" });
       return;
     }
+    const forceHypothesis = traceOpts?.forceHypothesis || null;
     setAutoTraceBusy(true);
-    setAutoTraceInfo({ message: "Detecting landmarks…", tone: "info" });
+    setAutoTraceInfo({ message: forceHypothesis ? "Re-tracing with the selected image transform…" : "Detecting landmarks…", tone: "info" });
     try {
       const summary = await runAutoTrace({
         imageInput: target,
         calibration,
         store: useSessionStore.getState(),
+        forceHypothesis,
+        suppressUndo: !!traceOpts.suppressUndo,
       });
+      setAutoTraceQuality(summary.quality || null);
       if (summary.backend === "mock") {
         setAutoTraceInfo({
           message: summary.added
@@ -4345,9 +4350,21 @@ function Workspace({
         setAutoTraceInfo({ message: "No new landmarks detected.", tone: "warn" });
         return;
       }
+      const q = summary.quality;
+      const qLevel = q?.level || "high";
+      const qNote = qLevel === "high"
+        ? ` (confidence ${Math.round((q.meanConfidence || 0) * 100)}%)`
+        : qLevel === "medium"
+          ? " — low confidence, please verify these points"
+          : " — low confidence, review carefully before using these measurements";
+      const xNote = summary.orientation === "mirrored"
+        ? " Image appears horizontally mirrored — landmarks were re-mapped to match it."
+        : summary.polarity === "inverted"
+          ? " Image polarity was inverted before tracing."
+          : "";
       setAutoTraceInfo({
-        message: `AI placed ${summary.added} landmark${summary.added === 1 ? "" : "s"}. Choose an analysis to build measurements.`,
-        tone: "ok",
+        message: `AI placed ${summary.added} landmark${summary.added === 1 ? "" : "s"}${qNote}.${xNote} Choose an analysis to build measurements.`,
+        tone: qLevel === "high" ? "ok" : qLevel === "medium" ? "warn" : "err",
       });
       setShowAnalysisModal(true);
     } catch (e) {
@@ -4356,6 +4373,22 @@ function Workspace({
       setAutoTraceBusy(false);
     }
   }, [sessionImage, calibration]);
+
+  const handleAutoTraceRetry = useCallback((hyp) => {
+    // Drop the previous AI points so a re-trace replaces rather than duplicates.
+    // The snapshot is pushed *before* the removal, so a single undo restores the
+    // trace the user is replacing — suppressUndo keeps the insert on that same
+    // history step instead of adding a second one.
+    const st = useSessionStore.getState();
+    const aiIds = (st.markups || [])
+      .filter((m) => m.aiPlaced === true || typeof m.aiConfidence === "number")
+      .map((m) => m.id);
+    if (aiIds.length) {
+      st.pushUndo();
+      st.updMarkups((ms) => ms.filter((m) => !aiIds.includes(m.id)));
+    }
+    handleAutoTrace({ forceHypothesis: hyp, suppressUndo: aiIds.length > 0 });
+  }, [handleAutoTrace]);
 
   const handlePickAnalysis = useCallback((analysisName) => {
     setShowAnalysisModal(false);
@@ -4497,7 +4530,9 @@ function Workspace({
           onAutoTrace: handleAutoTrace,
           autoTraceBusy,
           autoTraceInfo,
+          autoTraceQuality,
           onAutoTraceDismiss: () => setAutoTraceInfo(null),
+          onAutoTraceRetry: handleAutoTraceRetry,
         }
       : {}),
     onReplace: (type, id) => {
@@ -5556,6 +5591,7 @@ function Workspace({
           t={t}
           projection={project.projection}
           markups={markups}
+          quality={autoTraceQuality}
           onPick={handlePickAnalysis}
           onClose={() => handlePickAnalysis(null)}
         />

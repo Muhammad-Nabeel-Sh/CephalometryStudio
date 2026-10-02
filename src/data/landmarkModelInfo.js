@@ -24,8 +24,22 @@ export const LANDMARK_MODEL = {
   inputSize: 768,
   inputChannels: 3,
   normalize: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
-  decode: { dark: true, sigma: 2 },
+  decode: { dark: true, sigma: 2, confidenceMode: "psr", psrScale: 6 },
   refine: { shape: true, alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2 },
+  // Robustness layer (see docs/ai-module-improvement-plan.md §8). The model is
+  // orientation-specific and has never seen an inverted film, so detection tries
+  // {identity, mirrored} × {normal, inverted} and keeps whichever candidate looks
+  // most like a cephalogram. A "high" first pass short-circuits the search.
+  robustness: {
+    autoOrientation: true,
+    autoPolarity: true,
+    clahe: "auto", // "auto" only equalizes when local contrast is poor
+    contrast: false,
+    rankWeights: { residual: 0.35, edge: 0.25 },
+  },
+  // Quality gate thresholds — override of lib/landmarkQuality defaults. Tune
+  // with `python scripts/eval-landmark-model.py --report-ood`.
+  quality: null,
   url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-cepha29.int8.onnx",
   sha256: "f7f1db9cc2de37c0fa94dab431d7d3446d1d8ffc62fa92e6610c2380af83080d",
   ortUrl: "/ort/ort.wasm.min.js",

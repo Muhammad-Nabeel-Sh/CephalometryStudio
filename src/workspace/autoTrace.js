@@ -60,7 +60,11 @@ export function buildDetectionMarkups(detections, templateName, existingMarkups 
       size: 6,
       visible: true,
       placed: true,
+      // Marks the point as AI-produced so a re-trace can reliably clear the
+      // previous trace even if the backend reported no numeric confidence.
+      aiPlaced: true,
       aiConfidence: typeof d.confidence === "number" ? d.confidence : undefined,
+      aiScore: typeof d.score === "number" ? d.score : undefined,
     });
     placed.add(key);
   }
@@ -68,13 +72,16 @@ export function buildDetectionMarkups(detections, templateName, existingMarkups 
 }
 
 // Insert the detected points + their auto-measurements as one undoable mutation.
-export function applyDetections(store, detections, templateName, calibration, landmarkSet = LANDMARK_MODEL.landmarkSet) {
+// `suppressUndo` lets a caller that has *already* pushed an undo snapshot (e.g.
+// the re-trace retry, which clears the previous AI points first) keep the whole
+// replace operation on a single history step.
+export function applyDetections(store, detections, templateName, calibration, landmarkSet = LANDMARK_MODEL.landmarkSet, suppressUndo = false) {
   const state = store.getState ? store.getState() : store;
   const existing = state.markups || [];
   const { points, skipped, unmapped } = buildDetectionMarkups(detections, templateName, existing, landmarkSet);
   if (!points.length) return { added: 0, skipped, unmapped, measurements: 0 };
 
-  store.pushUndo();
+  if (!suppressUndo) store.pushUndo();
   let measurements = 0;
   store.updMarkups((ms) => {
     const withPoints = [...ms, ...points];
@@ -100,6 +107,8 @@ export function ensureDetectorReady(onProgress) {
       normalize: LANDMARK_MODEL.normalize,
       decode: LANDMARK_MODEL.decode,
       refine: LANDMARK_MODEL.refine,
+      robustness: LANDMARK_MODEL.robustness,
+      quality: LANDMARK_MODEL.quality,
       ortUrl: LANDMARK_MODEL.ortUrl,
       wasmPaths: LANDMARK_MODEL.wasmPaths,
     };
@@ -118,12 +127,20 @@ export function ensureDetectorReady(onProgress) {
   return _readyPromise;
 }
 
-export async function runAutoTrace({ imageInput, calibration, store, onProgress }) {
+// Detect + place. `forceHypothesis` ({ mirror?, invert? }) re-runs detection with
+// one specific pre-processing hypothesis, which the UI offers when the automatic
+// search could not find a good match (e.g. a mirrored film the user knows about).
+// `suppressUndo` is set by the re-trace retry, which already pushed a snapshot
+// covering the removal of the previous trace, so the replace stays one undo step.
+export async function runAutoTrace({ imageInput, calibration, store, onProgress, forceHypothesis, suppressUndo = false }) {
   await ensureDetectorReady(onProgress);
-  const { landmarks, backend } = await detectLandmarks(imageInput, { landmarkSet: LANDMARK_MODEL.landmarkSet });
+  const { landmarks, backend, orientation, polarity, quality, hypotheses } = await detectLandmarks(imageInput, {
+    landmarkSet: LANDMARK_MODEL.landmarkSet,
+    forceHypothesis,
+  });
   // Decoupled: place every detected landmark now (no template filter, no
   // measurements). The analysis + measurements are chosen afterwards from the
   // analysis-selection modal (workspace/template.applyAnalysis).
-  const summary = applyDetections(store, landmarks, null, calibration, LANDMARK_MODEL.landmarkSet);
-  return { ...summary, backend };
+  const summary = applyDetections(store, landmarks, null, calibration, LANDMARK_MODEL.landmarkSet, suppressUndo);
+  return { ...summary, backend, orientation, polarity, quality, hypotheses };
 }

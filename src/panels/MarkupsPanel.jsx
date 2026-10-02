@@ -8,7 +8,7 @@ import { MarkupGearSettings } from "./MarkupGearSettings.jsx";
 // MARKUPS PANEL
 // ═══════════════════════════════════════════════════════════════════════════════
 export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete, onToggleVisible, onToggleLock, onToggleLabel, onToggleGroupVisible, onReplace, replacingId, calibration, placingMode, placingQueue, placingIdx, onStopPlacing, onPausePlacing, onResumePlacing,   onClear, onAddPoint, norms, formatAngle, angleMode, setAngleMode, dispatch, showCpAlways, showAnchorAlways,
-  onAutoTrace, autoTraceBusy, autoTraceInfo, onAutoTraceDismiss,
+  onAutoTrace, autoTraceBusy, autoTraceInfo, onAutoTraceDismiss, autoTraceQuality, onAutoTraceRetry,
   showAnnotations, setShowAnnotations, annotationSize, setAnnotationSize,
   showDefTooltips, setShowDefTooltips, showDisplacement, setShowDisplacement,
   showGrid, setShowGrid, showAirwayOverlay, setShowAirwayOverlay,
@@ -65,7 +65,7 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
       <div style={{ padding: "8px 10px", display: "flex", gap: 4, borderBottom: `1px solid ${t.bdr}`, flexShrink: 0, flexWrap: "nowrap", overflowX: "auto" }}>
         <Btn t={t} small onClick={onAddPoint} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>+ Point</Btn>
         {onAutoTrace && (
-          <Btn t={t} small onClick={autoTraceBusy ? undefined : onAutoTrace} title="AI auto-trace landmarks"
+          <Btn t={t} small onClick={autoTraceBusy ? undefined : () => onAutoTrace()} title="AI auto-trace landmarks"
             style={{ whiteSpace: "nowrap", flexShrink: 0, background: autoTraceBusy ? t.surf2 : t.accMuted, color: autoTraceBusy ? t.tx3 : t.acc, border: `1px solid ${t.acc}` }}>
             {autoTraceBusy ? "Tracing…" : "AI Trace"}
           </Btn>
@@ -101,6 +101,26 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
         <div style={{ padding: "6px 10px", background: autoTraceInfo.tone === "err" ? t.err + "18" : autoTraceInfo.tone === "warn" ? t.warn + "18" : t.accMuted, borderBottom: `1px solid ${t.bdr}`, display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ flex: 1, fontSize: 11, color: t.tx2 }}>{autoTraceInfo.message}</span>
           {onAutoTraceDismiss && <button onClick={onAutoTraceDismiss} style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 13, flexShrink: 0 }}>×</button>}
+        </div>
+      )}
+      {autoTraceQuality && autoTraceQuality.level !== "high" && (
+        <div style={{ padding: "8px 10px", background: autoTraceQuality.level === "low" ? t.err + "14" : t.warn + "14", borderBottom: `1px solid ${t.bdr}`, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 11, color: autoTraceQuality.level === "low" ? t.err : t.warn, fontWeight: 700 }}>
+            {autoTraceQuality.level === "low" ? "Low-confidence trace" : "Check these landmarks"}
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>
+            {autoTraceQuality.reasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+          <div style={{ fontSize: 10, color: t.tx3 }}>
+            Measurements and norms derived from these points may be wrong — verify before use.
+          </div>
+          {onAutoTraceRetry && (
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              <Btn t={t} small disabled={autoTraceBusy} onClick={() => onAutoTraceRetry({ mirror: true, invert: false })}>Re-trace mirrored</Btn>
+              <Btn t={t} small disabled={autoTraceBusy} onClick={() => onAutoTraceRetry({ mirror: false, invert: true })}>Re-trace inverted</Btn>
+              <Btn t={t} small disabled={autoTraceBusy} onClick={() => onAutoTraceRetry({ mirror: false, invert: false })}>Re-trace as-is</Btn>
+            </div>
+          )}
         </div>
       )}
       {sections.map(sec => {

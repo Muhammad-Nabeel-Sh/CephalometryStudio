@@ -32,7 +32,7 @@ function Chip({ t, children, tone }) {
   );
 }
 
-export default function AnalysisModal({ t, projection, markups, onPick, onClose }) {
+export default function AnalysisModal({ t, projection, markups, quality, onPick, onClose }) {
   const rows = useMemo(() => {
     const list = analysesForProjection(projection);
     return list
@@ -51,6 +51,26 @@ export default function AnalysisModal({ t, projection, markups, onPick, onClose 
         The AI placed <strong style={{ color: t.tx }}>{placedCount}</strong> landmark{placedCount === 1 ? "" : "s"}.
         Pick an analysis to auto-build its measurements from those points and queue any missing landmarks for manual placement.
       </div>
+      {quality && quality.level !== "high" && (
+        <div
+          style={{
+            marginBottom: 14, padding: "10px 12px", borderRadius: 8,
+            background: quality.level === "low" ? t.err + "14" : t.warn + "14",
+            border: `1px solid ${quality.level === "low" ? t.err + "55" : t.warn + "55"}`,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 700, color: quality.level === "low" ? t.err : t.warn, marginBottom: 4 }}>
+            {quality.level === "low" ? "Low-confidence trace — verify every point" : "Verify these landmarks before continuing"}
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>
+            {quality.reasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+          <div style={{ fontSize: 11, color: t.tx3, marginTop: 6 }}>
+            If the points look wrong, close this and re-trace from the Landmarks panel with an explicit image
+            transform, or correct them manually. Measurements built from a failed trace are not reliable.
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map(({ a, cov }) => {
           const complete = cov.missing.length === 0;

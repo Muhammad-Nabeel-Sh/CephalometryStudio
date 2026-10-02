@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { refineShape, SHAPE_MODEL, getShapeModel, registerShapeModel } from "../lib/shapeModel.js";
+import { refineShape, shapeResidual, SHAPE_MODEL, getShapeModel, registerShapeModel } from "../lib/shapeModel.js";
 import { CEPHA29_ORDER } from "../data/landmarkMap.js";
 
 const N = 19;
@@ -70,6 +70,11 @@ describe("shape-model registry", () => {
 
 describe("CEPHA29 prior", () => {
   const prior = getShapeModel("cepha29");
+  const pts29 = () => {
+    const pts = [];
+    for (let i = 0; i < 29; i++) pts.push({ x: prior.mean[2 * i], y: prior.mean[2 * i + 1] });
+    return pts;
+  };
 
   it("ships a 29-landmark prior in channel order", () => {
     expect(prior).toBeTruthy();
@@ -79,13 +84,95 @@ describe("CEPHA29 prior", () => {
   });
 
   it("reduces deviation on a perturbed CEPHA29 shape", () => {
-    const pts = [];
-    for (let i = 0; i < 29; i++) pts.push({ x: prior.mean[2 * i], y: prior.mean[2 * i + 1] });
+    const pts = pts29();
     const ones29 = new Array(29).fill(1);
     const bad = pts.map((p) => ({ ...p }));
     bad[10] = { x: bad[10].x + 0.6, y: bad[10].y - 0.3 };
     const maxdev = (a) => Math.max(...a.map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y)));
     const out = refineShape(bad, ones29, { set: "cepha29", alpha: 1, reg: 0.05, k: 6 });
     expect(maxdev(out)).toBeLessThan(maxdev(bad));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// shapeResidual — the out-of-distribution signal
+//
+// A prediction is "in distribution" when it lands in the PCA shape subspace.
+// The orthogonal residual separates a genuine detection (a few pixels off) from
+// a failed one by an order of magnitude: a mirrored radiograph, an upside-down
+// film, a shuffled point order and random noise all score ≈1.0, while a
+// realistic detection (≈11 px RMS, the model's reported 1.24 mm MRE) scores
+// ≈0.03. That separation is what makes the quality gate able to catch a
+// confidently-wrong trace.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe("shapeResidual (CEPHA29)", () => {
+  const prior = getShapeModel("cepha29");
+  const meanPts29 = () => {
+    const pts = [];
+    for (let i = 0; i < 29; i++) pts.push({ x: prior.mean[2 * i], y: prior.mean[2 * i + 1] });
+    return pts;
+  };
+  const centroid = (pts) => {
+    let cx = 0, cy = 0;
+    for (const p of pts) { cx += p.x; cy += p.y; }
+    return { x: cx / pts.length, y: cy / pts.length };
+  };
+  const jitter = (pts, amt) => pts.map((p, i) => ({ x: p.x + Math.sin(i * 3.7) * amt, y: p.y + Math.cos(i * 2.1) * amt }));
+  const res = (pts) => shapeResidual(pts, { set: "cepha29" });
+
+  it("returns null when the point count does not match the prior", () => {
+    expect(res(meanPts29().slice(0, 10))).toBeNull();
+  });
+
+  it("is exactly zero for the mean shape", () => {
+    const r = res(meanPts29());
+    expect(r.residual).toBeCloseTo(0, 6);
+    expect(r.residualRatio).toBeCloseTo(0, 6);
+    expect(r.mahalanobis).toBeCloseTo(0, 6);
+  });
+
+  it("is pose-invariant (translation / scale / rotation)", () => {
+    const pts = meanPts29();
+    const moved = transform(pts, 640, 0.4, { x: 300, y: -120 });
+    expect(res(moved).residualRatio).toBeCloseTo(res(pts).residualRatio, 6);
+  });
+
+  it("stays small for a realistic detection error", () => {
+    const r = res(jitter(meanPts29(), 11)); // ≈ the model's 1.24 mm MRE
+    expect(r.residualRatio).toBeLessThan(0.05);
+    expect(r.residualRatio).toBeGreaterThan(0);
+  });
+
+  it("grows with the size of the error", () => {
+    const pts = meanPts29();
+    expect(res(jitter(pts, 30)).residualRatio).toBeGreaterThan(res(jitter(pts, 10)).residualRatio);
+    expect(res(jitter(pts, 60)).residualRatio).toBeGreaterThan(res(jitter(pts, 30)).residualRatio);
+  });
+
+  it("is an order of magnitude larger for a mirrored radiograph", () => {
+    const pts = meanPts29();
+    const c = centroid(pts);
+    const mirrored = pts.map((p) => ({ x: 2 * c.x - p.x, y: p.y }));
+    const good = res(jitter(pts, 11)).residualRatio;
+    const bad = res(mirrored).residualRatio;
+    expect(bad).toBeGreaterThan(0.5);
+    expect(bad).toBeGreaterThan(good * 10);
+  });
+
+  it("flags an upside-down film, a shuffled order and random noise", () => {
+    const pts = meanPts29();
+    const c = centroid(pts);
+    const upsideDown = res(pts.map((p) => ({ x: p.x, y: 2 * c.y - p.y }))).residualRatio;
+    const shuffled = pts.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) { const j = (i * 7919 + 13) % (i + 1); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
+    const shuffledR = res(shuffled).residualRatio;
+    const collapsed = res(pts.map(() => ({ x: pts[0].x, y: pts[0].y }))).residualRatio;
+    for (const v of [upsideDown, shuffledR, collapsed]) expect(v).toBeGreaterThan(0.5);
+  });
+
+  it("reports a positive mean-shape size so residualRatio is dimensionless", () => {
+    const r = res(meanPts29());
+    expect(r.size).toBeGreaterThan(0);
   });
 });

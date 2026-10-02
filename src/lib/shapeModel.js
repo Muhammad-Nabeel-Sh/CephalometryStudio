@@ -76,11 +76,26 @@ function solveGauss(A, rhs) {
 // points: [{x,y}] in any consistent space (pixel space). confidences: number[].
 // Returns refined [{x,y}] (same space), or the input unchanged on mismatch.
 export function refineShape(points, confidences, opts = {}) {
+  const fit = fitShape(points, confidences, opts);
+  return fit ? fit.points : points;
+}
+
+// Full PCA fit against the prior for this landmark set. Returns the refined
+// points plus the *plausibility* diagnostics the quality gate needs:
+//   residual    RMS distance (prior units) from the raw prediction to its
+//               projection onto the shape subspace — large ⇒ anatomically
+//               implausible / a failed detection
+//   size        mean radius of the mean shape, used to make `residual`
+//               dimensionless (residualRatio)
+//   mahalanobis how extreme the subspace coefficients are, in units of the
+//               per-mode standard deviation
+// Returns null when the point count doesn't match the prior.
+function fitShape(points, confidences, opts = {}) {
   const { alpha = 0.6, reg = 0.1, k = 6, wmin = 0.2, clip = 3 } = opts;
   const mdl = getShapeModel(opts.set) || isbi19;
   const meanFlat = mdl.mean;
   const N = meanFlat.length / 2;
-  if (!points || points.length !== N) return points;
+  if (!points || points.length !== N) return null;
   const K = Math.min(k, mdl.components.length);
 
   const mean = new Array(N);
@@ -112,17 +127,56 @@ export function refineShape(points, confidences, opts = {}) {
     rhs[p] = s;
   }
   const bb = solveGauss(A, rhs);
-  for (let p = 0; p < K; p++) bb[p] = Math.max(-clip * sig[p], Math.min(clip * sig[p], bb[p]));
+  let mahalanobis = 0;
+  for (let p = 0; p < K; p++) {
+    const lim = clip * (sig?.[p] ?? 1);
+    bb[p] = Math.max(-lim, Math.min(lim, bb[p]));
+    const sn = sig?.[p];
+    if (sn) mahalanobis += (bb[p] / sn) ** 2;
+  }
+  mahalanobis = Math.sqrt(mahalanobis);
+
+  // Reconstruction = mean + V·bb (what a plausible shape looks like).
+  const rec = new Array(N);
+  let sq = 0, cx = 0, cy = 0;
+  for (let i = 0; i < N; i++) {
+    let rx = mean[i].x, ry = mean[i].y;
+    for (let p = 0; p < K; p++) { rx += V[p][2 * i] * bb[p]; ry += V[p][2 * i + 1] * bb[p]; }
+    rec[i] = { x: rx, y: ry };
+    const dx = xa[i].x - rx, dy = xa[i].y - ry;
+    sq += dx * dx + dy * dy;
+    cx += mean[i].x; cy += mean[i].y;
+  }
+  const residual = Math.sqrt(sq / N);
+  cx /= N; cy /= N;
+  let size = 0;
+  for (let i = 0; i < N; i++) {
+    const dx = mean[i].x - cx, dy = mean[i].y - cy;
+    size += Math.sqrt(dx * dx + dy * dy);
+  }
+  size /= N;
 
   const det = a * a + b * b;
   const out = new Array(N);
   for (let i = 0; i < N; i++) {
-    let rx = mean[i].x, ry = mean[i].y;
-    for (let p = 0; p < K; p++) { rx += V[p][2 * i] * bb[p]; ry += V[p][2 * i + 1] * bb[p]; }
-    const bx = (1 - alpha) * xa[i].x + alpha * rx;
-    const by = (1 - alpha) * xa[i].y + alpha * ry;
+    const bx = (1 - alpha) * xa[i].x + alpha * rec[i].x;
+    const by = (1 - alpha) * xa[i].y + alpha * rec[i].y;
     const ux = bx - tx, uy = by - ty;
     out[i] = { x: (a * ux + b * uy) / det, y: (-b * ux + a * uy) / det };
   }
-  return out;
+  return { points: out, residual, size, mahalanobis, K };
+}
+
+// Plausibility of a raw (pre-refinement) prediction against the shape prior.
+// This is the OOD signal: a mirrored, inverted, cropped or simply unrecognisable
+// image produces a prediction far outside the anatomical shape subspace.
+export function shapeResidual(points, opts = {}) {
+  const fit = fitShape(points, null, opts);
+  if (!fit) return null;
+  return {
+    residual: fit.residual,
+    residualRatio: fit.size > 0 ? fit.residual / fit.size : 0,
+    mahalanobis: fit.mahalanobis,
+    size: fit.size,
+  };
 }

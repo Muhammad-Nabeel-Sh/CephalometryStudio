@@ -106,6 +106,18 @@ describe("applyDetections — single undoable mutation", () => {
     expect(summary.added).toBe(0);
     expect(store.pushUndo).not.toHaveBeenCalled();
   });
+
+  // The re-trace retry clears the previous AI points before re-detecting, and
+  // pushes its own snapshot first. Without suppressUndo the insert would land on
+  // a *second* history step, so undoing once would show a session with no
+  // landmarks instead of the trace the user was replacing.
+  it("honours suppressUndo so a re-trace stays on one history step", () => {
+    const store = makeStore([]);
+    const summary = applyDetections(store, [det("S", 10, 10)], null, CAL, "cepha29", true);
+    expect(summary.added).toBe(1);
+    expect(store.pushUndo).not.toHaveBeenCalled();
+    expect(store.markups).toHaveLength(1);
+  });
 });
 
 describe("decoupled auto-trace (no template)", () => {
@@ -123,6 +135,37 @@ describe("decoupled auto-trace (no template)", () => {
     const summary = applyDetections(store, detections, null, CAL, "cepha29");
     expect(summary.added).toBe(29);
     expect(summary.measurements).toBe(0);
+  });
+
+  // Provenance: the raw heatmap score and the PSR-derived confidence must both
+  // survive into the markup so a later quality audit can tell "the model saw a
+  // strong peak" apart from "the peak beat its own noise floor".
+  it("records aiConfidence and aiScore provenance on every placed point", () => {
+    const store = makeStore([]);
+    const detections = CEPHA29.map((l, i) => ({ ...det(l.symbol, i, i, 0.42 + i / 100), score: 12.5 + i }));
+    applyDetections(store, detections, null, CAL, "cepha29");
+    expect(store.markups).toHaveLength(29);
+    for (const m of store.markups) {
+      expect(m.aiPlaced).toBe(true);
+      expect(typeof m.aiConfidence).toBe("number");
+      expect(typeof m.aiScore).toBe("number");
+    }
+  });
+
+  it("tags every AI point with aiPlaced even without a confidence value", () => {
+    // The re-trace retry clears points by this tag, so it must be present even
+    // when the backend reports no confidence.
+    const store = makeStore([]);
+    applyDetections(store, [{ index: 0, symbol: "S", x: 1, y: 1 }], null, CAL, "cepha29");
+    expect(store.markups[0].aiPlaced).toBe(true);
+    expect(store.markups[0].aiConfidence).toBeUndefined();
+  });
+
+  it("omits provenance fields when the backend reports no confidence", () => {
+    const store = makeStore([]);
+    applyDetections(store, [{ index: 0, symbol: "S", x: 1, y: 1 }], null, CAL, "cepha29");
+    expect(store.markups[0].aiConfidence).toBeUndefined();
+    expect(store.markups[0].aiScore).toBeUndefined();
   });
 });
 
