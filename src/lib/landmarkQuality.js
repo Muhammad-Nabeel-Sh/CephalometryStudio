@@ -13,45 +13,43 @@
 // thresholds below against a labelled good/OOD split.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Thresholds are intentionally conservative: "high" means the trace is clean
-// enough to build measurements from without nagging, "low" means the user must
-// verify (or re-trace) before the numbers mean anything.
+// Thresholds are calibrated on the CEPHA29 held-out `valid` split (150 images)
+// with `scripts/eval-landmark-model.py --report-ood`; see
+// docs/ai-module-improvement-plan.md §14. Measured on the raw predictions
+// (before refinement):
 //
-// Confidence is the PSR-squashed peak-to-sidelobe ratio (landmarkModel PSR_SCALE
-// = 6, noise-floor corrected). Measured on synthetic heatmaps: a sharp
-// unambiguous response ≈0.55–0.65, a diffuse one ≈0.35–0.45, a flat or pure-noise
-// plane <0.2. The cut points below sit between those bands — recalibrate them
-// against a labelled good/OOD split via
-// `python scripts/eval-landmark-model.py --report-ood` whenever the model changes.
+//   meanConfidence   min 0.636  p05 0.693  p50 0.733   -> cuts below never fire
+//   lowFraction      p95 0.069  max 0.103              -> weak-landmark cut is a net
+//   residualRatio    p50 0.045  p95 0.509  max 0.587
+//   residualRatio (mirrored / garbage shape) ≈ 1.03
+//
+// The residual "high" cut sits above every valid image (0.587) and well below
+// the mirrored value (≈1.03), so a genuinely failed trace is flagged while an
+// ordinary trace is not. "high" means clean enough to build measurements from
+// without nagging; "low" means the user must verify before the numbers mean
+// anything.
 export const DEFAULT_QUALITY_THRESHOLDS = {
   // per-landmark heatmap confidence (PSR-squashed, 0..1)
   lowLandmarkConfidence: 0.2,
-  mediumMeanConfidence: 0.45,
-  minMeanConfidence: 0.3,
+  mediumMeanConfidence: 0.55,
+  minMeanConfidence: 0.4,
   maxLowFraction: 0.25,
   // A handful of soft landmarks is normal; only a meaningful share should move
   // the verdict. (Previously any single soft landmark forced at least "medium".)
-  mediumLowFraction: 0.1,
+  mediumLowFraction: 0.15,
   // landmarks sitting on/near the frame border are extrapolations
   edgeMargin: 0.02, // fraction of min(width, height)
   mediumEdgeFraction: 0.1,
   maxEdgeFraction: 0.2,
-  // Shape-prior plausibility. **Provisional — pending calibration on the
-  // CEPHA29 validation set** (docs/ai-module-improvement-plan.md §14).
-  //
-  // shapeResidual() now fits all 10 prior components, so an ordinary trace with
-  // realistic noise scores ≈0.03–0.15 and a mirrored / shuffled / random
-  // configuration scores ≈1.0. The old 0.12 "high" cut came from a synthetic
-  // jitter that sat inside the subspace and flagged normal anatomy; these cut
-  // points sit in the wide gap instead.
-  residualRatioMedium: 0.25,
-  residualRatioHigh: 0.5,
-  // mahalanobis² is a sum of K standardized squared coefficients ≈ χ²_K, so
-  // these are √χ²_{K,p}: for K=10, p95 ≈ 4.28 and p99 ≈ 4.82. The old 2.5 sat
-  // at the χ² median and flagged roughly half of all normal shapes.
-  mahalanobisMedium: 4.3,
-  mahalanobisHigh: 5.5,
+  // Shape-prior plausibility (full 10-component fit; see shapeModel.shapeResidual).
+  residualRatioMedium: 0.5, // ~valid p95 — a soft "verify" for the most atypical
+  residualRatioHigh: 0.7,   // above every valid image, well below mirrored ≈1.03
 };
+
+// NOTE: Mahalanobis is deliberately NOT a verdict input. On the valid split it
+// spans 1.5–8.6 and overlaps the mirrored value (≈7.8), so it cannot separate a
+// good trace from a failed one. `assessTraceQuality` still returns it for
+// diagnostics, but no threshold gates on it.
 
 // Weights for ranking competing hypotheses (orientation / polarity candidates).
 export const DEFAULT_RANK_WEIGHTS = { residual: 0.35, edge: 0.25 };
@@ -118,26 +116,19 @@ export function assessTraceQuality({ landmarks = [], width, height, residual = n
   } else if (residualRatio !== null && residualRatio > th.residualRatioMedium) {
     notes.push("the traced configuration is slightly atypical");
   }
-  if (mahalanobis !== null && mahalanobis > th.mahalanobisHigh) {
-    reasons.push("extreme shape outlier — likely a failed detection");
-  } else if (mahalanobis !== null && mahalanobis > th.mahalanobisMedium) {
-    notes.push("unusual shape fit");
-  }
 
   const isLow = (
     (!confs.length) ||
     (confs.length && meanConfidence < th.minMeanConfidence) ||
     lowFraction > th.maxLowFraction ||
     edgeFraction > th.maxEdgeFraction ||
-    (residualRatio !== null && residualRatio > th.residualRatioHigh) ||
-    (mahalanobis !== null && mahalanobis > th.mahalanobisHigh)
+    (residualRatio !== null && residualRatio > th.residualRatioHigh)
   );
   const isMedium = !isLow && (
     (confs.length && meanConfidence < th.mediumMeanConfidence) ||
     lowFraction > th.mediumLowFraction ||
     edgeFraction > th.mediumEdgeFraction ||
-    (residualRatio !== null && residualRatio > th.residualRatioMedium) ||
-    (mahalanobis !== null && mahalanobis > th.mahalanobisMedium)
+    (residualRatio !== null && residualRatio > th.residualRatioMedium)
   );
 
   return {

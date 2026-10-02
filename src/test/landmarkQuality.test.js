@@ -61,7 +61,6 @@ describe("assessTraceQuality", () => {
     });
     expect(q.level).toBe("low");
     expect(q.reasons.join(" ")).toMatch(/anatomically atypical/);
-    expect(q.reasons.join(" ")).toMatch(/shape outlier/);
   });
 
   it("flags landmarks sitting on the image border", () => {
@@ -85,7 +84,7 @@ describe("assessTraceQuality", () => {
 
   it("rates a middling trace as medium, explaining it as a note", () => {
     const q = assessTraceQuality({
-      landmarks: goodLandmarks(29, 0.38),
+      landmarks: goodLandmarks(29, 0.48),
       width: 1000, height: 800,
       residual: GOOD_RESIDUAL,
     });
@@ -110,8 +109,8 @@ describe("assessTraceQuality", () => {
   });
 
   it("does not flag a realistic trace whose shape is only mildly atypical", () => {
-    // residualRatio 0.15 and mahalanobis 2.0 are well within a normal
-    // population and must not read as a failure.
+    // residualRatio 0.15 is well within the valid population (p50 0.045,
+    // p95 0.51) and must not read as a failure.
     const q = assessTraceQuality({
       landmarks: goodLandmarks(29, 0.6),
       width: 1000, height: 800,
@@ -125,12 +124,24 @@ describe("assessTraceQuality", () => {
     const q = assessTraceQuality({
       landmarks: goodLandmarks(29, 0.6),
       width: 1000, height: 800,
-      residual: { residual: 100, residualRatio: 0.3, mahalanobis: 4.5 },
+      residual: { residual: 160, residualRatio: 0.55, mahalanobis: 7.0 },
     });
     expect(q.level).toBe("medium");
     expect(q.reasons).toEqual([]);
     expect(q.notes.join(" ")).toMatch(/slightly atypical/);
-    expect(q.notes.join(" ")).toMatch(/unusual shape fit/);
+  });
+
+  it("does not gate on Mahalanobis (it overlaps the mirrored value)", () => {
+    // On valid, Mahalanobis spans 1.5–8.6 and the mirrored value is ≈7.8, so it
+    // cannot separate good from failed and must not affect the verdict.
+    const q = assessTraceQuality({
+      landmarks: goodLandmarks(29, 0.6),
+      width: 1000, height: 800,
+      residual: { residual: 20, residualRatio: 0.03, mahalanobis: 9.5 },
+    });
+    expect(q.level).toBe("high");
+    expect(q.reasons).toEqual([]);
+    expect(q.mahalanobis).toBe(9.5);
   });
 
   it("skips the shape checks when no residual is supplied", () => {
@@ -213,21 +224,20 @@ describe("DEFAULT_QUALITY_THRESHOLDS", () => {
     expect(t.lowLandmarkConfidence).toBeLessThan(t.mediumMeanConfidence);
     expect(t.minMeanConfidence).toBeLessThan(t.mediumMeanConfidence);
     expect(t.residualRatioMedium).toBeLessThan(t.residualRatioHigh);
-    expect(t.mahalanobisMedium).toBeLessThan(t.mahalanobisHigh);
     expect(t.mediumEdgeFraction).toBeLessThan(t.maxEdgeFraction);
     expect(t.mediumLowFraction).toBeLessThan(t.maxLowFraction);
     expect(t.maxLowFraction).toBeLessThan(1);
+    // Mahalanobis is intentionally not a verdict input (see landmarkQuality.js).
+    expect(t.mahalanobisHigh).toBeUndefined();
   });
 
-  it("sits the shape cut points clear of a realistic trace and inside a failed one", () => {
-    // Measured on the CEPHA29 prior (K=10): a realistic trace scores
-    // residualRatio ≈0.03–0.15 / mahalanobis ≈0.5–2, while a mirrored or random
-    // configuration scores ≈1.0 / ≈5–8. The cut points must lie in that gap, not
-    // at the synthetic-fixture value that flagged normal anatomy.
+  it("sits the residual cut points above every valid image and below a mirrored one", () => {
+    // Calibrated on the CEPHA29 valid split (150 images): residualRatio max
+    // 0.587; a mirrored/garbage shape scores ≈1.03. The "high" cut must clear the
+    // former and stay under the latter.
     const t = DEFAULT_QUALITY_THRESHOLDS;
-    expect(t.residualRatioHigh).toBeGreaterThan(0.15);
-    expect(t.residualRatioHigh).toBeLessThan(1.0);
-    expect(t.mahalanobisHigh).toBeGreaterThan(2);
-    expect(t.mahalanobisHigh).toBeLessThan(7.8);
+    expect(t.residualRatioHigh).toBeGreaterThan(0.587);
+    expect(t.residualRatioHigh).toBeLessThan(1.03);
+    expect(t.residualRatioMedium).toBeLessThanOrEqual(t.residualRatioHigh);
   });
 });

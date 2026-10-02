@@ -1,9 +1,8 @@
 # AI Module Improvement Plan — Robustness, Orientation & Confidence
 
-> Status: **Phase 1 + Phase 1b code implemented (client-side); the Phase 1b
-> calibration run is pending the CEPHA29 validation-set paths. Phase 2 retraining
-> not started.**
-> Verification: `npm run lint` clean, `586/586` tests pass (31 files), `npm run build` OK.
+> Status: **Phase 1 + Phase 1b complete and calibrated on the CEPHA29 held-out
+> `valid` split. Phase 2 retraining not started.**
+> Verification: `npm run lint` clean, `592/592` tests pass (32 files), `npm run build` OK.
 >
 > Implemented in Phase 1:
 > 1. Preprocessing transforms (`src/lib/landmarkModel.js`): horizontal mirror,
@@ -18,19 +17,18 @@
 > 6. UI: quality banner + reasons + explicit "as-is / mirrored / inverted"
 >    re-trace actions (`MarkupsPanel`), and a pre-analysis warning (`AnalysisModal`).
 >
-> Phase 1b (code implemented; calibration run pending) — see §14. The
-> shape-plausibility thresholds in `landmarkQuality.js` were calibrated against a
-> synthetic fixture that was not representative, so **clean, correct traces of
-> typical-but-varied anatomy are flagged "Low-confidence trace"**. Fixed the
-> metric (`shapeResidual` with all prior components), the statistically invalid
-> Mahalanobis cutoff (it sat at the χ² median), the reasons/notes split, and the
-> single-weak-landmark downgrade. The `--report-ood` calibration mode is added;
-> the cut points are now provisional until run on the CEPHA29 validation set.
+> Phase 1b (complete) — see §14. The Phase 1 shape-plausibility thresholds were
+> calibrated against a synthetic fixture that was not representative, so **clean,
+> correct traces of typical-but-varied anatomy were flagged "Low-confidence
+> trace"**. Fixed `shapeResidual` (all prior components), removed the
+> non-discriminative Mahalanobis cutoff, split reasons/notes, stopped a single
+> soft landmark downgrading the verdict, and **calibrated the cut points on the
+> held-out `valid` split (150 images)**: 0% false-low, 6% soft-medium. Verified by
+> `src/test/qualityCalibration.test.js`.
 >
-> Still outstanding: calibration run on the CEPHA29 val set, real-model browser
-> verification of the new detector, manual transform toggles (`ImagePanel`),
-> per-landmark canvas confidence colouring, local failure reporting, and all
-> Phase 2 training augmentation.
+> Still outstanding: real-model browser verification of the new detector, manual
+> transform toggles (`ImagePanel`), per-landmark canvas confidence colouring,
+> local failure reporting, and all Phase 2 training augmentation.
 > Goal: make in-browser AI auto-trace reliable across real-world cephalograms —
 > mirrored films, inverted/negative scans, variable contrast, and out-of-distribution
 > anatomy — and give the clinician an honest confidence signal before any
@@ -524,14 +522,61 @@ Three defects in the Phase 1 gate:
   - `reasons` (verdict-driving) split from `notes` (informational).
   - A small number of soft landmarks no longer forces a downgrade; gated by a
     new `mediumLowFraction`.
-  - Mahalanobis cutoffs derived from χ²_K (≈ √χ²_{K,0.95} / √χ²_{K,0.99}).
-  - `residualRatio` cutoffs raised to provisional values, explicitly marked
-    "pending calibration".
+  - **Mahalanobis removed from the verdict entirely** — see the calibration
+    result below; on real data it overlaps the failed cases.
+  - `residualRatio` cut points set from the measured `valid` distribution.
 - Dev-only diagnostics (`import.meta.env.DEV`): a `console.debug` of the quality
   object, per-landmark PSR/score, `residual`/`mahalanobis`/`K`, and hypothesis
   scores, so a flagged image can be triaged.
 
-### Calibration harness (implemented — run pending data)
+### Calibration result — CEPHA29 held-out `valid` (150 images)
+
+`scripts/eval-landmark-model.py --report-ood` run against the shipped INT8 model
+on the valid split (Kaggle notebook `scripts/train-cepha29/kaggle-calibrate.ipynb`;
+raw output committed at `src/test/fixtures/cepha29-valid-ood.csv`).
+
+| metric | min | p50 | p95 | p99 | max | mirrored/garbage |
+| --- | --- | --- | --- | --- | --- | --- |
+| `meanConfidence` | 0.636 | 0.733 | 0.753 | 0.760 | 0.767 | — |
+| `lowFraction` | 0 | 0 | 0.069 | 0.103 | 0.103 | — |
+| `residualRatio` | 0.024 | 0.045 | 0.509 | 0.580 | **0.587** | **≈1.03** |
+| `mahalanobis` | 1.52 | 3.11 | 7.69 | 8.17 | **8.55** | **≈7.83** |
+
+Two decisive findings:
+
+1. **Confidence is uniformly high (~0.73).** The earlier synthetic estimate that
+   real heatmaps would score low was wrong; `PSR_SCALE`/floor need no change. The
+   confidence cuts sit far below the real population and never false-fire.
+2. **Mahalanobis does not separate good from failed.** Valid spans 1.5–8.6 and
+   the mirrored value is ≈7.8 — complete overlap. It is retained as a diagnostic
+   only and no longer gates.
+
+`residualRatio` is bimodal (half the valid images ≈0.04, half 0.2–0.59) because
+it is measured on the **raw** prediction before the SSM refinement fixes it — so
+it is a poor *error* estimate but still a valid *failure* detector: every valid
+image stays below 0.587 while a shape that no hypothesis can explain lands ≈1.03.
+
+Final `DEFAULT_QUALITY_THRESHOLDS`:
+
+```js
+lowLandmarkConfidence: 0.2,
+mediumMeanConfidence: 0.55,   // valid min 0.636
+minMeanConfidence: 0.4,       // valid min 0.636
+maxLowFraction: 0.25,         // valid max 0.103
+mediumLowFraction: 0.15,      // valid max 0.103
+edgeMargin: 0.02,
+mediumEdgeFraction: 0.1,
+maxEdgeFraction: 0.2,
+residualRatioMedium: 0.5,     // ≈ valid p95 — soft "verify"
+residualRatioHigh: 0.7,       // > every valid (0.587), < mirrored (≈1.03)
+```
+
+Measured effect on the valid split: **0/150 rated "low" (0%)**, 9/150 (6%)
+"medium" (all from the residual soft band), none from confidence or weak
+landmarks. Locked in by `src/test/qualityCalibration.test.js`, which fails if the
+cut points are ever tightened past this distribution.
+
+### Calibration harness
 
 `scripts/eval-landmark-model.py --report-ood` is implemented:
 
@@ -553,29 +598,25 @@ Run it against the CEPHA29 validation set:
 python scripts/eval-landmark-model.py \
   --model public/models/landmarks-cepha29.int8.onnx \
   --set cepha29 --limit 150 --dark \
-  --ann-dir "<Dataset>/train/Annotations/Cephalometric Landmarks/Senior Orthodontists" \
-  --images "<Dataset>/train/Cephalograms" \
+  --ann-dir "<Dataset>/valid/Annotations/Cephalometric Landmarks/Senior Orthodontists" \
+  --images "<Dataset>/valid/Cephalograms" \
   --report-ood --ood-out ood.csv
 ```
 
-Then set `DEFAULT_QUALITY_THRESHOLDS` (and `PSR_SCALE`/floor if the data warrants)
-from the measured percentiles and re-run to confirm.
+The Kaggle notebook `scripts/train-cepha29/kaggle-calibrate.ipynb` runs this
+end-to-end (dataset download → model download → harness) and was used to produce
+the result above.
 
 Dataset layout (from `scripts/train-cepha29/kaggle-notebook.ipynb`):
 
-- images: `DATASET/train/Cephalograms/*`
-- annotations: `DATASET/train/Annotations/Cephalometric Landmarks/<annotator>/*.json`,
+- images: `DATASET/<split>/Cephalograms/*` (`valid` preferred for calibration)
+- annotations: `DATASET/<split>/Annotations/Cephalometric Landmarks/<annotator>/*.json`,
   each JSON with `landmarks: [{ symbol, value: { x, y } }]`
 - the shipped prior was built from the **Senior** annotator folder
 
-**Caveat:** the notebook does not persist CephaloHRNet's train/val split, so a
-random sample may include images the model trained on (over-optimistic
-residual). Prefer a held-out set; otherwise calibrate from the upper
-percentiles and record the caveat.
-
 **Clinical note:** an "atypical shape" is often real anatomy, not a failed
-trace. The gate should reserve "low" for configurations that are implausible
-*as a cephalogram*, and should never present a merely-soft heatmap as a failure.
+trace. The gate reserves "low" for configurations that are implausible
+*as a cephalogram*, and never presents a merely-soft heatmap as a failure.
 
 ---
 
@@ -591,8 +632,8 @@ trace. The gate should reserve "low" for configurations that are implausible
 | 6 | Multi-hypothesis search + config | 1 | 1–2 d |
 | 7 | Quality gate + UI (banner, modal, toggles) | 1 | 2–3 d |
 | 8 | Edge/crop guard | 1 | 0.5 d |
-| 8b | **Phase 1b** — `shapeResidual` K=10, reasons/notes split, χ² Mahalanobis, dev diagnostics | 1b | 0.5 d |
-| 8c | **Phase 1b** — `--report-ood` calibration on CEPHA29 val + retune thresholds | 1b | 0.5–1 d |
+| 8b | **Phase 1b** — `shapeResidual` K=10, reasons/notes split, Mahalanobis dropped from gate, dev diagnostics | 1b | ✅ |
+| 8c | **Phase 1b** — `--report-ood` + Kaggle calibration on CEPHA29 valid; retuned thresholds (0% false-low) | 1b | ✅ |
 | 9 | Augmentation + fine-tune + export + eval | 2 | 3–7 d (+ GPU) |
 | 10 | Uncertainty heads / OOD classifier | 3 | ≥1 wk |
 
