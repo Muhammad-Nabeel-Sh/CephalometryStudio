@@ -29,18 +29,28 @@ export const DEFAULT_QUALITY_THRESHOLDS = {
   mediumMeanConfidence: 0.45,
   minMeanConfidence: 0.3,
   maxLowFraction: 0.25,
+  // A handful of soft landmarks is normal; only a meaningful share should move
+  // the verdict. (Previously any single soft landmark forced at least "medium".)
+  mediumLowFraction: 0.1,
   // landmarks sitting on/near the frame border are extrapolations
   edgeMargin: 0.02, // fraction of min(width, height)
   mediumEdgeFraction: 0.1,
   maxEdgeFraction: 0.2,
-  // shape-prior plausibility. Calibrated against the CEPHA29 prior: a realistic
-  // detection (≈11 px RMS, the model's reported 1.24 mm MRE) gives residualRatio
-  // ≈0.03, whereas a mirrored / upside-down / shuffled / random configuration all
-  // give ≈1.0 — a >30× separation, so these cut points sit well clear of both.
-  residualRatioMedium: 0.06, // ~20 px RMS (~2 mm) — usable, worth a warning
-  residualRatioHigh: 0.12,   // ~40 px RMS (~4 mm) — clearly wrong
-  mahalanobisMedium: 2.5,
-  mahalanobisHigh: 5,
+  // Shape-prior plausibility. **Provisional — pending calibration on the
+  // CEPHA29 validation set** (docs/ai-module-improvement-plan.md §14).
+  //
+  // shapeResidual() now fits all 10 prior components, so an ordinary trace with
+  // realistic noise scores ≈0.03–0.15 and a mirrored / shuffled / random
+  // configuration scores ≈1.0. The old 0.12 "high" cut came from a synthetic
+  // jitter that sat inside the subspace and flagged normal anatomy; these cut
+  // points sit in the wide gap instead.
+  residualRatioMedium: 0.25,
+  residualRatioHigh: 0.5,
+  // mahalanobis² is a sum of K standardized squared coefficients ≈ χ²_K, so
+  // these are √χ²_{K,p}: for K=10, p95 ≈ 4.28 and p99 ≈ 4.82. The old 2.5 sat
+  // at the χ² median and flagged roughly half of all normal shapes.
+  mahalanobisMedium: 4.3,
+  mahalanobisHigh: 5.5,
 };
 
 // Weights for ranking competing hypotheses (orientation / polarity candidates).
@@ -82,32 +92,36 @@ export function assessTraceQuality({ landmarks = [], width, height, residual = n
   const residualRatio = residual && Number.isFinite(residual.residualRatio) ? residual.residualRatio : null;
   const mahalanobis = residual && Number.isFinite(residual.mahalanobis) ? residual.mahalanobis : null;
 
-  // Every band that pushes the verdict away from "high" must also explain itself —
-// a warning the user cannot act on is worse than none.
+  // Reasons are split into those that actually drive the verdict (`reasons`)
+  // and informational observations (`notes`). A single soft landmark is a note,
+  // not a failure — presenting it as a warning made ordinary films look broken.
   const reasons = [];
+  const notes = [];
   if (!confs.length) {
     reasons.push("no per-landmark confidence signal");
   } else {
-    if (lowCount > 0) {
+    if (lowFraction > th.maxLowFraction) {
       reasons.push(`${lowCount} of ${confs.length} landmarks have a weak heatmap response`);
+    } else if (lowCount > 0) {
+      notes.push(`${lowCount} of ${confs.length} landmarks have a weak heatmap response`);
     }
     if (meanConfidence < th.minMeanConfidence) reasons.push("overall landmark confidence is low");
-    else if (meanConfidence < th.mediumMeanConfidence) reasons.push("overall landmark confidence is only moderate");
+    else if (meanConfidence < th.mediumMeanConfidence) notes.push("overall landmark confidence is only moderate");
   }
   if (edgeFraction > th.maxEdgeFraction) {
     reasons.push(`${edgeCount} landmarks sit on the image border (cropped film?)`);
   } else if (edgeFraction > th.mediumEdgeFraction) {
-    reasons.push(`${edgeCount} landmarks are close to the image border`);
+    notes.push(`${edgeCount} landmarks are close to the image border`);
   }
   if (residualRatio !== null && residualRatio > th.residualRatioHigh) {
     reasons.push("the traced configuration is anatomically atypical");
   } else if (residualRatio !== null && residualRatio > th.residualRatioMedium) {
-    reasons.push("the traced configuration is slightly atypical");
+    notes.push("the traced configuration is slightly atypical");
   }
   if (mahalanobis !== null && mahalanobis > th.mahalanobisHigh) {
     reasons.push("extreme shape outlier — likely a failed detection");
   } else if (mahalanobis !== null && mahalanobis > th.mahalanobisMedium) {
-    reasons.push("unusual shape fit");
+    notes.push("unusual shape fit");
   }
 
   const isLow = (
@@ -120,7 +134,7 @@ export function assessTraceQuality({ landmarks = [], width, height, residual = n
   );
   const isMedium = !isLow && (
     (confs.length && meanConfidence < th.mediumMeanConfidence) ||
-    lowFraction > 0 ||
+    lowFraction > th.mediumLowFraction ||
     edgeFraction > th.mediumEdgeFraction ||
     (residualRatio !== null && residualRatio > th.residualRatioMedium) ||
     (mahalanobis !== null && mahalanobis > th.mahalanobisMedium)
@@ -138,7 +152,9 @@ export function assessTraceQuality({ landmarks = [], width, height, residual = n
     residual: residual ? residual.residual : null,
     residualRatio,
     mahalanobis,
+    k: residual && Number.isFinite(residual.k) ? residual.k : null,
     reasons,
+    notes,
     thresholds: th,
   };
 }

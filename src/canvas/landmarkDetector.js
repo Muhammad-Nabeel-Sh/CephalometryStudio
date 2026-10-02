@@ -268,6 +268,30 @@ export async function detectLandmarks(input, opts = {}) {
     if (i === 0 && !hyp.forced && best.quality.level === "high") break;
   }
 
+  // Dev-only diagnostics: the numbers behind a quality verdict, so a flagged
+  // image can be triaged (and the thresholds calibrated) without guessing.
+  if (import.meta.env?.DEV) {
+    try {
+      console.debug("[landmarkDetector] trace quality", {
+        orientation: best.hypothesis.mirror ? "mirrored" : "normal",
+        polarity: best.hypothesis.invert ? "inverted" : "normal",
+        level: best.quality.level,
+        meanConfidence: best.quality.meanConfidence,
+        minConfidence: best.quality.minConfidence,
+        lowCount: best.quality.lowCount,
+        lowFraction: best.quality.lowFraction,
+        edgeCount: best.quality.edgeCount,
+        residualRatio: best.quality.residualRatio,
+        mahalanobis: best.quality.mahalanobis,
+        k: best.quality.k,
+        reasons: best.quality.reasons,
+        notes: best.quality.notes,
+        perLandmark: best.landmarks.map((l) => ({ symbol: l.symbol, conf: l.confidence, score: l.score })),
+        hypotheses: tried,
+      });
+    } catch { /* diagnostics must never break a trace */ }
+  }
+
   return {
     landmarks: best.landmarks,
     backend: "onnx",

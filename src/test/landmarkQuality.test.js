@@ -57,7 +57,7 @@ describe("assessTraceQuality", () => {
     const q = assessTraceQuality({
       landmarks: goodLandmarks(29, 0.6),
       width: 1000, height: 800,
-      residual: { residual: 400, residualRatio: 0.4, mahalanobis: 20 },
+      residual: { residual: 900, residualRatio: 0.9, mahalanobis: 20 },
     });
     expect(q.level).toBe("low");
     expect(q.reasons.join(" ")).toMatch(/anatomically atypical/);
@@ -83,14 +83,54 @@ describe("assessTraceQuality", () => {
     expect(q.reasons.join(" ")).toMatch(/no per-landmark confidence/);
   });
 
-  it("rates a middling trace as medium rather than low", () => {
+  it("rates a middling trace as medium, explaining it as a note", () => {
     const q = assessTraceQuality({
       landmarks: goodLandmarks(29, 0.38),
       width: 1000, height: 800,
       residual: GOOD_RESIDUAL,
     });
     expect(q.level).toBe("medium");
-    expect(q.reasons.length).toBeGreaterThan(0);
+    expect(q.notes.length).toBeGreaterThan(0);
+    expect(q.reasons).toEqual([]);
+  });
+
+  // ─── Regression: ordinary films were being flagged ─────────────────────────
+  // The reported failure was a clean, correct trace of normal-but-varied anatomy
+  // rated "Low-confidence trace" because a single soft landmark and a
+  // synthetic-calibrated shape threshold tripped. These pin the fixed behaviour.
+
+  it("does not downgrade the verdict for a single soft landmark", () => {
+    const lms = goodLandmarks(29, 0.6);
+    lms[0] = { ...lms[0], confidence: 0.05 };
+    const q = assessTraceQuality({ landmarks: lms, width: 1000, height: 800, residual: GOOD_RESIDUAL });
+    expect(q.lowCount).toBe(1);
+    expect(q.level).toBe("high");
+    expect(q.reasons).toEqual([]);
+    expect(q.notes.join(" ")).toMatch(/1 of 29 landmarks have a weak heatmap response/);
+  });
+
+  it("does not flag a realistic trace whose shape is only mildly atypical", () => {
+    // residualRatio 0.15 and mahalanobis 2.0 are well within a normal
+    // population and must not read as a failure.
+    const q = assessTraceQuality({
+      landmarks: goodLandmarks(29, 0.6),
+      width: 1000, height: 800,
+      residual: { residual: 45, residualRatio: 0.15, mahalanobis: 2.0 },
+    });
+    expect(q.level).toBe("high");
+    expect(q.reasons).toEqual([]);
+  });
+
+  it("reports a mildly atypical shape as a note, not a low verdict", () => {
+    const q = assessTraceQuality({
+      landmarks: goodLandmarks(29, 0.6),
+      width: 1000, height: 800,
+      residual: { residual: 100, residualRatio: 0.3, mahalanobis: 4.5 },
+    });
+    expect(q.level).toBe("medium");
+    expect(q.reasons).toEqual([]);
+    expect(q.notes.join(" ")).toMatch(/slightly atypical/);
+    expect(q.notes.join(" ")).toMatch(/unusual shape fit/);
   });
 
   it("skips the shape checks when no residual is supplied", () => {
@@ -175,6 +215,19 @@ describe("DEFAULT_QUALITY_THRESHOLDS", () => {
     expect(t.residualRatioMedium).toBeLessThan(t.residualRatioHigh);
     expect(t.mahalanobisMedium).toBeLessThan(t.mahalanobisHigh);
     expect(t.mediumEdgeFraction).toBeLessThan(t.maxEdgeFraction);
+    expect(t.mediumLowFraction).toBeLessThan(t.maxLowFraction);
     expect(t.maxLowFraction).toBeLessThan(1);
+  });
+
+  it("sits the shape cut points clear of a realistic trace and inside a failed one", () => {
+    // Measured on the CEPHA29 prior (K=10): a realistic trace scores
+    // residualRatio ≈0.03–0.15 / mahalanobis ≈0.5–2, while a mirrored or random
+    // configuration scores ≈1.0 / ≈5–8. The cut points must lie in that gap, not
+    // at the synthetic-fixture value that flagged normal anatomy.
+    const t = DEFAULT_QUALITY_THRESHOLDS;
+    expect(t.residualRatioHigh).toBeGreaterThan(0.15);
+    expect(t.residualRatioHigh).toBeLessThan(1.0);
+    expect(t.mahalanobisHigh).toBeGreaterThan(2);
+    expect(t.mahalanobisHigh).toBeLessThan(7.8);
   });
 });

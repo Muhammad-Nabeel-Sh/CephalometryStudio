@@ -259,6 +259,139 @@ def refine_ssm(pts, conf, ssm, alpha=1.0, reg=0.05, k=10, wmin=0.2, clip=3.0, it
     return cur.astype(np.float32)
 
 
+# ─── Out-of-distribution reporting (mirrors src/lib/landmarkQuality.js) ───────
+#
+# The browser gates a trace on (a) per-landmark PSR confidence and (b) the
+# orthogonal residual to the shape prior. These helpers reproduce both, so the
+# thresholds can be calibrated on real predictions instead of synthetic
+# fixtures (see docs/ai-module-improvement-plan.md §14).
+
+def psr_noise_floor(n, floor_factor=0.85):
+    """Expected maximum of n iid Gaussian samples, scaled. Mirrors psrNoiseFloor."""
+    if n <= 7:
+        return 0.0
+    t = float(np.sqrt(2.0 * np.log(n)))
+    return floor_factor * (t - (np.log(np.log(n)) + np.log(4.0 * np.pi)) / (2.0 * t))
+
+
+def psr_confidence(plane, peak_idx, scale=6.0, floor_factor=0.85):
+    """Peak-to-sidelobe ratio at `peak_idx`, squashed to [0,1). Mirrors psrFromPlane."""
+    n = plane.size
+    peak = float(plane[peak_idx])
+    if n == 0 or not np.isfinite(peak):
+        return 0.0, 0.0
+    if float(plane.max() - plane.min()) <= 1e-9:
+        return 0.0, 0.0
+    mu = float(plane.mean())
+    sd = float(plane.std()) or 1e-6
+    psr = (peak - mu) / sd
+    excess = max(0.0, psr - psr_noise_floor(n, floor_factor))
+    return excess / (excess + scale), psr
+
+
+def psr_confs(hm, dark=True, sigma=2.0, scale=6.0):
+    """Per-channel PSR confidence on the plane the browser measures: the
+    linearly blurred response at the argmax of the log response (DARK)."""
+    from scipy.ndimage import gaussian_filter
+    out = np.zeros(hm.shape[0], np.float32)
+    for c in range(hm.shape[0]):
+        if dark:
+            sm = gaussian_filter(hm[c].astype(np.float64), sigma)
+            idx = int(np.argmax(np.log(np.clip(sm, 1e-6, None))))
+        else:
+            sm = hm[c].astype(np.float64)
+            idx = int(np.argmax(sm))
+        out[c] = psr_confidence(sm.reshape(-1), idx, scale=scale)[0]
+    return out
+
+
+def shape_residual(pts, ssm, k=None, reg=0.1, clip=3.0):
+    """Orthogonal residual + Mahalanobis to the PCA prior. Mirrors the JS
+    fitShape(): similarity transform WITHOUT reflection, full-prior fit by
+    default (k=None -> all components)."""
+    model_pts = ssm["mean"].reshape(-1, 2)
+    N = model_pts.shape[0]
+    if pts.shape[0] != N:
+        return None
+    V, sig = ssm["components"], ssm["sigmas"]
+    K = V.shape[0] if k is None else min(k, V.shape[0])
+
+    # complex-multiplier similarity transform (a, b, tx, ty), no reflection
+    mx, my = pts.mean(0)
+    Mx, My = model_pts.mean(0)
+    x, y = pts[:, 0] - mx, pts[:, 1] - my
+    wx, wy = model_pts[:, 0] - Mx, model_pts[:, 1] - My
+    den = float((x * x + y * y).sum())
+    if den < 1e-12:
+        a, b, tx, ty = 1.0, 0.0, Mx - mx, My - my
+    else:
+        a = float((x * wx + y * wy).sum()) / den
+        b = float((x * wy - y * wx).sum()) / den
+        tx = Mx - (a * mx - b * my)
+        ty = My - (b * mx + a * my)
+    xa = np.stack([a * pts[:, 0] - b * pts[:, 1] + tx,
+                   b * pts[:, 0] + a * pts[:, 1] + ty], axis=1)
+
+    Vk, sigk = V[:K], sig[:K]
+    A = Vk @ Vk.T + reg * np.eye(K)
+    bb = np.linalg.solve(A, Vk @ (xa.reshape(-1) - ssm["mean"]))
+    bb = np.clip(bb, -clip * sigk, clip * sigk)
+    maha = float(np.sqrt(np.sum((bb / np.maximum(sigk, 1e-12)) ** 2)))
+    rec = (ssm["mean"] + Vk.T @ bb).reshape(-1, 2)
+    residual = float(np.sqrt(np.sum((xa - rec) ** 2) / N))
+    centroid = model_pts.mean(0)
+    size = float(np.linalg.norm(model_pts - centroid, axis=1).mean())
+    return {
+        "residual": residual,
+        "residualRatio": residual / size if size > 0 else 0.0,
+        "mahalanobis": maha,
+        "size": size,
+        "k": K,
+    }
+
+
+def _finite(vals):
+    return [float(v) for v in vals if v is not None and np.isfinite(v)]
+
+
+def _pct(vals, p):
+    v = _finite(vals)
+    return float(np.percentile(v, p)) if v else float("nan")
+
+
+def print_ood_report(ood, target=0.05):
+    """Percentiles + recommended thresholds for a target false-low rate."""
+    confs = _finite([c for o in ood for c in o["psr"]])
+    mean_conf = [o["meanConf"] for o in ood]
+    low_frac = [o["lowFrac"] for o in ood]
+    rr = [o["residualRatio"] for o in ood]
+    mh = [o["mahalanobis"] for o in ood]
+    hi = (1.0 - target) * 100.0  # e.g. 95th percentile
+
+    print("\n=== OOD / confidence report ({} images) ===".format(len(ood)))
+    print("per-landmark confidence   p05={:.3f}  p50={:.3f}  p95={:.3f}".format(
+        _pct(confs, 5), _pct(confs, 50), _pct(confs, 95)))
+    print("image mean confidence     p05={:.3f}  p50={:.3f}  p95={:.3f}".format(
+        _pct(mean_conf, 5), _pct(mean_conf, 50), _pct(mean_conf, 95)))
+    print("image low-landmark frac   p50={:.3f}  p75={:.3f}  p95={:.3f}".format(
+        _pct(low_frac, 50), _pct(low_frac, 75), _pct(low_frac, 95)))
+    print("residualRatio             p50={:.4f}  p75={:.4f}  p95={:.4f}  p99={:.4f}".format(
+        _pct(rr, 50), _pct(rr, 75), _pct(rr, hi), _pct(rr, 99)))
+    print("mahalanobis               p50={:.3f}  p75={:.3f}  p95={:.3f}  p99={:.3f}".format(
+        _pct(mh, 50), _pct(mh, 75), _pct(mh, hi), _pct(mh, 99)))
+
+    print("\nSuggested DEFAULT_QUALITY_THRESHOLDS for target false-low <= {:.0%}:".format(target))
+    print("  lowLandmarkConfidence: {:.3f},".format(_pct(confs, 5)))
+    print("  minMeanConfidence:     {:.3f},".format(_pct(mean_conf, 5)))
+    print("  mediumMeanConfidence:  {:.3f},".format(_pct(mean_conf, 50)))
+    print("  mediumLowFraction:     {:.3f},".format(_pct(low_frac, 75)))
+    print("  maxLowFraction:        {:.3f},".format(_pct(low_frac, hi)))
+    print("  residualRatioMedium:   {:.4f},".format(_pct(rr, 75)))
+    print("  residualRatioHigh:     {:.4f},".format(_pct(rr, hi)))
+    print("  mahalanobisMedium:     {:.3f},".format(_pct(mh, 75)))
+    print("  mahalanobisHigh:       {:.3f},".format(_pct(mh, hi)))
+
+
 def predict(sess, img, args):
     iname = sess.get_inputs()[0].name
     oname = sess.get_outputs()[0].name
@@ -280,7 +413,8 @@ def predict(sess, img, args):
     pts, conf = decode(acc, dark=args.dark, sigma=args.sigma)
     pts[:, 0] *= ow / 192.0
     pts[:, 1] *= oh / 192.0
-    return pts, conf
+    psr = psr_confs(acc, dark=args.dark, sigma=args.sigma) if args.report_ood else None
+    return pts, conf, psr
 
 
 def main():
@@ -304,6 +438,11 @@ def main():
     ap.add_argument("--ssm-wmin", type=float, default=0.2)
     ap.add_argument("--ssm-iters", type=int, default=1)
     ap.add_argument("--labels", action="store_true", help="print per-landmark errors")
+    ap.add_argument("--report-ood", action="store_true",
+                    help="report PSR confidence + shape-residual distributions and suggest quality thresholds")
+    ap.add_argument("--ood-target", type=float, default=0.05,
+                    help="target false-low rate for the suggested thresholds (default 0.05)")
+    ap.add_argument("--ood-out", default=None, help="write per-image OOD stats to this CSV")
     args = ap.parse_args()
     args.scales = [float(s) for s in args.tta_scales.split(",")]
 
@@ -312,6 +451,12 @@ def main():
         SYMS, NUM = CEPHA29, len(CEPHA29)
 
     ssm = load_ssm(args.ssm) if args.ssm else None
+    if args.report_ood and ssm is None:
+        default_ssm = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), "..", "src", "data", f"shapeModel.{args.set_name}.json"))
+        if os.path.exists(default_ssm):
+            ssm = load_ssm(default_ssm)
+            print("report-ood: using prior", default_ssm)
     sess = ort.InferenceSession(args.model, providers=["CPUExecutionProvider"])
 
     spacing = load_spacing_csv(args.spacing_csv) if args.spacing_csv else {}
@@ -336,13 +481,26 @@ def main():
 
     per = []
     used = 0
+    ood = []
     for src, gt, mm in cases:
         try:
             img = Image.open(src).convert("RGB") if os.path.exists(src) else load_image(src)
         except Exception as e:
             print("skip", src, e)
             continue
-        pred, conf = predict(sess, img, args)
+        pred, conf, psr = predict(sess, img, args)
+        if args.report_ood and psr is not None:
+            # OOD stats are measured on the RAW prediction, before refinement.
+            res = shape_residual(pred, ssm) if ssm is not None else None
+            ood.append({
+                "image": os.path.basename(str(src)),
+                "meanConf": float(np.mean(psr)),
+                "minConf": float(np.min(psr)),
+                "lowFrac": float(np.mean(psr < 0.2)),
+                "residualRatio": (res or {}).get("residualRatio"),
+                "mahalanobis": (res or {}).get("mahalanobis"),
+                "psr": psr,
+            })
         if ssm is not None:
             pred = refine_ssm(pred, conf, ssm, alpha=args.ssm_alpha, reg=args.ssm_reg, k=args.ssm_k, wmin=args.ssm_wmin, iters=args.ssm_iters)
         per.append(np.linalg.norm(pred - gt, axis=1) * mm)
@@ -360,6 +518,20 @@ def main():
     if args.labels:
         m = np.array(per).mean(0)
         print("  per-landmark:", ", ".join(f"{SYMS[k]}={m[k]:.1f}" for k in np.argsort(-m)))
+
+    if args.report_ood and ood:
+        print_ood_report(ood, target=args.ood_target)
+        if args.ood_out:
+            import csv as _csv
+            with open(args.ood_out, "w", newline="", encoding="utf-8") as f:
+                w = _csv.writer(f)
+                w.writerow(["image", "meanConf", "minConf", "lowFrac", "residualRatio", "mahalanobis"])
+                for o in ood:
+                    w.writerow([o["image"], f'{o["meanConf"]:.4f}', f'{o["minConf"]:.4f}',
+                                f'{o["lowFrac"]:.4f}',
+                                "" if o["residualRatio"] is None else f'{o["residualRatio"]:.5f}',
+                                "" if o["mahalanobis"] is None else f'{o["mahalanobis"]:.4f}'])
+            print("wrote", args.ood_out)
 
 
 if __name__ == "__main__":

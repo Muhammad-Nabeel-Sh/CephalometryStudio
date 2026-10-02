@@ -175,4 +175,12 @@ describe("shapeResidual (CEPHA29)", () => {
     const r = res(meanPts29());
     expect(r.size).toBeGreaterThan(0);
   });
+
+  it("fits all prior components by default, not the refinement K=6", () => {
+    // Truncating the fit dumps normal anatomical variation into the residual,
+    // which is what made ordinary traces look "atypical".
+    const r = res(meanPts29());
+    expect(r.k).toBe(prior.components.length);
+    expect(r.k).toBeGreaterThan(6);
+  });
 });

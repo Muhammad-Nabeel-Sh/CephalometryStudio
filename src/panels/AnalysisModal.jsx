@@ -65,6 +65,11 @@ export default function AnalysisModal({ t, projection, markups, quality, onPick,
           <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>
             {quality.reasons.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
+          {quality.notes?.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 10, color: t.tx3, lineHeight: 1.5, fontStyle: "italic" }}>
+              {quality.notes.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          )}
           <div style={{ fontSize: 11, color: t.tx3, marginTop: 6 }}>
             If the points look wrong, close this and re-trace from the Landmarks panel with an explicit image
             transform, or correct them manually. Measurements built from a failed trace are not reliable.

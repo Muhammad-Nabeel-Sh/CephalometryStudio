@@ -170,13 +170,24 @@ function fitShape(points, confidences, opts = {}) {
 // Plausibility of a raw (pre-refinement) prediction against the shape prior.
 // This is the OOD signal: a mirrored, inverted, cropped or simply unrecognisable
 // image produces a prediction far outside the anatomical shape subspace.
+//
+// The residual is measured against **all** components of the prior, not the
+// smaller refinement subspace. The CEPHA29 prior's 10 components explain only
+// ~74.5% of shape variance, so truncating the fit (the refinement default is
+// K=6) dumps a large share of *normal patient variation* into the residual and
+// makes an ordinary, correctly-traced cephalogram look "atypical". Fitting the
+// full prior leaves only variation the prior genuinely cannot represent.
+// Callers may still pass `k` to override.
 export function shapeResidual(points, opts = {}) {
-  const fit = fitShape(points, null, opts);
+  const mdl = getShapeModel(opts.set) || isbi19;
+  const allK = mdl?.components?.length ?? 6;
+  const fit = fitShape(points, null, { k: allK, ...opts });
   if (!fit) return null;
   return {
     residual: fit.residual,
     residualRatio: fit.size > 0 ? fit.residual / fit.size : 0,
     mahalanobis: fit.mahalanobis,
     size: fit.size,
+    k: fit.K,
   };
 }

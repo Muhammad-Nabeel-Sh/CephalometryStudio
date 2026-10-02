@@ -111,6 +111,11 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
           <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>
             {autoTraceQuality.reasons.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
+          {autoTraceQuality.notes?.length > 0 && (
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 10, color: t.tx3, lineHeight: 1.5, fontStyle: "italic" }}>
+              {autoTraceQuality.notes.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          )}
           <div style={{ fontSize: 10, color: t.tx3 }}>
             Measurements and norms derived from these points may be wrong — verify before use.
           </div>

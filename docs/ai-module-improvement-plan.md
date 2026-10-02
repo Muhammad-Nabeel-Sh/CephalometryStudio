@@ -1,7 +1,9 @@
 # AI Module Improvement Plan — Robustness, Orientation & Confidence
 
-> Status: **Phase 1 implemented (client-side); Phase 2 retraining not started.**
-> Verification: `npm run lint` clean, `581/581` tests pass (31 files), `npm run build` OK.
+> Status: **Phase 1 + Phase 1b code implemented (client-side); the Phase 1b
+> calibration run is pending the CEPHA29 validation-set paths. Phase 2 retraining
+> not started.**
+> Verification: `npm run lint` clean, `586/586` tests pass (31 files), `npm run build` OK.
 >
 > Implemented in Phase 1:
 > 1. Preprocessing transforms (`src/lib/landmarkModel.js`): horizontal mirror,
@@ -16,10 +18,19 @@
 > 6. UI: quality banner + reasons + explicit "as-is / mirrored / inverted"
 >    re-trace actions (`MarkupsPanel`), and a pre-analysis warning (`AnalysisModal`).
 >
-> Still outstanding: real-model browser verification of the new detector,
-> threshold calibration against a labelled OOD set, manual transform toggles
-> (`ImagePanel`), per-landmark canvas confidence colouring, local failure
-> reporting, and all Phase 2 training augmentation.
+> Phase 1b (code implemented; calibration run pending) — see §14. The
+> shape-plausibility thresholds in `landmarkQuality.js` were calibrated against a
+> synthetic fixture that was not representative, so **clean, correct traces of
+> typical-but-varied anatomy are flagged "Low-confidence trace"**. Fixed the
+> metric (`shapeResidual` with all prior components), the statistically invalid
+> Mahalanobis cutoff (it sat at the χ² median), the reasons/notes split, and the
+> single-weak-landmark downgrade. The `--report-ood` calibration mode is added;
+> the cut points are now provisional until run on the CEPHA29 validation set.
+>
+> Still outstanding: calibration run on the CEPHA29 val set, real-model browser
+> verification of the new detector, manual transform toggles (`ImagePanel`),
+> per-landmark canvas confidence colouring, local failure reporting, and all
+> Phase 2 training augmentation.
 > Goal: make in-browser AI auto-trace reliable across real-world cephalograms —
 > mirrored films, inverted/negative scans, variable contrast, and out-of-distribution
 > anatomy — and give the clinician an honest confidence signal before any
@@ -37,9 +48,10 @@
 | --- | --- | --- |
 | Model | HF `MuhammadNabeelSh/cephalometry-landmarks`, static-QDQ **INT8** ONNX | HRNet-W32, 29 landmarks, 768², 3-ch, ImageNet norm |
 | Runtime | `public/ort/ort.wasm.min.js` + `ort-wasm-simd-threaded.{mjs,wasm}` (committed) | WASM EP, single-thread, no proxy |
-| Preprocess | `src/lib/landmarkModel.js` `preprocessGrayscale()` | grayscale → bilinear resize → replicate×3 → `(x−mean)/std` |
-| Decode | `decodeDark()` (DARK: Gaussian blur → log → argmax → Taylor) | confidence = `clamp(log(smoothed peak))` |
-| Refine | `src/lib/shapeModel.js` `refineShape()` | PCA projection, pose-normalized, confidence-weighted, ±3σ |
+| Preprocess | `src/lib/landmarkModel.js` `preprocessGrayscale()` | grayscale → bilinear resize → replicate×3 → `(x−mean)/std`; optional mirror / invert / CLAHE / stretch |
+| Decode | `decodeDark()` (DARK: Gaussian blur → log → argmax → Taylor) | confidence = PSR on the blurred plane, noise-floor corrected (`psrScale: 6`) |
+| Refine | `src/lib/shapeModel.js` `refineShape()` | PCA projection (K=6), pose-normalized, confidence-weighted, ±3σ |
+| Quality gate | `src/lib/landmarkQuality.js` | PSR confidence + shape residual/Mahalanobis + edge guard → high/medium/low |
 | Orchestration | `src/workspace/autoTrace.js` `runAutoTrace()` | detects all 29, then `AnalysisModal` picks the analysis (decoupled) |
 | Accuracy (report) | CEPHA29 valid split (150 imgs) | **MRE ≈ 1.24 mm, SDR@2 mm 83%** (in-distribution) |
 
@@ -474,7 +486,100 @@ distribution on a real mirrored film).
 
 ---
 
-## 14. Milestones & rough effort
+## 14. Quality-gate recalibration (Phase 1b)
+
+### Why clean films were flagged
+
+After the mirror fix landed, the next reported problem was that **many
+non-mirrored cephalograms still show "Low-confidence trace"**. The banner listed:
+
+- `1 of 29 landmarks have a weak heatmap response`
+- `the traced configuration is anatomically atypical`
+- `unusual shape fit`
+
+The binding reason is the **shape-plausibility** check, not heatmap confidence.
+Three defects in the Phase 1 gate:
+
+1. **`residualRatio` measures anatomical *typicality*, not detection error.**
+   The CEPHA29 prior's 10 components explain only **74.5%** of shape variance
+   (`src/data/shapeModel.cepha29.json`, `n=700`), and `shapeResidual()` used only
+   **K=6**, so ~25% of normal patient variation is orthogonal to the prior and
+   lands in `residual`. The `0.12` cutoff came from a synthetic `sin/cos` jitter
+   that happened to lie *inside* the subspace (ratio ≈0.03) and was never
+   representative. Correct traces of atypical (but normal) anatomy were flagged.
+2. **The Mahalanobis cutoff is statistically invalid.** `mahalanobis²` is a sum
+   of K standardized squared coefficients, i.e. ≈ χ²_K in distribution. For K=6
+   the median √χ²₆ ≈ **2.36** and p95 ≈ **3.55**; a cutoff of **2.5 flags ~half
+   of all normal shapes**.
+3. **A single soft landmark downgraded the whole trace.** `lowFraction > 0`
+   forced at least "medium" and emitted the "1 of 29 weak" bullet, even though
+   1/29 is far below the 25% limiter; verdict-driving and informational causes
+   were mixed into one `reasons` list.
+
+### Fixes (Phase 1b)
+
+- `shapeResidual()` uses **all 10** prior components (refinement keeps K=6), so
+  genuinely normal anatomy is not counted as residual.
+- `src/lib/landmarkQuality.js`:
+  - `reasons` (verdict-driving) split from `notes` (informational).
+  - A small number of soft landmarks no longer forces a downgrade; gated by a
+    new `mediumLowFraction`.
+  - Mahalanobis cutoffs derived from χ²_K (≈ √χ²_{K,0.95} / √χ²_{K,0.99}).
+  - `residualRatio` cutoffs raised to provisional values, explicitly marked
+    "pending calibration".
+- Dev-only diagnostics (`import.meta.env.DEV`): a `console.debug` of the quality
+  object, per-landmark PSR/score, `residual`/`mahalanobis`/`K`, and hypothesis
+  scores, so a flagged image can be triaged.
+
+### Calibration harness (implemented — run pending data)
+
+`scripts/eval-landmark-model.py --report-ood` is implemented:
+
+- `psr_noise_floor` / `psr_confidence` / `psr_confs` port the JS PSR (Gaussian
+  extreme-value floor) exactly, measuring on the linearly-blurred plane at the
+  DARK argmax — the same plane the browser uses.
+- `shape_residual()` ports the JS `fitShape()` exactly (no-reflection
+  similarity transform, full-prior K=10 fit). Verified against the JS on the
+  shipped prior: mean → `0.0000 / 0.00`, mirrored → `1.0304 / 7.83`, and the
+  Gaussian-σ PSR sweep matches to the printed decimal.
+- Per image it reports per-landmark PSR, low fraction, `residualRatio`,
+  `mahalanobis`; `--ood-out` writes a CSV. `print_ood_report()` prints
+  percentiles and a copy-paste `DEFAULT_QUALITY_THRESHOLDS` block for a target
+  false-low rate (`--ood-target`, default 5%).
+
+Run it against the CEPHA29 validation set:
+
+```
+python scripts/eval-landmark-model.py \
+  --model public/models/landmarks-cepha29.int8.onnx \
+  --set cepha29 --limit 150 --dark \
+  --ann-dir "<Dataset>/train/Annotations/Cephalometric Landmarks/Senior Orthodontists" \
+  --images "<Dataset>/train/Cephalograms" \
+  --report-ood --ood-out ood.csv
+```
+
+Then set `DEFAULT_QUALITY_THRESHOLDS` (and `PSR_SCALE`/floor if the data warrants)
+from the measured percentiles and re-run to confirm.
+
+Dataset layout (from `scripts/train-cepha29/kaggle-notebook.ipynb`):
+
+- images: `DATASET/train/Cephalograms/*`
+- annotations: `DATASET/train/Annotations/Cephalometric Landmarks/<annotator>/*.json`,
+  each JSON with `landmarks: [{ symbol, value: { x, y } }]`
+- the shipped prior was built from the **Senior** annotator folder
+
+**Caveat:** the notebook does not persist CephaloHRNet's train/val split, so a
+random sample may include images the model trained on (over-optimistic
+residual). Prefer a held-out set; otherwise calibrate from the upper
+percentiles and record the caveat.
+
+**Clinical note:** an "atypical shape" is often real anatomy, not a failed
+trace. The gate should reserve "low" for configurations that are implausible
+*as a cephalogram*, and should never present a merely-soft heatmap as a failure.
+
+---
+
+## 15. Milestones & rough effort
 
 | # | Item | Phase | Effort |
 | --- | --- | --- | --- |
@@ -486,6 +591,8 @@ distribution on a real mirrored film).
 | 6 | Multi-hypothesis search + config | 1 | 1–2 d |
 | 7 | Quality gate + UI (banner, modal, toggles) | 1 | 2–3 d |
 | 8 | Edge/crop guard | 1 | 0.5 d |
+| 8b | **Phase 1b** — `shapeResidual` K=10, reasons/notes split, χ² Mahalanobis, dev diagnostics | 1b | 0.5 d |
+| 8c | **Phase 1b** — `--report-ood` calibration on CEPHA29 val + retune thresholds | 1b | 0.5–1 d |
 | 9 | Augmentation + fine-tune + export + eval | 2 | 3–7 d (+ GPU) |
 | 10 | Uncertainty heads / OOD classifier | 3 | ≥1 wk |
 
@@ -494,7 +601,7 @@ without touching the model. Phase 2 is the durable fix.
 
 ---
 
-## 15. Appendix — file map
+## 16. Appendix — file map
 
 | Concern | File(s) |
 | --- | --- |
