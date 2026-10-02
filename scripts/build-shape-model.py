@@ -40,7 +40,10 @@ CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
            "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
            "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
 
-SETS = {"isbi19": ISBI19, "cepha29": CEPHA29}
+# CEPHA29 + the two occlusal-plane points (pseudo-label PoC), appended.
+CEPHA31 = CEPHA29 + ["APOcc", "PPOcc"]
+
+SETS = {"isbi19": ISBI19, "cepha29": CEPHA29, "cepha31": CEPHA31}
 
 _CTX = ssl.create_default_context()
 _CTX.check_hostname = False
@@ -62,7 +65,7 @@ def load_shapes_isbi19():
     return np.stack(shapes)
 
 
-def load_shapes_cepha29(ann_dir):
+def load_shapes_cepha29(ann_dir, syms=CEPHA29):
     files = sorted(glob.glob(os.path.join(ann_dir, "*.json")))
     if not files:
         raise SystemExit(f"No .json annotations found in {ann_dir}")
@@ -80,10 +83,10 @@ def load_shapes_cepha29(ann_dir):
             val = lm.get("value") or {}
             if sym is not None and "x" in val and "y" in val:
                 by_symbol[sym] = (float(val["x"]), float(val["y"]))
-        if not all(s in by_symbol for s in CEPHA29):
+        if not all(s in by_symbol for s in syms):
             skipped += 1
             continue
-        shapes.append(np.array([by_symbol[s] for s in CEPHA29], np.float64))
+        shapes.append(np.array([by_symbol[s] for s in syms], np.float64))
     if skipped:
         print(f"skipped {skipped} file(s) missing symbols")
     return np.stack(shapes)
@@ -122,10 +125,10 @@ def main():
     args = ap.parse_args()
 
     syms = SETS[args.set_name]
-    if args.set_name == "cepha29":
+    if args.set_name in ("cepha29", "cepha31"):
         if not args.ann_dir:
-            raise SystemExit("--set cepha29 requires --ann-dir <annotations folder>")
-        shapes = load_shapes_cepha29(args.ann_dir)
+            raise SystemExit(f"--set {args.set_name} requires --ann-dir <annotations folder>")
+        shapes = load_shapes_cepha29(args.ann_dir, syms)
     else:
         shapes = load_shapes_isbi19()
     print(f"loaded {len(shapes)} shapes x {shapes.shape[1]} landmarks ({args.set_name})")

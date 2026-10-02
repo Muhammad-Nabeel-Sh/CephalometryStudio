@@ -40,6 +40,8 @@ ISBI19 = ["S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
 CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
            "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
            "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
+# CEPHA29 + the two occlusal-plane points (pseudo-label PoC), appended.
+CEPHA31 = CEPHA29 + ["APOcc", "PPOcc"]
 SYMS = ISBI19
 NUM = len(SYMS)
 INPUT = 768
@@ -78,11 +80,13 @@ def load_image(name):
     return Image.open(path).convert("RGB")
 
 
-def load_annotations_cepha29(ann_dir):
-    """Read CEPHA29 annotation JSONs -> {ceph_id: (NUM, 2)} in CEPHA29 order."""
+def load_annotations_cepha29(ann_dir, syms=None):
+    """Read CEPHA29-style annotation JSONs -> {ceph_id: (N, 2)} in given symbol order."""
     import glob
     import json
 
+    if syms is None:
+        syms = CEPHA29
     out = {}
     for path in sorted(glob.glob(os.path.join(ann_dir, "*.json"))):
         try:
@@ -94,10 +98,10 @@ def load_annotations_cepha29(ann_dir):
             v = lm.get("value") or {}
             if lm.get("symbol") and "x" in v and "y" in v:
                 by[lm["symbol"]] = (float(v["x"]), float(v["y"]))
-        if not all(s in by for s in CEPHA29):
+        if not all(s in by for s in syms):
             continue
         cid = data.get("ceph_id") or os.path.splitext(os.path.basename(path))[0]
-        out[cid] = np.array([by[s] for s in CEPHA29], np.float32)
+        out[cid] = np.array([by[s] for s in syms], np.float32)
     return out
 
 
@@ -421,7 +425,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="public/models/landmarks-hrnet19.onnx")
     ap.add_argument("--limit", type=int, default=20)
-    ap.add_argument("--set", default="isbi19", choices=["isbi19", "cepha29"], dest="set_name")
+    ap.add_argument("--set", default="isbi19", choices=["isbi19", "cepha29", "cepha31"], dest="set_name")
     ap.add_argument("--ann-dir", default=None, help="cepha29: annotation JSON directory")
     ap.add_argument("--images", default=None, help="cepha29: image directory")
     ap.add_argument("--pixel-mm", type=float, default=PIXEL_MM, help="mm per pixel (ISBI default 0.1)")
@@ -449,6 +453,8 @@ def main():
     global SYMS, NUM
     if args.set_name == "cepha29":
         SYMS, NUM = CEPHA29, len(CEPHA29)
+    elif args.set_name == "cepha31":
+        SYMS, NUM = CEPHA31, len(CEPHA31)
 
     ssm = load_ssm(args.ssm) if args.ssm else None
     if args.report_ood and ssm is None:
@@ -461,11 +467,11 @@ def main():
 
     spacing = load_spacing_csv(args.spacing_csv) if args.spacing_csv else {}
     cases = []  # (image_source, gt, mm_per_px)
-    if args.set_name == "cepha29":
+    if args.set_name in ("cepha29", "cepha31"):
         if not (args.ann_dir and args.images):
-            raise SystemExit("--set cepha29 requires --ann-dir and --images")
+            raise SystemExit(f"--set {args.set_name} requires --ann-dir and --images")
         import glob
-        ann = load_annotations_cepha29(args.ann_dir)
+        ann = load_annotations_cepha29(args.ann_dir, SYMS)
         imgs = []
         for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tif", "*.tiff"):
             imgs += glob.glob(os.path.join(args.images, ext))

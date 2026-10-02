@@ -66,7 +66,16 @@ export const CEPHA29 = [
   { symbol: "UPM",  name: "Upper 2nd PM Cusp Tip",   app: "UPM",  mock: [0.380, 0.550] },
 ];
 
-export const LANDMARK_SETS = { isbi19: ISBI19, cepha29: CEPHA29 };
+// CEPHA29 + the two occlusal-plane points (pseudo-label PoC). The new symbols
+// are *appended* so the original 29 channels keep their indices. When a model is
+// trained for this set, its channel order must match this array exactly.
+export const CEPHA31 = [
+  ...CEPHA29,
+  { symbol: "APOcc", name: "Anterior Occlusal Point", app: "APOcc", mock: [0.285, 0.620] },
+  { symbol: "PPOcc", name: "Posterior Occlusal Point", app: "PPOcc", mock: [0.420, 0.590] },
+];
+
+export const LANDMARK_SETS = { isbi19: ISBI19, cepha29: CEPHA29, cepha31: CEPHA31 };
 export const DEFAULT_LANDMARK_SET = "isbi19";
 
 export function getLandmarkSet(key = DEFAULT_LANDMARK_SET) {
@@ -92,6 +101,9 @@ export const CEPHA29_ORDER = CEPHA29.map((l) => l.symbol);
 export function cepha29SymbolAt(index) {
   return CEPHA29[index]?.symbol ?? null;
 }
+
+// CEPHA31 (29 + occlusal points) — appended symbols, so indices 0..28 are CEPHA29.
+export const CEPHA31_ORDER = CEPHA31.map((l) => l.symbol);
 
 // ─── Demo/placeholder detector ────────────────────────────────────────────────
 // Deterministic, image-derived fake detections. Used when no ONNX runtime/model

@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   ISBI19,
   CEPHA29,
+  CEPHA31,
   LANDMARK_SETS,
   DEFAULT_LANDMARK_SET,
   NUM_LANDMARKS,
   CEPHA29_ORDER,
+  CEPHA31_ORDER,
   getLandmarkSet,
   symbolAt,
   appLabelForSymbol,
@@ -21,6 +23,18 @@ describe("landmark sets", () => {
     expect(LANDMARK_SETS.isbi19).toBe(ISBI19);
     expect(LANDMARK_SETS.cepha29).toBe(CEPHA29);
     expect(DEFAULT_LANDMARK_SET).toBe("isbi19");
+  });
+
+  it("defines CEPHA31 as CEPHA29 plus the two appended occlusal points", () => {
+    expect(CEPHA31).toHaveLength(31);
+    expect(LANDMARK_SETS.cepha31).toBe(CEPHA31);
+    // The first 29 entries must be identical objects so channel indices 0..28
+    // keep their meaning; the new points are appended, never inserted.
+    for (let i = 0; i < 29; i++) expect(CEPHA31[i]).toBe(CEPHA29[i]);
+    expect(CEPHA31_ORDER.slice(0, 29)).toEqual(CEPHA29_ORDER);
+    expect(CEPHA31_ORDER.slice(29)).toEqual(["APOcc", "PPOcc"]);
+    expect(appLabelForSymbol("APOcc", "cepha31")).toBe("APOcc");
+    expect(appLabelForSymbol("PPOcc", "cepha31")).toBe("PPOcc");
   });
 
   it("keeps the CEPHA29 channel order stable (CephaloHRNet LANDMARK_SYMBOLS)", () => {

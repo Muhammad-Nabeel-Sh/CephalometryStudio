@@ -33,12 +33,21 @@ import hashlib
 import os
 import sys
 
-# CEPHA29 output-channel order — must match src/data/landmarkMap.js `CEPHA29`.
+# Output-channel order — must match src/data/landmarkMap.js for the same set.
 CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
            "Li", "Ls", "Me", "N", "N`", "Or", "PNS", "Pn", "Po", "Pog", "Pog`",
            "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
+# CEPHA29 + the two occlusal-plane points, appended (pseudo-label PoC).
+CEPHA31 = CEPHA29 + ["APOcc", "PPOcc"]
+
+# Selects the verify-overlay symbol list for a given channel count.
+SYMBOLS_BY_NUM = {29: CEPHA29, 31: CEPHA31}
 MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
+
+
+def symbols_for(num_landmarks):
+    return SYMBOLS_BY_NUM.get(num_landmarks)
 
 
 def sha256_file(path):
@@ -116,13 +125,15 @@ def quantize_web(fp32_path, out_path, calib_dir, size, channels):
     return True
 
 
-def verify(model, image_path, out_png, size):
+def verify(model, image_path, out_png, size, symbols=None):
     """Run the model and draw index:symbol labels so the channel order can be
     confirmed visually before wiring it into the app."""
     import numpy as np
     import torch
     from PIL import Image, ImageDraw
 
+    if symbols is None:
+        symbols = CEPHA29
     img = Image.open(image_path).convert("RGB")
     ow, oh = img.size
     resized = img.resize((size, size), Image.Resampling.BILINEAR)
@@ -134,11 +145,11 @@ def verify(model, image_path, out_png, size):
     hw = heat.shape[-1]
     idx = heat.reshape(1, -1, hw * hw).argmax(2)[0]
     draw = ImageDraw.Draw(img)
-    for i in range(len(CEPHA29)):
+    for i in range(len(symbols)):
         px = int((idx[i] % hw) * ow / hw)
         py = int((idx[i] // hw) * oh / hw)
         draw.ellipse([px - 5, py - 5, px + 5, py + 5], outline=(255, 0, 0), width=2)
-        draw.text((px + 6, py - 6), f"{i}:{CEPHA29[i]}", fill=(255, 255, 0))
+        draw.text((px + 6, py - 6), f"{i}:{symbols[i]}", fill=(255, 255, 0))
     img.save(out_png)
     print(f"Wrote verification overlay: {out_png}")
 
@@ -199,7 +210,8 @@ def main():
         sys.exit("Output channel count does not match --num-landmarks; check the checkpoint.")
 
     if args.verify:
-        verify(model, args.verify, args.out.replace(".onnx", "-verify.png"), args.input_size)
+        verify(model, args.verify, args.out.replace(".onnx", "-verify.png"),
+               args.input_size, symbols=symbols_for(args.num_landmarks))
 
     export_onnx(model, dummy, args.out, args.opset)
     print(f"Exported FP32: {args.out} ({os.path.getsize(args.out) / 1e6:.1f} MB)")
