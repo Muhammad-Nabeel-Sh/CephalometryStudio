@@ -635,14 +635,124 @@ trace. The gate reserves "low" for configurations that are implausible
 | 8b | **Phase 1b** — `shapeResidual` K=10, reasons/notes split, Mahalanobis dropped from gate, dev diagnostics | 1b | ✅ |
 | 8c | **Phase 1b** — `--report-ood` + Kaggle calibration on CEPHA29 valid; retuned thresholds (0% false-low) | 1b | ✅ |
 | 9 | Augmentation + fine-tune + export + eval | 2 | 3–7 d (+ GPU) |
+| 9b | External validation + human inter-rater comparison | 2 | 2–4 d |
+| 9c | Orientation head + visibility head | 2/3 | 2–4 d |
+| 9d | Expand landmark vocabulary (§16.2 order-sync) | 2 | 3–7 d (+ annotation) |
 | 10 | Uncertainty heads / OOD classifier | 3 | ≥1 wk |
 
 **Phase 1 is ≈1–1.5 weeks** and fixes the two reported problems for most images
-without touching the model. Phase 2 is the durable fix.
+without touching the model. Phase 2 is the durable fix. See **§16** for the
+concrete next steps (model improvement + adding landmarks).
 
 ---
 
-## 16. Appendix — file map
+## 16. Next steps — improving the model & adding landmarks
+
+> Phase 1/1b are complete: the app handles orientation/polarity at runtime and the
+> quality gate is calibrated on real data. Everything below is **model-side** work
+> and is the next front. Ordered by return on effort.
+
+### 16.1 Improving the model
+
+1. **Fine-tune with the Phase 2 augmentations — the single biggest win.**
+   The runtime hypothesis search papers over mirror/invert, but a model that has
+   *seen* those transforms is strictly better (one forward pass, no shape-prior
+   guesswork, higher accuracy on shifted distributions).
+   - Add to CephaloHRNet `data/transforms.py`: horizontal flip (p≈0.5, `x → W−1−x`),
+     polarity invert (p≈0.2, photometric), CLAHE (p≈0.3), mild gamma/JPEG.
+   - **Fine-tune the existing 29-channel checkpoint** on the augmented set
+     (≈30–50 epochs) rather than training from scratch — cheaper and preserves
+     the current accuracy on in-distribution films.
+   - Re-export static-QDQ INT8, rebuild the SSM prior, update the manifest
+     (`version`, `sha256`), and re-run `--report-ood` to recalibrate the gate.
+   - Expected outcome: mirrored/inverted films become "high" quality on the first
+     pass; the hypothesis search remains as a safety net.
+   - Caveat: flip augmentation erases inherent left/right semantics, so pair it
+     with an **orientation head** (item 5) if the app must report true orientation.
+
+2. **External validation — the number that actually matters.**
+   All current metrics are Aariz-only. Acquire a second-source set (different
+   machine, population, scanned film), compute per-landmark MRE/SDR, and compare
+   against **human inter-rater error** (the clinical floor). Do not publish
+   accuracy claims without this. Extend `eval-landmark-model.py` with the
+   `--mirror/--invert/--clahe` stress flags (§9.4).
+
+3. **Data quality and diversity.**
+   - Average Junior + Senior annotations (already supported via `--annotators`);
+     quantify the annotator disagreement as the target error floor.
+   - Add scanned/inverted films and a second acquisition source.
+   - Rebalance the hard landmarks (soft-tissue profile, occlusal points) — report
+     per-landmark error and, if a few dominate, consider oversampling/weighted loss.
+
+4. **Decoder / architecture.**
+   - Keep DARK decoding (validated); re-test TTA only if the model changes.
+   - Consider a higher-resolution or multi-scale head for the smallest landmarks.
+   - A **visibility/confidence head** (Phase 3) would stop the model guessing
+     cropped points; feed it into the quality gate as an extra signal.
+
+5. **Orientation/polarity classifier head (recommended companion to flip aug).**
+   A tiny binary head (normal vs mirrored) lets the app report the true
+   orientation and removes the reliance on shape-residual ranking for that call.
+
+6. **Loss.**
+   AWing is in use. Evaluate AWing + heatmap MSE (or adaptive weighting) against
+   per-landmark MRE/SDR; keep only if it improves the hard landmarks.
+
+### 16.2 Adding new landmarks
+
+Channel order is **load-bearing** — a mismatch was a past latent bug. Adding a
+landmark means touching every place the vocabulary is defined, in lockstep:
+
+1. **Decide the vocabulary first**: symbol (ASCII-safe, unique), app label,
+   anatomical definition, and expected visibility. Get clinical sign-off.
+2. **Annotate**: extend the dataset (Aariz is fixed at 29, so new points need a
+   supplementary annotation pass or an additional dataset). Measure inter-rater
+   error for the new points before trusting them.
+3. **Expand the model head**: raise `--num-landmarks`; when fine-tuning, the new
+   channels start from scratch (or initialize from a nearby point). Update
+   `LANDMARK_SYMBOLS` in CephaloHRNet `data/dataset.py` — its order **is** the
+   output-channel order.
+4. **Synchronize the canonical order everywhere** (the checklist that prevents the
+   old bug):
+   - CephaloHRNet `data/dataset.py` `LANDMARK_SYMBOLS`
+   - `src/data/landmarkMap.js` (order + symbol → app-label map)
+   - `scripts/export-landmark-onnx.py`
+   - `scripts/eval-landmark-model.py` (`CEPHA29` list)
+   - `scripts/build-shape-model.py` (`CEPHA29` list)
+   - the Kaggle notebook/README, and the landmark-order test in `src/test/`
+5. **Rebuild the SSM prior** (`build-shape-model.py --set cepha29`) and check
+   `explainedVariance` stays healthy with the larger shape vector.
+6. **Map into analyses**: add the app labels to the relevant `PREDEFINED`
+   analyses (`src/data/constants.js`) and the measurement definitions
+   (`Data/AnalysisMeasurements.csv`). Auto-measurements only instantiate when all
+   referenced landmarks are placed, so partial support is safe.
+7. **Quality gate**: new landmarks get PSR confidence and shape-residual coverage
+   automatically; **re-run `--report-ood`** on the new valid split to recalibrate
+   the thresholds (the residual distribution changes with the shape vector).
+8. **Verify**: run `export-landmark-onnx.py --verify` and confirm each labelled dot
+   lands on the right anatomy; add a golden channel-order test.
+9. **Version + rollout**: bump `version`/`sha256` in
+   `src/data/landmarkModelInfo.js`; keep the previous model available so existing
+   projects remain reproducible.
+
+### 16.3 Landmark vs. computed point
+
+Only add a model channel if the point is **anatomically distinct and must be
+placed**. If it is derivable (midpoint, intersection, projection, perpendicular
+foot), prefer an existing computed markup type — it is more accurate, costs no
+annotation or training, and cannot drift with the model. The 23 markup types
+already cover midpoints, projections, intersections, tangents, etc.
+
+### 16.4 Suggested sequence
+
+1. Fine-tune with augmentations + external validation (biggest robustness/accuracy).
+2. Add the orientation head and visibility head.
+3. Then expand the landmark vocabulary (with the full order-sync checklist), since
+   it re-touches training, export, prior, analyses, and calibration.
+
+---
+
+## 17. Appendix — file map
 
 | Concern | File(s) |
 | --- | --- |

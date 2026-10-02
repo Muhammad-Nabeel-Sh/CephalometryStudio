@@ -4316,8 +4316,27 @@ function Workspace({
     _set({ snapTolerance: typeof v === "function" ? v(snapTolerance) : v });
 
   const [autoTraceBusy, setAutoTraceBusy] = useState(false);
-  const [autoTraceInfo, setAutoTraceInfo] = useState(null);
-  const [autoTraceQuality, setAutoTraceQuality] = useState(null);
+  // Auto-trace messages/quality are per-session (i.e. per filmstrip entry):
+  // switching the active session must not carry a previous session's warning
+  // along with it. Keyed by session id, runtime-only.
+  const [autoTraceBySession, setAutoTraceBySession] = useState({});
+  const autoTraceSessionId = activeSession?.id || null;
+  const autoTraceInfo = (autoTraceSessionId && autoTraceBySession[autoTraceSessionId]?.info) || null;
+  const autoTraceQuality = (autoTraceSessionId && autoTraceBySession[autoTraceSessionId]?.quality) || null;
+  const setAutoTraceInfo = useCallback((info) => {
+    if (!autoTraceSessionId) return;
+    setAutoTraceBySession((m) => ({
+      ...m,
+      [autoTraceSessionId]: { ...(m[autoTraceSessionId] || {}), info },
+    }));
+  }, [autoTraceSessionId]);
+  const setAutoTraceQuality = useCallback((quality) => {
+    if (!autoTraceSessionId) return;
+    setAutoTraceBySession((m) => ({
+      ...m,
+      [autoTraceSessionId]: { ...(m[autoTraceSessionId] || {}), quality },
+    }));
+  }, [autoTraceSessionId]);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const handleAutoTrace = useCallback(async (traceOpts = {}) => {
     const target = sessionImage?.[0] ? imgRefs.current[sessionImage[0].id] : null;
@@ -4372,7 +4391,7 @@ function Workspace({
     } finally {
       setAutoTraceBusy(false);
     }
-  }, [sessionImage, calibration]);
+  }, [sessionImage, calibration, setAutoTraceInfo, setAutoTraceQuality]);
 
   const handleAutoTraceRetry = useCallback((hyp) => {
     // Drop the previous AI points so a re-trace replaces rather than duplicates.
@@ -4417,7 +4436,7 @@ function Workspace({
       }.`,
       tone: res.missing.length ? "info" : "ok",
     });
-  }, [markups, calibration, norms, refreshAutoMeas, pushUndo, updSession, dispatch]);
+  }, [markups, calibration, norms, refreshAutoMeas, pushUndo, updSession, dispatch, setAutoTraceInfo]);
 
   // ── Panel prop bundles ──
   const pMarkups = {
