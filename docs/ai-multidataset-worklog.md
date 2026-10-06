@@ -121,3 +121,77 @@ Run `scripts/ai/kaggle-ai-audit.ipynb` on Kaggle (CPU, Internet On), attaching
 back `/kaggle/working/audit/` — especially `E0_isbi/isbi_metrics.json` and
 `failure_taxonomy.md`. That quantifies the domain shift and decides the training
 plan. **No model changes until this report exists.**
+
+### Step 9 — Audit run completed (results)
+The Kaggle audit was run and the outputs filed under
+`scripts/ai/experiments/E0_isbi/` and `scripts/ai/datasets/`.
+
+**Dataset profile** (`datasets/dataset_statistics.csv`)
+
+| id | images | median WxH | aspect | notes |
+| --- | --- | --- | --- | --- |
+| aariz | 150 (valid) | 1968×1937 | 0.884 | near-square, ~35% "inverted" heuristic |
+| isbi2015 | 200 | 1935×2400 | 0.806 | portrait; black frame + white registration marks |
+
+**External benchmark — Aariz 29-model on ISBI, 19 shared landmarks, 50 images**
+(`E0_isbi/isbi_metrics.json`):
+
+| | MRE | median | RMSE | SDR@2 | SDR@3 | SDR@4 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Aariz (baseline) | 2.55 mm | 1.26 mm | 5.78 | 68.7% | 81.0% | — |
+| **ISBI (external)** | **4.03 mm** | **2.52 mm** | 7.06 | **39.6%** | 57.2% | 70.4% |
+
+Domain shift is **confirmed and large**: SDR@2 falls 68.7% → 39.6% (−29 pp).
+
+**Hardest landmarks (ISBI MRE / median):**
+UL/Ls 13.84 / 4.60 · LL/Li 5.26 / 4.94 · Go 5.08 / 2.96 · Po 4.60 / 1.89 ·
+Or 4.59 / 3.92 · Sn 4.26 / 3.58 · Ar 4.19 / 2.18 · N 4.05 / 2.43.
+Best: L1/LIT 1.83, U1/UIT 1.97, Pog 2.13, B 2.14.
+
+**Biggest per-landmark degradations (Aariz → ISBI):** UL +6.46, LL +3.46,
+Sn +2.48, Or +2.21, A +1.92, Pog' +1.65, N +1.61.
+
+**Red flags / confounds (must resolve before trusting the number):**
+1. **Only 50 ISBI images** were scored (the mirror test split). The Kaggle set has
+   200. Need the ISBI train split too (~150) for a robust number.
+2. **Soft-tissue (UL/LL/Sn) dominates the error** — likely partly an
+   *annotation-definition* difference, not just domain. Must compare conventions.
+3. **Go is 10.78 mm even on Aariz** (and 5.08 on ISBI) — an annotation-quality red
+   flag, since Go should be easier than most.
+4. **The benchmark used a single orientation hypothesis** (normal); the app runs
+   an orientation/polarity search in production. If ISBI/Aariz differ in facing
+   direction, the benchmark understates real app performance.
+5. **SSM refinement** with the Aariz 29-prior was applied; on OOD images this can
+   both help and hurt. Need raw-vs-refined.
+6. The profiler's polarity heuristic false-positived on ISBI (0.955 "inverted") —
+   it is fooled by the black frame + white registration marks. ISBI polarity is
+   actually **normal** (verified by inspecting `342.jpg`).
+7. INT8 vs FP32 not compared (plan §18 says validate FP first).
+
+### Step 10 — Next: harden the benchmark + decide training
+Planned before any model training:
+- Score the **ISBI train+test** annotations (~200 imgs) for a robust number.
+- Add **orientation/polarity search** to the benchmark so it reflects production.
+- Report **raw vs SSM-refined** and **INT8 vs FP32**.
+- Compare soft-tissue landmark **definitions** (ISBI UL/LL vs Aariz Ls/Li).
+Then choose the multi-domain training plan (E1–E4) and landmark set.
+
+### Step 11 — Benchmark hardened (code)
+Addressed the confounds from Step 9:
+- `external_benchmark.py` gained:
+  - `--search` — evaluates {normal, mirror} × {normal, invert} and keeps the
+    highest-mean-PSR hypothesis, matching the app's production orientation search.
+  - `--no-ssm` — report raw predictions (isolates the SSM's effect).
+  - `--ann-extra` — merge additional annotation CSVs (ISBI **train** split →
+    ~hundreds of labelled images instead of 50).
+  - metrics now include `raw_overall`, `orientation_mirrored_frac`,
+    `polarity_inverted_frac`, and per-image `raw_mean_mm`/`mirror`/`invert`.
+- `kaggle-ai-audit.ipynb` updated: downloads ISBI train+test annotations, profiles
+  ISBI with a high limit, and runs the benchmark twice (SSM-refined `E0_isbi`,
+  raw `E0b_isbi_raw`).
+- Verified: `py_compile` OK; notebook cells compile; module import + options OK.
+- Also confirmed via inspecting `342.jpg` that ISBI is **normal polarity** — the
+  profiler's "inverted" flag is a false positive from the frame/registration marks.
+
+Next: re-run the audit notebook to get the robust, production-faithful number,
+then decide the multi-domain training plan.

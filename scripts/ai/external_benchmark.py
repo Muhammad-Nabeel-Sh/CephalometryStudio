@@ -37,7 +37,7 @@ import urllib.request
 from collections import defaultdict
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -106,9 +106,19 @@ def fetch_isbi(cache, limit):
     return ann_path, cache, stems
 
 
-def predict(mod, sess, img, dark, sigma):
+def predict(mod, sess, img, dark, sigma, mirror=False, invert=False):
+    """One forward pass under a fixed (mirror, invert) hypothesis.
+
+    Mirrors the app's preprocessing: invert = polarity flip, mirror = horizontal
+    flip with the decoded x mapped back to the original frame.
+    """
     ow, oh = img.size
-    x = mod.preprocess(img, size=mod.INPUT, use_clahe=False)
+    im = img
+    if invert:
+        im = ImageOps.invert(im.convert("L")).convert("RGB")
+    if mirror:
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
+    x = mod.preprocess(im, size=mod.INPUT, use_clahe=False)
     iname = sess.get_inputs()[0].name
     oname = sess.get_outputs()[0].name
     hm = sess.run([oname], {iname: x})[0][0]  # (C, h, w)
@@ -119,8 +129,26 @@ def predict(mod, sess, img, dark, sigma):
     pts, conf = mod.decode(hm, dark=dark, sigma=sigma)
     pts[:, 0] *= ow / 192.0
     pts[:, 1] *= oh / 192.0
+    if mirror:
+        pts[:, 0] = ow - pts[:, 0]
     psr = mod.psr_confs(hm, dark=dark, sigma=sigma)
-    return pts, conf, psr, (ow, oh)
+    return pts, conf, psr
+
+
+def predict_best(mod, sess, img, dark, sigma, search):
+    """Evaluate all hypotheses and keep the one with the highest mean PSR
+    confidence — the same signal the app's detector ranks by."""
+    hyps = [(False, False)]
+    if search:
+        hyps = [(False, False), (True, False), (False, True), (True, True)]
+    best = None
+    for mirror, invert in hyps:
+        pts, conf, psr = predict(mod, sess, img, dark, sigma, mirror, invert)
+        score = float(np.mean(psr))
+        if best is None or score > best[0]:
+            best = (score, pts, conf, psr, {"mirror": mirror, "invert": invert})
+    _, pts, conf, psr, chosen = best
+    return pts, conf, psr, chosen
 
 
 def overlay(img, gt, pred, path):
@@ -146,6 +174,10 @@ def main():
     ap.add_argument("--limit", type=int, default=400)
     ap.add_argument("--overlay", type=int, default=12, help="save N worst-case overlays")
     ap.add_argument("--aariz-metrics", default=None, help="Aariz metrics.json for domain comparison")
+    ap.add_argument("--search", action="store_true",
+                    help="evaluate orientation/polarity hypotheses (production behaviour)")
+    ap.add_argument("--no-ssm", action="store_true", help="disable SSM refinement (report raw)")
+    ap.add_argument("--ann-extra", default=None, help="extra annotation CSV(s), comma-separated")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -160,7 +192,12 @@ def main():
         stems = None
 
     ann = load_isbi_annotations(args.isbi_ann)
-    ssm = mod.load_ssm(args.ssm) if args.ssm else None
+    if args.ann_extra:
+        for p in args.ann_extra.split(","):
+            p = p.strip()
+            if p and os.path.exists(p):
+                ann.update(load_isbi_annotations(p))
+    ssm = None if args.no_ssm else (mod.load_ssm(args.ssm) if args.ssm else None)
     chan = isbi_to_cepha_channel()
     sess = ort.InferenceSession(args.model, providers=["CPUExecutionProvider"])
 
@@ -169,9 +206,10 @@ def main():
         raise SystemExit("No ISBI images found.")
 
     per_lm = defaultdict(list)          # symbol -> [err_mm]
+    raw_errors = []                     # all raw errors (pre-refinement)
     per_img = []                        # dicts
-    ood = []
     worst = []
+    n_mirror = n_invert = 0
 
     for name in files:
         stem = os.path.splitext(name)[0]
@@ -182,45 +220,54 @@ def main():
             img = Image.open(img_path).convert("RGB")
         except Exception:
             continue
-        pts, conf, psr, _ = predict(mod, sess, img, args.dark, args.sigma)
-        raw = pts.copy()
-        if ssm is not None:
-            pts = mod.refine_ssm(pts, conf, ssm, alpha=0.6, reg=0.1, k=6, wmin=0.2, iters=1)
+        raw, conf, psr, chosen = predict_best(mod, sess, img, args.dark, args.sigma, args.search)
+        pts = mod.refine_ssm(raw, conf, ssm, alpha=0.6, reg=0.1, k=6, wmin=0.2, iters=1) if ssm is not None else raw
 
-        pred19 = pts[chan]              # (19,2)
         gt19 = ann[stem]
-        err = np.linalg.norm(pred19 - gt19, axis=1) * args.pixel_mm
+        err = np.linalg.norm(pts[chan] - gt19, axis=1) * args.pixel_mm
+        err_raw = np.linalg.norm(raw[chan] - gt19, axis=1) * args.pixel_mm
+        raw_errors.extend(float(e) for e in err_raw)
         for i, sym in enumerate(ISBI19):
             per_lm[sym].append(float(err[i]))
 
+        n_mirror += 1 if chosen["mirror"] else 0
+        n_invert += 1 if chosen["invert"] else 0
         res = mod.shape_residual(raw, ssm) if ssm is not None else None
-        row = {
+        per_img.append({
             "image": name, "mean_mm": float(err.mean()), "max_mm": float(err.max()),
-            "meanConf": float(np.mean(psr)), "residualRatio": (res or {}).get("residualRatio"),
-        }
-        per_img.append(row)
-        ood.append(row)
-        worst.append((float(err.mean()), name, img, gt19, pred19))
+            "raw_mean_mm": float(err_raw.mean()), "meanConf": float(np.mean(psr)),
+            "mirror": chosen["mirror"], "invert": chosen["invert"],
+            "residualRatio": (res or {}).get("residualRatio"),
+        })
+        worst.append((float(err.mean()), name, img, gt19, pts[chan]))
 
     # ── metrics ──
     all_err = np.array([e for v in per_lm.values() for e in v])
+    raw_err = np.array(raw_errors) if raw_errors else all_err
     per_lm_mre = {s: float(np.mean(v)) for s, v in per_lm.items()}
     per_lm_med = {s: float(np.median(v)) for s, v in per_lm.items()}
+
+    def block(e):
+        return {
+            "mre_mm": float(e.mean()), "median_mm": float(np.median(e)),
+            "rmse_mm": float(np.sqrt((e ** 2).mean())), "max_mm": float(e.max()),
+            "sdr_2.0mm": float(np.mean(e <= 2) * 100),
+            "sdr_2.5mm": float(np.mean(e <= 2.5) * 100),
+            "sdr_3.0mm": float(np.mean(e <= 3) * 100),
+            "sdr_4.0mm": float(np.mean(e <= 4) * 100),
+        }
+
+    n = max(1, len(per_img))
     metrics = {
         "model": os.path.basename(args.model),
         "dataset": "ISBI 2015",
         "images": len(per_img),
         "shared_landmarks": len(ISBI19),
-        "overall": {
-            "mre_mm": float(all_err.mean()),
-            "median_mm": float(np.median(all_err)),
-            "rmse_mm": float(np.sqrt((all_err ** 2).mean())),
-            "max_mm": float(all_err.max()),
-            "sdr_2.0mm": float(np.mean(all_err <= 2) * 100),
-            "sdr_2.5mm": float(np.mean(all_err <= 2.5) * 100),
-            "sdr_3.0mm": float(np.mean(all_err <= 3) * 100),
-            "sdr_4.0mm": float(np.mean(all_err <= 4) * 100),
-        },
+        "config": {"orientation_search": bool(args.search), "ssm_refine": ssm is not None},
+        "orientation_mirrored_frac": round(n_mirror / n, 3),
+        "polarity_inverted_frac": round(n_invert / n, 3),
+        "overall": block(all_err),
+        "raw_overall": block(raw_err),
         "per_landmark": {s: {"mre_mm": per_lm_mre[s], "median_mm": per_lm_med[s]} for s in ISBI19},
     }
     json.dump(metrics, open(os.path.join(args.out, "isbi_metrics.json"), "w", encoding="utf-8"), indent=2)
@@ -233,10 +280,11 @@ def main():
 
     with open(os.path.join(args.out, "isbi_per_image.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["image", "mean_mm", "max_mm", "meanConf", "residualRatio"])
+        w.writerow(["image", "mean_mm", "raw_mean_mm", "max_mm", "meanConf", "mirror", "invert", "residualRatio"])
         for r in per_img:
-            w.writerow([r["image"], f'{r["mean_mm"]:.3f}', f'{r["max_mm"]:.3f}',
-                        f'{r["meanConf"]:.4f}', "" if r["residualRatio"] is None else f'{r["residualRatio"]:.5f}'])
+            w.writerow([r["image"], f'{r["mean_mm"]:.3f}', f'{r["raw_mean_mm"]:.3f}', f'{r["max_mm"]:.3f}',
+                        f'{r["meanConf"]:.4f}', r["mirror"], r["invert"],
+                        "" if r["residualRatio"] is None else f'{r["residualRatio"]:.5f}'])
 
     # ── domain comparison (Aariz vs ISBI) ──
     if args.aariz_metrics and os.path.exists(args.aariz_metrics):

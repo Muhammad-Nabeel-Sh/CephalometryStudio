@@ -1,0 +1,3 @@
+id,images,sampled,width_median,height_median,aspect_median,color_images,intensity_mean,corner_median,likely_inverted_fraction,annotated,landmark_count
+isbi2015,200,200,1935.0,2400.0,0.806,200,0.4762,0.7733,0.955,True,
+aariz,150,150,1968.0,1937.0,0.884,124,0.4178,0.3188,0.353,True,29

@@ -1,0 +1,20 @@
+{
+  "datasets": [
+    {
+      "id": "isbi2015",
+      "images_dir": "/kaggle/input/datasets/jiahongqian/cephalometric-landmarks/cepha400/cepha400",
+      "image_count": 200,
+      "landmark_count": null,
+      "annotation_format": "csv",
+      "annotated": true
+    },
+    {
+      "id": "aariz",
+      "images_dir": "/kaggle/input/notebooks/muhammadnabeelsh/cepha29-training-for-cephalometry-studio/aariz/Aariz/valid/Cephalograms",
+      "image_count": 150,
+      "landmark_count": 29,
+      "annotation_format": "json (landmarks:[{symbol,value:{x,y}}])",
+      "annotated": true
+    }
+  ]
+}
