@@ -447,6 +447,8 @@ def main():
     ap.add_argument("--ood-target", type=float, default=0.05,
                     help="target false-low rate for the suggested thresholds (default 0.05)")
     ap.add_argument("--ood-out", default=None, help="write per-image OOD stats to this CSV")
+    ap.add_argument("--metrics-out", default=None,
+                    help="write overall + per-landmark metrics to this JSON")
     args = ap.parse_args()
     args.scales = [float(s) for s in args.tta_scales.split(",")]
 
@@ -521,6 +523,37 @@ def main():
     print(f"MRE={E.mean():.2f}mm  median={np.median(E):.2f}  max={E.max():.2f}")
     for t in (2, 2.5, 3, 4):
         print(f"  SDR@{t}mm = {np.mean(E <= t) * 100:.1f}%")
+
+    if args.metrics_out:
+        import json as _json
+        P = np.array(per)  # (n_images, N)
+        per_mean = P.mean(0)
+        per_median = np.median(P, axis=0)
+        metrics = {
+            "model": os.path.basename(args.model),
+            "set": args.set_name,
+            "images": int(used),
+            "landmarks": int(len(E)),
+            "tag": tag,
+            "overall": {
+                "mre_mm": float(E.mean()),
+                "median_mm": float(np.median(E)),
+                "rmse_mm": float(np.sqrt((E ** 2).mean())),
+                "max_mm": float(E.max()),
+                "sdr_2.0mm": float(np.mean(E <= 2) * 100),
+                "sdr_2.5mm": float(np.mean(E <= 2.5) * 100),
+                "sdr_3.0mm": float(np.mean(E <= 3) * 100),
+                "sdr_4.0mm": float(np.mean(E <= 4) * 100),
+            },
+            "per_landmark": {
+                SYMS[i]: {"mre_mm": float(per_mean[i]), "median_mm": float(per_median[i])}
+                for i in range(len(SYMS))
+            },
+        }
+        with open(args.metrics_out, "w", encoding="utf-8") as f:
+            _json.dump(metrics, f, indent=2)
+        print("wrote", args.metrics_out)
+
     if args.labels:
         m = np.array(per).mean(0)
         print("  per-landmark:", ", ".join(f"{SYMS[k]}={m[k]:.1f}" for k in np.argsort(-m)))

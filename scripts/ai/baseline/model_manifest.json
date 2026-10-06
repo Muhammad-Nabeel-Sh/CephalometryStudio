@@ -1,0 +1,92 @@
+{
+  "modelId": "cepha29-hrnet-w32",
+  "version": "cepha29-hrnet-w32-v1",
+  "architecture": "HRNet-W32",
+  "landmarkSet": "cepha29",
+  "landmarks": 29,
+  "channelOrder": [
+    "A",
+    "ANS",
+    "Ar",
+    "B",
+    "Co",
+    "Gn",
+    "Go",
+    "LIA",
+    "LIT",
+    "LMT",
+    "LPM",
+    "Li",
+    "Ls",
+    "Me",
+    "N",
+    "N`",
+    "Or",
+    "PNS",
+    "Pn",
+    "Po",
+    "Pog",
+    "Pog`",
+    "R",
+    "S",
+    "Sn",
+    "UIA",
+    "UIT",
+    "UMT",
+    "UPM"
+  ],
+  "input": {
+    "width": 768,
+    "height": 768,
+    "channels": 3
+  },
+  "normalize": {
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "decode": {
+    "dark": true,
+    "sigma": 2,
+    "confidenceMode": "psr",
+    "psrScale": 6.0,
+    "psrFloorFactor": 0.85
+  },
+  "refine": {
+    "shape": true,
+    "alpha": 0.6,
+    "reg": 0.1,
+    "k": 6,
+    "wmin": 0.2
+  },
+  "robustness": {
+    "autoOrientation": true,
+    "autoPolarity": true,
+    "clahe": "auto"
+  },
+  "qualityThresholds": {
+    "lowLandmarkConfidence": 0.2,
+    "mediumMeanConfidence": 0.55,
+    "minMeanConfidence": 0.4,
+    "maxLowFraction": 0.25,
+    "mediumLowFraction": 0.15,
+    "edgeMargin": 0.02,
+    "mediumEdgeFraction": 0.1,
+    "maxEdgeFraction": 0.2,
+    "residualRatioMedium": 0.5,
+    "residualRatioHigh": 0.7
+  },
+  "trainingData": "Aariz / CEPHA29 (CC BY 4.0)",
+  "source": {
+    "url": "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-cepha29.int8.onnx",
+    "sha256": "f7f1db9cc2de37c0fa94dab431d7d3446d1d8ffc62fa92e6610c2380af83080d",
+    "localPath": null
+  }
+}
