@@ -134,7 +134,7 @@ export function ensureDetectorReady(onProgress) {
 // covering the removal of the previous trace, so the replace stays one undo step.
 export async function runAutoTrace({ imageInput, calibration, store, onProgress, forceHypothesis, suppressUndo = false }) {
   await ensureDetectorReady(onProgress);
-  const { landmarks, backend, orientation, polarity, quality, hypotheses } = await detectLandmarks(imageInput, {
+  const { landmarks, backend, orientation, polarity, quality, hypotheses, refined } = await detectLandmarks(imageInput, {
     landmarkSet: LANDMARK_MODEL.landmarkSet,
     forceHypothesis,
   });
@@ -142,5 +142,5 @@ export async function runAutoTrace({ imageInput, calibration, store, onProgress,
   // measurements). The analysis + measurements are chosen afterwards from the
   // analysis-selection modal (workspace/template.applyAnalysis).
   const summary = applyDetections(store, landmarks, null, calibration, LANDMARK_MODEL.landmarkSet, suppressUndo);
-  return { ...summary, backend, orientation, polarity, quality, hypotheses };
+  return { ...summary, backend, orientation, polarity, quality, hypotheses, refined };
 }

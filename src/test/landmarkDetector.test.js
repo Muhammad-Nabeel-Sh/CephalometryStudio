@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hypothesisSet, detectLandmarks } from "../canvas/landmarkDetector.js";
+import { hypothesisSet, detectLandmarks, shouldRefine } from "../canvas/landmarkDetector.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Orientation / polarity hypothesis search
@@ -70,6 +70,49 @@ describe("hypothesisSet", () => {
     // silently doing nothing.
     const list = hypothesisSet();
     expect(list[0]).toEqual({ mirror: false, invert: false });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Shape-prior gate
+//
+// Refinement is not always beneficial: on ISBI 2015 it helped only for a middle
+// band of raw-shape residuals, and hurt for both very-close (already plausible)
+// and far-out (out-of-domain) predictions. These tests pin that contract.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe("shouldRefine", () => {
+  const band = { shape: true, minResidualRatio: 0.1, maxResidualRatio: 0.5 };
+
+  it("is disabled when shape refinement is off", () => {
+    expect(shouldRefine(0.2, { shape: false })).toBe(false);
+    expect(shouldRefine(0.2, null)).toBe(false);
+  });
+
+  it("refines inside the residual band", () => {
+    expect(shouldRefine(0.1, band)).toBe(true);
+    expect(shouldRefine(0.3, band)).toBe(true);
+    expect(shouldRefine(0.5, band)).toBe(true);
+  });
+
+  it("does not refine very-close predictions (pulling them onto the mean)", () => {
+    expect(shouldRefine(0.02, band)).toBe(false);
+    expect(shouldRefine(0.09, band)).toBe(false);
+  });
+
+  it("does not refine out-of-domain predictions", () => {
+    expect(shouldRefine(0.51, band)).toBe(false);
+    expect(shouldRefine(1.03, band)).toBe(false);
+  });
+
+  it("preserves the historical always-refine behaviour without a gate", () => {
+    expect(shouldRefine(0.0, { shape: true })).toBe(true);
+    expect(shouldRefine(1.5, { shape: true })).toBe(true);
+  });
+
+  it("refines when no residual signal is available", () => {
+    expect(shouldRefine(null, band)).toBe(true);
+    expect(shouldRefine(undefined, band)).toBe(true);
+    expect(shouldRefine(NaN, band)).toBe(true);
   });
 });
 

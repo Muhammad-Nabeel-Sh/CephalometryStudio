@@ -25,7 +25,17 @@ export const LANDMARK_MODEL = {
   inputChannels: 3,
   normalize: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
   decode: { dark: true, sigma: 2, confidenceMode: "psr", psrScale: 6 },
-  refine: { shape: true, alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2 },
+  // Shape-prior refinement is applied only when the RAW prediction sits inside a
+  // residual band. Measured on ISBI 2015 (400 images): refining predictions that
+  // were already very close to the prior mean pulled them onto it, and refining
+  // far-out (out-of-domain) predictions made the worst errors worse; only the
+  // middle band benefited. `minResidualRatio: 0` disables the lower gate;
+  // `shape: false` disables refinement entirely.
+  refine: {
+    shape: true, alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2,
+    minResidualRatio: 0.1,
+    maxResidualRatio: 0.5,
+  },
   // Robustness layer (see docs/ai-module-improvement-plan.md §8). The model is
   // orientation-specific and has never seen an inverted film, so detection tries
   // {identity, mirrored} × {normal, inverted} and keeps whichever candidate looks

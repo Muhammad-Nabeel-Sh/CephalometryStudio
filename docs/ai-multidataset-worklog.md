@@ -267,3 +267,40 @@ the lower face while GT spans the skull (catastrophic, not a small offset).
 3. **Multi-domain training** (Aariz + ISBI, shared landmark set) to lift the raw
    cross-domain accuracy.
 4. Optionally compare FP32 vs INT8 to rule out quantization.
+
+### Step 14 — Implemented a residual-band SSM gate
+
+Refined the "gate by residual" policy using the per-image data. The effect of
+refinement is **not monotonic** in residual — it helps in a middle band and hurts
+at both ends:
+
+| raw residualRatio | n | raw med | SSM med | SSM better |
+| --- | --- | --- | --- | --- |
+| 0–0.1 | 233 | 2.46 | 2.59 | 30% |
+| 0.1–0.2 | 38 | 4.52 | 3.92 | 76% |
+| 0.2–0.3 | 9 | 5.50 | 4.62 | 100% |
+| 0.3–0.5 | 61 | 7.11 | 6.34 | 82% |
+| 0.5–0.7 | 48 | 9.99 | 10.04 | 46% |
+| 0.7–1.0 | 11 | 16.70 | 23.29 | 9% |
+
+So a one-sided "skip high residual" gate is ineffective (the low-residual
+majority dominates the harm). The band **0.1 < residualRatio ≤ 0.5** recovers the
+raw cross-domain performance while still smoothing where the prior helps.
+
+**Implemented:**
+- `src/canvas/landmarkDetector.js`: new exported `shouldRefine(residualRatio,
+  refine)`; refinement is applied only inside the band. Results now carry
+  `refined` (and the dev diagnostics log it).
+- `src/workspace/autoTrace.js`: passes `refined` through.
+- `src/data/landmarkModelInfo.js`: `refine.minResidualRatio: 0.1`,
+  `refine.maxResidualRatio: 0.5` (documented; tunable).
+- `scripts/ai/external_benchmark.py`: `--ssm-gate-min` / `--ssm-gate-max`;
+  metrics add `refined_frac`; per-image CSV adds `refined`.
+- `scripts/ai/kaggle-ai-audit.ipynb`: adds `E0c_isbi_gated` and an **Aariz raw vs
+  SSM** comparison (`aariz_valid_raw.json` vs `aariz_valid_metrics.json`) to
+  measure the in-domain cost before shipping.
+- Tests: 6 new `shouldRefine` cases (599 total pass).
+
+**Pending:** run the notebook to confirm the gated cross-domain number and the
+in-domain cost. If Aariz regresses, raise `minResidualRatio` (e.g. to 0) or lower
+alpha; if not, keep the band.

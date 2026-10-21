@@ -140,6 +140,25 @@ export function hypothesisSet(rb = {}, opts = {}) {
   return list;
 }
 
+// Whether the shape prior should be applied to this trace.
+//
+// The prior is domain-specific. Measured on ISBI 2015 (400 images, shared 19
+// landmarks), refinement helped when the raw shape was moderately atypical
+// (residualRatio ≈0.1–0.5) and hurt at both ends: when the prediction was
+// already very close to the prior mean (refinement just pulls it onto the mean)
+// and when it was far outside the prior (out-of-domain, where the worst errors
+// grew). So the prior is only applied inside a residual band.
+// `minResidualRatio` 0 / `maxResidualRatio` Infinity reproduces the old
+// always/never behaviour. Exported for testing.
+export function shouldRefine(residualRatio, refine = {}) {
+  if (!refine || refine.shape !== true) return false;
+  const finite = typeof residualRatio === "number" && Number.isFinite(residualRatio);
+  if (!finite) return true; // no residual signal: keep the historical behaviour
+  const min = Number.isFinite(refine.minResidualRatio) ? refine.minResidualRatio : 0;
+  const max = Number.isFinite(refine.maxResidualRatio) ? refine.maxResidualRatio : Infinity;
+  return residualRatio >= min && residualRatio <= max;
+}
+
 // One forward pass under a single pre-processing hypothesis, plus the quality
 // verdict. Points are returned in *original* image space (un-mirrored).
 async function runHypothesis(frame, setKey, hyp, rb, thresholds) {
@@ -206,9 +225,10 @@ async function runHypothesis(frame, setKey, hyp, rb, thresholds) {
   const rank = qualityRankScore(quality, rb.rankWeights);
 
   // Statistical shape-model refinement — only when a prior exists for this
-  // landmark set and every landmark is present. Now that confidence is a real
-  // PSR-derived value, the confidence weights actually bite.
-  if (_refine?.shape && hasPrior) {
+  // landmark set, every landmark is present, and the raw shape is in the band
+  // where the prior is trustworthy (see shouldRefine).
+  const applyRefine = hasPrior && shouldRefine(residual?.residualRatio, _refine);
+  if (applyRefine) {
     const refined = refineShape(
       landmarks.map((l) => ({ x: l.x, y: l.y })),
       landmarks.map((l) => l.confidence),
@@ -225,7 +245,7 @@ async function runHypothesis(frame, setKey, hyp, rb, thresholds) {
     for (const l of landmarks) l.x = width - l.x;
   }
 
-  return { landmarks, quality, rank, hypothesis: hyp };
+  return { landmarks, quality, rank, hypothesis: hyp, refined: applyRefine };
 }
 
 // `input` is an HTMLImageElement/canvas or a { pixels, width, height } object.
@@ -286,6 +306,7 @@ export async function detectLandmarks(input, opts = {}) {
         k: best.quality.k,
         reasons: best.quality.reasons,
         notes: best.quality.notes,
+        refined: best.refined,
         perLandmark: best.landmarks.map((l) => ({ symbol: l.symbol, conf: l.confidence, score: l.score })),
         hypotheses: tried,
       });
@@ -298,6 +319,7 @@ export async function detectLandmarks(input, opts = {}) {
     orientation: best.hypothesis.mirror ? "mirrored" : "normal",
     polarity: best.hypothesis.invert ? "inverted" : "normal",
     quality: best.quality,
+    refined: Boolean(best.refined),
     hypotheses: tried,
   };
 }
