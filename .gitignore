@@ -41,3 +41,6 @@ public/models/
 *.onnx
 *-verify.png
 __pycache__/
+
+# AI audit dumps (large overlays)
+audit_output*.zip

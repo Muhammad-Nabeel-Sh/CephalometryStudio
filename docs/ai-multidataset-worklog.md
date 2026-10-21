@@ -222,3 +222,48 @@ notebook as before.
 
 Next: re-run the audit notebook (the clone now has the fix). Attaching the ISBI
 Kaggle dataset is still preferred (avoids the 400-image download).
+
+### Step 13 — Robust 400-image audit: the SSM hurts cross-domain
+Re-ran the audit after the fetch fix. **400 ISBI images** scored (50 test + 350
+train). Outputs filed under `scripts/ai/experiments/E0_isbi_400/` (production:
+search + SSM) and `E0b_isbi_raw_400/` (search, no SSM).
+
+**Orientation/polarity search:** `mirrored 0%`, `inverted 0%` — ISBI is normal
+orientation and polarity, and the production search correctly leaves it alone.
+So orientation is **not** a factor.
+
+**Headline comparison (400 images, 19 shared landmarks):**
+
+| config | MRE | median | SDR@2 | SDR@3 | SDR@4 |
+| --- | --- | --- | --- | --- | --- |
+| raw (no SSM) | 4.81 mm | **1.97 mm** | **50.6%** | **68.3%** | **78.8%** |
+| production (SSM refine) | 4.96 mm | 2.87 mm | 35.4% | 51.9% | 63.6% |
+
+**Finding: the Aariz SSM prior actively degrades cross-domain accuracy.**
+SDR@2 falls **50.6% → 35.4% (−15.2 pp)** and the median worsens
+**1.97 → 2.87 mm** when refinement is applied. The mean barely moves because the
+prior clips some catastrophic outliers while pulling the typical prediction
+toward an Aariz-like shape. This is precisely the plan's Phase 8 warning: the SSM
+should *validate* implausible configurations, not forcibly relocate every point.
+**This is very likely a major contributor to the "poor tracing" users see on
+non-Aariz images**, because the app applies refinement unconditionally
+(`refine.shape: true`, alpha 0.6).
+
+**Hardest landmarks (raw):** UL/Ls 27.41 (median 3.69), Go 8.68 (3.25), N 6.55
+(2.35), Sn 5.92 (2.92), Pog'/Pog` 5.84 (5.39), Or 5.03 (2.59).
+Best: Gn 1.12, U1 1.22, L1 1.38, Pog 1.46, Me 1.87. Soft tissue and Go dominate.
+
+**Worst images (raw):** 194 (29.5 mm), 008 (23.0), 105 (19.9), 282 (18.3),
+284 (17.5). The `194` overlay shows a global scatter — predictions collapse into
+the lower face while GT spans the skull (catastrophic, not a small offset).
+
+**Next actions (in order):**
+1. **Gate/soften the SSM** (no retraining): apply refinement only when the raw
+   shape is already plausible (e.g. residual below a threshold), or reduce alpha,
+   or expose a toggle. Matches plan Phase 8. Highest immediate impact on real
+   cross-domain tracing.
+2. **Reconcile soft-tissue definitions** (ISBI UL/LL vs Aariz Ls/Li) before
+   merging them for training.
+3. **Multi-domain training** (Aariz + ISBI, shared landmark set) to lift the raw
+   cross-domain accuracy.
+4. Optionally compare FP32 vs INT8 to rule out quantization.
