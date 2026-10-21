@@ -195,3 +195,30 @@ Addressed the confounds from Step 9:
 
 Next: re-run the audit notebook to get the robust, production-faithful number,
 then decide the multi-domain training plan.
+
+### Step 12 — Fixed `--fetch-isbi` (audit run crash)
+The second audit run crashed (`external_benchmark.py` exit 1) because the ISBI
+Kaggle dataset wasn't attached and the `--fetch-isbi` fallback was broken:
+
+- **Bug:** `canonical.ISBI_IMG_BASE` was `".../test/cepha400/"` with no `{}`
+  placeholder, so `.format(name)` produced the directory URL → every image
+  download 404'd → zero images → `SystemExit`.
+- **Also:** train images live under `.../train/cepha400/`, not `test/`, so the
+  fallback could never fetch the train GT even if the URL were right.
+
+Fix:
+- `canonical.py` now defines `ISBI_ANN_TEST/TRAIN` and `ISBI_IMG_TEST/TRAIN`
+  (both with the `{}` filename placeholder).
+- `fetch_isbi()` downloads **both** annotation splits (test 50 + train 350 = 400
+  labelled images) and each stem's image from the correct split base; it prints
+  the fetch count and raises a clear error if none succeed.
+- Main auto-sets `--ann-extra` to the downloaded train CSV when fetching.
+- Verified locally (Python 3.14): `fetch_isbi(cache, 3)` → 3/3 images, test GT 50,
+  train GT 350; module import + options OK.
+
+Note: the default local `python` switched to a bare 3.15 (no numpy); the scripts
+run under `C:\Python314\python.exe` locally, and Kaggle installs deps in the
+notebook as before.
+
+Next: re-run the audit notebook (the clone now has the fix). Attaching the ISBI
+Kaggle dataset is still preferred (avoids the 400-image download).

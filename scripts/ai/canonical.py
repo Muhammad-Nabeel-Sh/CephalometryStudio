@@ -78,10 +78,17 @@ AARIZ_FIGSHARE = "https://doi.org/10.6084/m9.figshare.27986417"
 AARIZ_ZIP = "https://ndownloader.figshare.com/files/51041642"
 AARIZ_ZIP_MD5 = "e0bd645bca6759abdae4f199d841bda6"
 ISBI_KAGGLE = "jiahongqian/cephalometric-landmarks"
-ISBI_ANN_CSV = ("https://raw.githubusercontent.com/stolariks/medical-landmark-detection/"
-                "main/data/isbi-2015/test/annotations.csv")
-ISBI_IMG_BASE = ("https://raw.githubusercontent.com/stolariks/medical-landmark-detection/"
-                 "main/data/isbi-2015/test/cepha400/")
+_ISBI_RAW = ("https://raw.githubusercontent.com/stolariks/medical-landmark-detection/"
+             "main/data/isbi-2015/")
+# Annotations per split.
+ISBI_ANN_TEST = _ISBI_RAW + "test/annotations.csv"
+ISBI_ANN_TRAIN = _ISBI_RAW + "train/annotations.csv"
+# Images per split. The `{}` is the filename — required by `.format(name)`.
+ISBI_IMG_TEST = _ISBI_RAW + "test/cepha400/{}"
+ISBI_IMG_TRAIN = _ISBI_RAW + "train/cepha400/{}"
+# Back-compat aliases (test split).
+ISBI_ANN_CSV = ISBI_ANN_TEST
+ISBI_IMG_BASE = ISBI_IMG_TEST
 
 # Production model (baseline).
 PROD_MODEL_URL = ("https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/"

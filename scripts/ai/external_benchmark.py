@@ -44,7 +44,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from canonical import (  # noqa: E402
     CEPHA29, ISBI19, ISBI_TO_CEPHA, isbi_to_cepha_channel,
-    ISBI_PIXEL_MM, ISBI_ANN_CSV, ISBI_IMG_BASE,
+    ISBI_PIXEL_MM, ISBI_ANN_TEST, ISBI_ANN_TRAIN, ISBI_IMG_TEST, ISBI_IMG_TRAIN,
 )
 
 IMG_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
@@ -86,24 +86,49 @@ def _download(url, dest):
         f.write(r.read())
 
 
-def fetch_isbi(cache, limit):
+def fetch_isbi(cache, limit, include_train=True):
+    """Download ISBI annotations (test + train) and the matching images.
+
+    Returns (test_ann_path, train_ann_path, cache_dir, stems).
+    """
     os.makedirs(cache, exist_ok=True)
-    ann_path = os.path.join(cache, "annotations.csv")
-    if not os.path.exists(ann_path):
-        _download(ISBI_ANN_CSV, ann_path)
-    ann = load_isbi_annotations(ann_path)
-    stems = list(ann.keys())[:limit]
+    ann_paths = {}
+    for split, url in (("test", ISBI_ANN_TEST), ("train", ISBI_ANN_TRAIN)):
+        if split == "train" and not include_train:
+            continue
+        p = os.path.join(cache, f"annotations_{split}.csv")
+        if not os.path.exists(p):
+            _download(url, p)
+        ann_paths[split] = p
+
+    split_of = {}
+    for split, p in ann_paths.items():
+        for stem in load_isbi_annotations(p):
+            split_of.setdefault(stem, split)
+    stems = list(split_of)[:limit]
+
+    bases = {"test": ISBI_IMG_TEST, "train": ISBI_IMG_TRAIN}
+    ok = 0
     for s in stems:
         for ext in (".jpg", ".png"):
             dest = os.path.join(cache, s + ext)
             if os.path.exists(dest):
+                ok += 1
                 break
             try:
-                _download(ISBI_IMG_BASE.format(s + ext), dest)
+                _download(bases[split_of[s]].format(s + ext), dest)
+                ok += 1
                 break
             except Exception:
                 continue
-    return ann_path, cache, stems
+    print(f"  fetched {ok}/{len(stems)} ISBI images into {cache}")
+    if ok == 0:
+        raise SystemExit(
+            "Could not download any ISBI images. Attach the Kaggle dataset "
+            "'jiahongqian/cephalometric-landmarks' and pass --isbi-images/--isbi-ann, "
+            "or check the mirror URL."
+        )
+    return ann_paths["test"], ann_paths.get("train"), cache, stems
 
 
 def predict(mod, sess, img, dark, sigma, mirror=False, invert=False):
@@ -186,8 +211,10 @@ def main():
     os.makedirs(args.out, exist_ok=True)
 
     if args.fetch_isbi or not (args.isbi_images and args.isbi_ann):
-        ann_path, img_dir, stems = fetch_isbi(args.cache, args.limit)
-        args.isbi_ann, args.isbi_images = ann_path, img_dir
+        test_csv, train_csv, img_dir, stems = fetch_isbi(args.cache, args.limit)
+        args.isbi_ann, args.isbi_images = test_csv, img_dir
+        if train_csv and not args.ann_extra:
+            args.ann_extra = train_csv
     else:
         stems = None
 
