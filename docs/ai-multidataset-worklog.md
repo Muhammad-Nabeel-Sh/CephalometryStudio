@@ -304,3 +304,35 @@ raw cross-domain performance while still smoothing where the prior helps.
 **Pending:** run the notebook to confirm the gated cross-domain number and the
 in-domain cost. If Aariz regresses, raise `minResidualRatio` (e.g. to 0) or lower
 alpha; if not, keep the band.
+
+### Step 15 — Gate validated: it helps the bad subset but raw still wins overall
+
+Re-ran the audit; results filed in `E0_isbi_400` (always SSM), `E0b_isbi_raw_400`
+(raw), `E0c_isbi_gated_400` (band 0.1–0.5). `scripts/audit_output_2.zip` held the
+run; only the small reports are committed.
+
+| policy | refined | MRE | median | RMSE | SDR@2 | SDR@3 | SDR@4 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| always SSM | 100% | 4.96 | 2.87 | 8.87 | 35.4% | 51.9% | 63.6% |
+| **raw** | 0% | 4.81 | **1.97** | 15.90 | **50.6%** | **68.3%** | **78.8%** |
+| **band gate 0.1–0.5** | 27% | **4.66** | 2.29 | 13.93 | 44.0% | 61.4% | 72.6% |
+
+Within the refined subset (108 images) the gate works as intended: median
+**6.42 → 5.36 mm**, and refinement helps **81%** of them. The 292 skipped images
+are untouched (median 2.57).
+
+But overall **raw still wins on SDR@2 and median**, because a few *good but
+atypical* images land inside the band and get wrecked, e.g. `384.jpg` (raw 2.95 →
+gated 8.24 at residual 0.471) and `232.jpg` (2.10 → 5.21 at 0.382). Residual alone
+cannot separate "good but atypical" from "bad". Always-SSM has the lowest RMSE
+(it clips catastrophic outliers) but the worst SDR/median.
+
+So the gate is a **compromise, not a win**: it reduces catastrophic outliers
+(RMSE 15.9 → 13.9) but costs ~7 pp SDR@2 vs raw. Consistent with plan Phase 8:
+the SSM should *validate*, not transform. **Raw + quality flagging looks best for
+typical accuracy.**
+
+**Still missing:** the in-domain (Aariz) raw-vs-SSM number — the last three audit
+zips contained no `aariz_valid_raw.json`/`aariz_valid_metrics.json`, so the Aariz
+valid split was not attached (or that cell didn't run). Needed to decide whether
+to disable refinement globally or keep a domain-aware policy.

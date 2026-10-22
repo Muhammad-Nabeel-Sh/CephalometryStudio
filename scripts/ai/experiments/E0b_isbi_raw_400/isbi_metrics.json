@@ -5,10 +5,13 @@
   "shared_landmarks": 19,
   "config": {
     "orientation_search": true,
-    "ssm_refine": false
+    "ssm_refine": false,
+    "ssm_gate_min": null,
+    "ssm_gate_max": null
   },
   "orientation_mirrored_frac": 0.0,
   "polarity_inverted_frac": 0.0,
+  "refined_frac": 0.0,
   "overall": {
     "mre_mm": 4.810630309978549,
     "median_mm": 1.9713637828826904,
