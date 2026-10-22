@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { hypothesisSet, detectLandmarks, shouldRefine } from "../canvas/landmarkDetector.js";
+import { LANDMARK_MODEL } from "../data/landmarkModelInfo.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Orientation / polarity hypothesis search
@@ -113,6 +114,22 @@ describe("shouldRefine", () => {
     expect(shouldRefine(null, band)).toBe(true);
     expect(shouldRefine(undefined, band)).toBe(true);
     expect(shouldRefine(NaN, band)).toBe(true);
+  });
+});
+
+// Production decision (docs/ai-multidataset-worklog.md, Step 15): the Aariz
+// prior lowered cross-domain SDR@2 (50.6% raw → 35.4% refined → 44.0% gated), so
+// refinement ships disabled. The residual is still computed for quality/hypothesis
+// ranking; the band gate remains available as a config option.
+describe("production refine policy", () => {
+  it("ships with shape refinement disabled (raw predictions)", () => {
+    expect(LANDMARK_MODEL.refine.shape).toBe(false);
+  });
+
+  it("keeps the residual-band options for opt-in smoothing", () => {
+    expect(LANDMARK_MODEL.refine.minResidualRatio).toBeGreaterThanOrEqual(0);
+    expect(LANDMARK_MODEL.refine.maxResidualRatio).toBeGreaterThan(LANDMARK_MODEL.refine.minResidualRatio);
+    expect(shouldRefine(0.3, LANDMARK_MODEL.refine)).toBe(false);
   });
 });
 

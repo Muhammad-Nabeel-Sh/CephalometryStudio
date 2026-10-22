@@ -25,14 +25,21 @@ export const LANDMARK_MODEL = {
   inputChannels: 3,
   normalize: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
   decode: { dark: true, sigma: 2, confidenceMode: "psr", psrScale: 6 },
-  // Shape-prior refinement is applied only when the RAW prediction sits inside a
-  // residual band. Measured on ISBI 2015 (400 images): refining predictions that
-  // were already very close to the prior mean pulled them onto it, and refining
-  // far-out (out-of-domain) predictions made the worst errors worse; only the
-  // middle band benefited. `minResidualRatio: 0` disables the lower gate;
-  // `shape: false` disables refinement entirely.
+  // Shape-prior refinement is DISABLED by default.
+  //
+  // Measured on ISBI 2015 (400 images, shared 19 landmarks): applying the Aariz
+  // prior cross-domain lowered SDR@2 from 50.6% (raw) to 35.4% (always refined),
+  // and a residual-band gate only recovered part of it (44.0%). The prior is
+  // still valuable as a *validator* — the shape residual is computed regardless
+  // (see landmarkDetector shapeResidual + landmarkQuality) and drives the quality
+  // gate and hypothesis ranking.
+  //
+  // To enable smoothing, set `shape: true` and tune the residual band (the prior
+  // only helps inside ~0.1–0.5; it hurts when the raw shape is already close to
+  // the mean or far outside it).
   refine: {
-    shape: true, alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2,
+    shape: false,
+    alpha: 0.6, reg: 0.1, k: 6, wmin: 0.2,
     minResidualRatio: 0.1,
     maxResidualRatio: 0.5,
   },

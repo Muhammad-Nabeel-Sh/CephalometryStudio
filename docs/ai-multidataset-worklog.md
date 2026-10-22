@@ -336,3 +336,22 @@ typical accuracy.**
 zips contained no `aariz_valid_raw.json`/`aariz_valid_metrics.json`, so the Aariz
 valid split was not attached (or that cell didn't run). Needed to decide whether
 to disable refinement globally or keep a domain-aware policy.
+
+### Step 16 — Decision: refinement ships DISABLED (raw), prior kept as validator
+
+Decision taken on the cross-domain evidence (raw 50.6% SDR@2 vs gated 44.0% vs
+always 35.4%): **shape-prior refinement is off by default**.
+
+- `src/data/landmarkModelInfo.js`: `refine.shape: false` (alpha/band options kept
+  for opt-in smoothing). The shape residual is still computed independently and
+  continues to drive the quality gate and hypothesis ranking, so the prior is
+  retained as a **validator**, not a transformer (plan Phase 8).
+- Tests: `landmarkDetector.test.js` locks the default (`refine.shape === false`,
+  band present, `shouldRefine` returns false for the shipped config).
+- In-domain (Aariz) raw-vs-SSM is still unmeasured; if it later shows a large
+  in-domain benefit, the band gate can be re-enabled (or made domain-aware).
+
+**Effect:** the app now places the model's raw landmarks, with low-confidence /
+atypical traces flagged for review instead of silently re-shaped. Next: the
+multi-domain fine-tune (Aariz + ISBI shared landmarks) to raise raw accuracy, and
+reconcile soft-tissue definitions before merging `UL/LL`.
