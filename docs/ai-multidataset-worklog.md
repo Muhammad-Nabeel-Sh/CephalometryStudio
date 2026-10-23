@@ -451,3 +451,20 @@ Training cell hardening (`kaggle-multidomain.ipynb`):
 
 Not yet confirmed: the original Kaggle exit-1 cause (hidden stderr). Next: re-run
 the build + training cells; the cell now prints the real error.
+
+### Step 20 — Training failure root cause: annotations written to the wrong dir
+
+With the captured stderr the cause was:
+`FileNotFoundError: Annotation directory not found: .../md19/train/Annotations/Cephalometric Landmarks/Merged19`,
+and the pre-flight showed `images=1050 annotations=0`.
+
+Cause: the build cell's `ann_dir(root)` returned
+`.../Annotations/Cephalometric Landmarks` — **without the `Merged19/`
+subdirectory** — so `write_case` wrote the JSONs one level too high, while
+CephaloHRNet's `--annotators Merged19` resolves
+`.../Cephalometric Landmarks/Merged19`. Images were written correctly
+(1050 train / 200 valid), annotations were not.
+
+Fix: `ann_dir()` now appends `"Merged19"` (the eval dirs use the same helper, so
+they are fixed too). Rebuild or run a one-off move of `*.json` into `Merged19/`
+in the current session, then train.
