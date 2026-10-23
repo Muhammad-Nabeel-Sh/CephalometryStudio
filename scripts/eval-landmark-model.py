@@ -42,6 +42,8 @@ CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
            "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
 # CEPHA29 + the two occlusal-plane points (pseudo-label PoC), appended.
 CEPHA31 = CEPHA29 + ["APOcc", "PPOcc"]
+# Multi-domain shared set (Aariz ∩ ISBI 2015) — same 19 symbols as ISBI.
+CEPHA19 = list(ISBI19)
 SYMS = ISBI19
 NUM = len(SYMS)
 INPUT = 768
@@ -425,7 +427,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="public/models/landmarks-hrnet19.onnx")
     ap.add_argument("--limit", type=int, default=20)
-    ap.add_argument("--set", default="isbi19", choices=["isbi19", "cepha29", "cepha31"], dest="set_name")
+    ap.add_argument("--set", default="isbi19", choices=["isbi19", "cepha29", "cepha31", "cepha19"], dest="set_name")
     ap.add_argument("--ann-dir", default=None, help="cepha29: annotation JSON directory")
     ap.add_argument("--images", default=None, help="cepha29: image directory")
     ap.add_argument("--pixel-mm", type=float, default=PIXEL_MM, help="mm per pixel (ISBI default 0.1)")
@@ -457,6 +459,8 @@ def main():
         SYMS, NUM = CEPHA29, len(CEPHA29)
     elif args.set_name == "cepha31":
         SYMS, NUM = CEPHA31, len(CEPHA31)
+    elif args.set_name == "cepha19":
+        SYMS, NUM = CEPHA19, len(CEPHA19)
 
     ssm = load_ssm(args.ssm) if args.ssm else None
     if args.report_ood and ssm is None:
@@ -469,7 +473,7 @@ def main():
 
     spacing = load_spacing_csv(args.spacing_csv) if args.spacing_csv else {}
     cases = []  # (image_source, gt, mm_per_px)
-    if args.set_name in ("cepha29", "cepha31"):
+    if args.set_name in ("cepha29", "cepha31", "cepha19"):
         if not (args.ann_dir and args.images):
             raise SystemExit(f"--set {args.set_name} requires --ann-dir and --images")
         import glob

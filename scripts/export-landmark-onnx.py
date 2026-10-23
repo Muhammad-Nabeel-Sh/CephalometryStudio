@@ -39,9 +39,12 @@ CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
            "R", "S", "Sn", "UIA", "UIT", "UMT", "UPM"]
 # CEPHA29 + the two occlusal-plane points, appended (pseudo-label PoC).
 CEPHA31 = CEPHA29 + ["APOcc", "PPOcc"]
+# Multi-domain shared set (Aariz ∩ ISBI 2015), in ISBI order.
+CEPHA19 = ["S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
+           "L1", "U1", "UL", "LL", "Sn", "Pog'", "PNS", "ANS", "Ar"]
 
 # Selects the verify-overlay symbol list for a given channel count.
-SYMBOLS_BY_NUM = {29: CEPHA29, 31: CEPHA31}
+SYMBOLS_BY_NUM = {19: CEPHA19, 29: CEPHA29, 31: CEPHA31}
 MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
 

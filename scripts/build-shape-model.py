@@ -43,7 +43,10 @@ CEPHA29 = ["A", "ANS", "Ar", "B", "Co", "Gn", "Go", "LIA", "LIT", "LMT", "LPM",
 # CEPHA29 + the two occlusal-plane points (pseudo-label PoC), appended.
 CEPHA31 = CEPHA29 + ["APOcc", "PPOcc"]
 
-SETS = {"isbi19": ISBI19, "cepha29": CEPHA29, "cepha31": CEPHA31}
+# Multi-domain shared set (Aariz ∩ ISBI 2015) — the 19 ISBI symbols.
+CEPHA19 = list(ISBI19)
+
+SETS = {"isbi19": ISBI19, "cepha29": CEPHA29, "cepha31": CEPHA31, "cepha19": CEPHA19}
 
 _CTX = ssl.create_default_context()
 _CTX.check_hostname = False
@@ -125,7 +128,7 @@ def main():
     args = ap.parse_args()
 
     syms = SETS[args.set_name]
-    if args.set_name in ("cepha29", "cepha31"):
+    if args.set_name in ("cepha29", "cepha31", "cepha19"):
         if not args.ann_dir:
             raise SystemExit(f"--set {args.set_name} requires --ann-dir <annotations folder>")
         shapes = load_shapes_cepha29(args.ann_dir, syms)

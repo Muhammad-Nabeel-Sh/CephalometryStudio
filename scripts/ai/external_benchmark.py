@@ -97,6 +97,22 @@ def _in_band(rr, lo, hi):
     return True
 
 
+def _resolve_chan(sess):
+    """Which model channels correspond to the 19 ISBI landmarks.
+
+    A 29-channel CEPHA29 model needs the shared-channel mapping; a multi-domain
+    model trained directly on the 19 shared landmarks outputs them in order.
+    """
+    try:
+        shape = sess.get_outputs()[0].shape
+        n = shape[1] if isinstance(shape, (list, tuple)) and len(shape) > 1 else None
+        if isinstance(n, int) and n == len(ISBI19):
+            return list(range(len(ISBI19)))
+    except Exception:
+        pass
+    return isbi_to_cepha_channel()
+
+
 def fetch_isbi(cache, limit, include_train=True):
     """Download ISBI annotations (test + train) and the matching images.
 
@@ -240,8 +256,8 @@ def main():
             if p and os.path.exists(p):
                 ann.update(load_isbi_annotations(p))
     ssm = None if args.no_ssm else (mod.load_ssm(args.ssm) if args.ssm else None)
-    chan = isbi_to_cepha_channel()
     sess = ort.InferenceSession(args.model, providers=["CPUExecutionProvider"])
+    chan = _resolve_chan(sess)
 
     files = list_images(args.isbi_images, args.limit) if args.isbi_images else (stems or [])
     if not files:

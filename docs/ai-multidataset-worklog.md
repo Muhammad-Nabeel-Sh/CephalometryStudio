@@ -355,3 +355,66 @@ always 35.4%): **shape-prior refinement is off by default**.
 atypical traces flagged for review instead of silently re-shaped. Next: the
 multi-domain fine-tune (Aariz + ISBI shared landmarks) to raise raw accuracy, and
 reconcile soft-tissue definitions before merging `UL/LL`.
+
+### Step 17 — Soft-tissue definition check: keep all 19 shared landmarks
+
+Before merging, tested whether ISBI `UL/LL` are anatomically equivalent to Aariz
+`Ls/Li` (which would justify excluding them). Two analyses over 400 ISBI shapes
+vs the Aariz prior mean:
+
+**1. Per-landmark GT-vs-Aariz-mean residual** (Procrustes-aligned, fraction of
+face size). `UL` 0.092 and `LL` 0.102 sit **mid-range** — not outliers.
+Higher: `Pog'` 0.180, `Sn` 0.149, `ANS` 0.126, `B` 0.116, `Po` 0.115, `N` 0.114.
+Lower: `S` 0.072, `L1` 0.070, `PNS`/`U1` 0.074.
+
+**2. Position relative to the Sn–Pog' axis** (t = along, h = signed perpendicular
+normalised by |Sn–Pog'|):
+
+| pair | ISBI t | ISBI h | Aariz t | Aariz h |
+| --- | --- | --- | --- | --- |
+| UL vs Ls | +0.204 | +0.132 | +0.261 | +0.085 |
+| LL vs Li | +0.565 | +0.132 | +0.567 | +0.065 |
+
+Along-axis positions match closely; ISBI's lip points sit modestly more anterior
+(h ≈ +0.05–0.07 larger) — a small convention/population difference, not a
+different landmark.
+
+**Conclusion:** no gross definition mismatch. Keep all **19** shared landmarks;
+the `UL` 27.4 mm mean error is catastrophic-tail model failure (median 3.69 mm),
+not a labelling problem. (Note the slight anterior lip bias if it recurs after
+multi-domain training.)
+
+Next: build the multi-domain training notebook (`kaggle-multidomain.ipynb`) on the
+shared 19, fine-tuned from `best.pt`.
+
+### Step 18 — Multi-domain training pipeline built (shared 19)
+
+Built `scripts/ai/kaggle-multidomain.ipynb` (and the tooling it needs):
+
+- **Data harmonization**: maps Aariz (29, averaged Junior+Senior) onto the 19
+  ISBI symbols via `ISBI_TO_CEPHA`; merges with ISBI 2015 train. Builds:
+  - `md19/train` + `md19/valid` (domain-prefixed filenames, 19-symbol JSONs),
+  - separate `eval/aariz19` and `eval/isbi19` dirs for clean measurement.
+- **Model patch**: CephaloHRNet `LANDMARK_SYMBOLS` / `NUM_LANDMARKS` / `train.py`
+  switched to the 19 shared landmarks.
+- **Training**: fine-tunes from the attached 29-landmark `best.pt`
+  (`--pretrained-path` transfers the backbone, re-inits the 19-channel head),
+  768², 120 epochs, ISBI 2015 + Aariz.
+- **Export**: ONNX FP32 + static-QDQ INT8 (`--num-landmarks 19`) + verify overlay.
+- **Prior**: `build-shape-model.py --set cepha19`.
+- **Benchmark**: raw (app default) on held-out ISBI test + Aariz valid, using
+  `external_benchmark.py` (now auto-detects 19-channel models) and the harness
+  (`--set cepha19`).
+
+Tooling added: `cepha19` set in `build-shape-model.py`, `eval-landmark-model.py`,
+`export-landmark-onnx.py`; `_resolve_chan()` in `external_benchmark.py`; `--set
+cepha19` handling. All Python compiles; export/eval 19-lists verified equal to
+`canonical.ISBI19`; JS lint/tests/build green (601 tests).
+
+**Deliberate scope:** this first run isolates **domain diversity** (no flip /
+polarity / CLAHE augmentation yet). If SDR@2 doesn't improve enough, augmentation
+is the next lever.
+
+Next: run `kaggle-multidomain.ipynb` (T4, attach `best.pt`; ISBI + Aariz
+datasets optional) and compare `audit/isbi19/isbi_metrics.json` against the raw
+baseline (SDR@2 50.6%, median 1.97 mm).
