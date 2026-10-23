@@ -418,3 +418,36 @@ is the next lever.
 Next: run `kaggle-multidomain.ipynb` (T4, attach `best.pt`; ISBI + Aariz
 datasets optional) and compare `audit/isbi19/isbi_metrics.json` against the raw
 baseline (SDR@2 50.6%, median 1.97 mm).
+
+### Step 19 — Multi-domain training debug + smoke test
+
+The first Kaggle training run exited 1 but the cell used `check=True` without
+capturing output, so the child's stderr was invisible. Separately, the user's
+`best.pt` was actually `scripts/best.zip` (a `torch.save` zip container, not a
+wrapper); verified with `torch.load`: `head.weight (29, 32, 1, 1)`, epoch 126,
+hrnet_w32/768.
+
+To isolate the failure, ran the **real CephaloHRNet training pipeline locally on
+CPU** with a tiny synthetic 19-landmark dataset and the user's checkpoint:
+- loaded **1752/1754** layers (head excluded, as designed),
+- 1 epoch trained, 19-channel model saved, per-landmark eval printed.
+
+That proves the pipeline (dataset loader, patch, checkpoint transfer, loss) is
+sound. Two real bugs surfaced and were fixed:
+1. **`test.py` `KeyError: 'L1'`** — patching `LANDMARK_SYMBOLS` to the 19 set left
+   `LANDMARK_TITLES` on the CEPHA29 names, and `test.py` indexes titles by symbol.
+   The auto-eval crashed (after training). Fixed by adding the 19 titles in the
+   patch cell.
+2. **`seaborn` missing from the install list** — `utils/visualize.py` imports it
+   (and calls `set_style`/`color_palette` at import), so a missing package fails
+   the whole `train.py` import. Added `seaborn` to the install cell.
+
+Training cell hardening (`kaggle-multidomain.ipynb`):
+- pre-flight **counts + assert** for `train`/`valid` (empty split is a likely cause
+  of exit 1),
+- `capture_output=True` and prints stdout/stderr before `check_returncode()`,
+- `--workers 0` (avoids DataLoader worker failures),
+- build cell now falls back to a 20-image valid slice if the valid split is empty.
+
+Not yet confirmed: the original Kaggle exit-1 cause (hidden stderr). Next: re-run
+the build + training cells; the cell now prints the real error.
