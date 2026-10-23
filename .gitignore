@@ -44,3 +44,9 @@ __pycache__/
 
 # AI audit dumps (large overlays)
 audit_output*.zip
+
+# Model checkpoints / large training artifacts (attach to Kaggle, don't commit)
+*.pt
+*.pth
+*.ckpt
+best*.zip
