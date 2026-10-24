@@ -1,5 +1,55 @@
 # Changelog
 
+## [Unreleased] - Phase 0 correctness sprint
+
+> **Research results produced by earlier versions are invalid — re-run your studies.**
+> Descriptive, Comparative, Longitudinal, Correlation and Reliability studies analyzed the
+> first point's x-pixel coordinate (or a mix of x, y and the measurement) instead of the
+> angle/length. Several clinical measurements also had the wrong sign or definition.
+
+### Fixed - Research modules analyze the measurement, not coordinates
+- New `primaryMeasure(markup, cal, ctx)` (`lib/utils.js`) is the single source of a markup's value
+  (angle3/angle4 → angle, line → length, perp → distance, projDist → projectedDistance, …); points have none.
+- `research/collect.js` gains `sessionPrimaryMeasure` / `sessionCalibration` / `isResearchMarkup`; descriptive,
+  comparative (incl. MANOVA), longitudinal, correlation/regression, diagnostic, reliability and superimposition
+  linear/angular changes all read values through it.
+- Reliability: landmark-only studies still return the placement error map instead of exiting early.
+- Longitudinal LMM: a value of exactly 0 was treated as missing for y but not X (misaligned regression).
+- `buildScope` (formulas): the bare label now means the markup's primary measurement.
+- CSV export labels `x`/`y` as px (they are raw image coordinates).
+
+### Fixed - Signed cephalometric geometry (patient-facing frame)
+- New `lib/measureConventions.js`: profile direction inferred from landmarks (S→N, Po→Or, …) or set per session
+  (Settings → *Profile faces: Auto / Right / Left*); every signed value is mirror-invariant.
+- Template perpendicular distances are signed, positive = anterior (E-line, S-line, U1-NA mm, L1-NB mm, Ricketts
+  convexity, L1-APog, Epker lips, TVL). Free-hand perps stay unsigned.
+- **Wits sign was inverted** (Class II read negative / "Class III"); projected distances are now positive when the
+  first point is anterior, independent of plane-point order.
+- ANB / A-N-B / A-N-Pog convexity angles are signed in the patient frame; Downs angle of convexity is
+  180° − N-A-Pog (signed); Downs AB-plane angle is measured to the facial plane (N-Pog), negative when B is posterior.
+- Canvas labels, Markups/Properties panels, context-menu copy, CSV export and interpretation all use the same values.
+
+### Fixed - Measurement definitions (`Data/AnalysisMeasurements.csv`)
+- Reversed reference order (θ computed as 180° − θ): Steiner Occlusal Plane-SN (166°→14°) and U1-NA° (154°→26°),
+  Downs occlusal plane angle, Björk ML-NSL and U1-NSL, Tweed FMIA, Bimler/Lautrou interincisal angle.
+- **McNamara rewritten**: A to N-perp and Pog to N-perp (signed, via FH), Co-A / Co-Gn / ANS-Me / MMD with McNamara
+  1984 adult values, U1 to A-vertical; Po, Or, Gn added to the analysis landmarks. Removed N-A/N-B "lengths".
+- Ricketts mandibular arc: vertex at Xi, reported as 180° − ∠DC-Xi-PM (legacy Xi,PM,DC markups still compute correctly).
+- Downs: AB-plane angle vs facial plane (−4.6 ± 3.7), angle of convexity (0 ± 5.1); non-Downs "Convexity (mm)" removed.
+- Jarv-Bjork: added S-Go, N-Me and the **Jarabak ratio** (63.5 ± 1.5 %).
+- Norms withheld (definition not the published index): Kim ODI / APDI / CF, Björk U1-ML.
+- Interpretation: AB-plane direction corrected (more negative = Class II); ANB/Wits text is direction-only (severity from
+  the z-score); new rules for A/Pog to N-perp, U1 to A-vertical, Co-Gn, Jarabak ratio; "A-B distance" is the Wits appraisal.
+- `DEFAULT_NORMS` Downs/McNamara presets updated to the corrected labels.
+
+### Tests
+- Research fixtures rewritten with realistic angle/line markups (`src/test/helpers/cephFixtures.js`); regression tests
+  per module prove coordinates no longer leak into results.
+- `src/test/measureConventions.test.js` (19 tests): facing inference, signed geometry on known Class II/III
+  configurations, and — over every predefined lateral measurement on the mean Aariz skull — mirror invariance,
+  rotation/translation invariance, and a norm-plausibility check (|z| ≤ 4) that catches reversed reference order.
+- 627 tests pass (33 files); lint clean; build OK.
+
 ## [1.5.0] - 2026-08-15
 
 ### Changed - Rebrand to Cephalometry Studio

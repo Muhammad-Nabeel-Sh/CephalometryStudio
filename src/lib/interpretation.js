@@ -29,9 +29,8 @@ export const RULES = {
     label: "ANB Angle",
     description: "Sagittal jaw relationship — difference between SNA and SNB (derived, can be negative)",
     interpret: (v, m) => {
-      const sd = 2;
-      if (v > m + sd) return "Skeletal Class II pattern (mandibular retrognathism or maxillary prognathism)";
-      if (v < m - sd) return "Skeletal Class III pattern (mandibular prognathism or maxillary retrognathism)";
+      if (v > m) return "Skeletal Class II tendency (mandibular retrognathism or maxillary prognathism)";
+      if (v < m) return "Skeletal Class III tendency (mandibular prognathism or maxillary retrognathism)";
       return "Sagittal jaw relationship is within normal range (Class I)";
     },
   },
@@ -60,8 +59,8 @@ export const RULES = {
     label: "Wits Appraisal",
     description: "Sagittal jaw relationship measured along occlusal plane",
     interpret: (v, m) => {
-      if (v > m + 1) return "Skeletal Class II (maxillary protrusion or mandibular retrusion)";
-      if (v < m - 1) return "Skeletal Class III (mandibular protrusion or maxillary retrusion)";
+      if (v > m) return "Skeletal Class II tendency (AO ahead of BO — maxillary protrusion or mandibular retrusion)";
+      if (v < m) return "Skeletal Class III tendency (BO ahead of AO — mandibular protrusion or maxillary retrusion)";
       return "Wits appraisal is within normal range (Class I)";
     },
   },
@@ -449,10 +448,10 @@ export const RULES = {
   "AB plane angle": {
     category: "skeletal", subgroup: "ap-differential",
     label: "AB Plane Angle",
-    description: "Angle between A-B line and facial plane (N-Pog) — sagittal jaw relationship",
+    description: "Angle between A-B line and facial plane (N-Pog); negative when B is posterior to A (Downs)",
     interpret: (v, m) => {
-      if (v > m) return "AB plane angle increased — skeletal Class II tendency (Point B posterior to A)";
-      if (v < m) return "AB plane angle decreased or negative — skeletal Class III tendency (Point B anterior to A)";
+      if (v < m) return "AB plane angle more negative — skeletal Class II tendency (Point B further posterior to A)";
+      if (v > m) return "AB plane angle less negative or positive — skeletal Class III tendency (Point B forward relative to A)";
       return "AB plane angle is within normal range (Class I)";
     },
   },
@@ -874,7 +873,7 @@ export const RULES = {
   "MMD": {
     category: "skeletal", subgroup: "ap-differential",
     label: "Maxillomandibular Difference",
-    description: "Difference between mandibular length (Co-Pog) and maxillary length (Co-A)",
+    description: "Difference between mandibular length (Co-Gn) and maxillary length (Co-A)",
     interpret: (v, m) => {
       if (v > m) return "Mandibular length is disproportionately greater than maxillary length";
       if (v < m) return "Maxillary length is disproportionately greater than mandibular length";
@@ -913,12 +912,72 @@ export const RULES = {
   },
   "A-B distance": {
     category: "skeletal", subgroup: "ap-differential",
-    label: "A-B Distance",
-    description: "Linear distance between Point A and Point B",
+    label: "Wits Appraisal (AO-BO)",
+    description: "Signed distance AO-BO along the functional occlusal plane; positive = AO anterior to BO",
     interpret: (v, m) => {
-      if (v > m) return "Increased sagittal discrepancy between maxilla and mandible";
-      if (v < m) return "Decreased sagittal distance — jaws are closer together";
-      return "A-B distance is within normal range";
+      if (v > m) return "Skeletal Class II tendency (AO ahead of BO — maxillary protrusion or mandibular retrusion)";
+      if (v < m) return "Skeletal Class III tendency (BO ahead of AO — mandibular protrusion or maxillary retrusion)";
+      return "Wits appraisal is within normal range (Class I)";
+    },
+  },
+  "A to N-perp": {
+    category: "skeletal", subgroup: "maxilla-ap",
+    label: "Point A to Nasion-Perpendicular (McNamara)",
+    description: "Signed distance of Point A from the N-perpendicular; positive = anterior",
+    interpret: (v, m) => {
+      if (v > m) return "Maxilla is protrusive relative to the cranial base";
+      if (v < m) return "Maxilla is retrusive relative to the cranial base";
+      return "Maxillary position is within normal range";
+    },
+  },
+  "Pog to N-perp": {
+    category: "skeletal", subgroup: "mandible-ap",
+    label: "Pogonion to Nasion-Perpendicular (McNamara)",
+    description: "Signed distance of Pogonion from the N-perpendicular; positive = anterior",
+    interpret: (v, m) => {
+      if (v > m) return "Chin is prognathic relative to the cranial base";
+      if (v < m) return "Chin is retrognathic relative to the cranial base";
+      return "Chin position is within normal range";
+    },
+  },
+  "U1 to A-vertical": {
+    category: "dental", subgroup: "maxillary-incisor",
+    label: "Upper Incisor to A-Vertical (McNamara)",
+    description: "Signed distance of the upper incisor from the vertical through Point A",
+    interpret: (v, m) => {
+      if (v > m) return "Upper incisor is protrusive";
+      if (v < m) return "Upper incisor is retrusive";
+      return "Upper incisor position is within normal range";
+    },
+  },
+  "Co-Gn": {
+    category: "skeletal", subgroup: "mandible-ap",
+    label: "Effective Mandibular Length Co-Gn (McNamara)",
+    description: "Mandibular length from condylion to gnathion",
+    interpret: (v, m) => {
+      if (v > m) return "Mandible is long — mandibular prognathism";
+      if (v < m) return "Mandible is short — mandibular retrognathism";
+      return "Mandibular length is within normal range";
+    },
+  },
+  "Jarabak ratio": {
+    category: "skeletal", subgroup: "vertical",
+    label: "Jarabak Ratio (S-Go / N-Me)",
+    description: "Posterior to anterior face height ratio",
+    interpret: (v, m) => {
+      if (v < m) return "Low ratio — clockwise (vertical) growth tendency";
+      if (v > m) return "High ratio — counter-clockwise (horizontal) growth tendency";
+      return "Jarabak ratio is within the neutral range";
+    },
+  },
+  "Angle of convexity": {
+    category: "skeletal", subgroup: "ap-differential",
+    label: "Angle of Convexity (Downs)",
+    description: "180° − N-A-Pog; positive = convex, negative = concave",
+    interpret: (v, m) => {
+      if (v > m) return "Facial profile is more convex";
+      if (v < m) return "Facial profile is more concave or straight";
+      return "Facial convexity angle is within normal range";
     },
   },
   // ═══════════════════════════════════════════
@@ -1561,8 +1620,8 @@ export const RULES = {
     label: "AB Plane Angle (Downs)",
     description: "Angle between AB line and facial plane (Downs)",
     interpret: (v, m) => {
-      if (v > m) return "AB plane angle increased — skeletal Class II tendency (Point B posterior to A)";
-      if (v < m) return "AB plane angle decreased or negative — skeletal Class III tendency (Point B anterior to A)";
+      if (v < m) return "AB plane angle more negative — skeletal Class II tendency (Point B further posterior to A)";
+      if (v > m) return "AB plane angle less negative or positive — skeletal Class III tendency (Point B forward relative to A)";
       return "AB plane angle is within normal range (Class I)";
     },
   },
@@ -1584,7 +1643,7 @@ const PATTERN_RECOGNIZERS = [
     label: "Skeletal Class",
     analyze: (deviations) => {
       const anb = deviations.find(d => d.label === "ANB");
-      const wits = deviations.find(d => d.label === "Wits");
+      const wits = deviations.find(d => d.label === "Wits" || d.label === "A-B distance");
       if (!anb && !wits) return null;
       const anbZ = anb?.zScore ?? 0;
       const witsZ = wits?.zScore ?? 0;

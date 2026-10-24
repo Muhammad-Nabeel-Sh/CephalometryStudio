@@ -2,31 +2,20 @@
 // Template loading + auto-measurement creation
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { uid, dist, computeMeasurements } from "../lib/utils.js";
+import { uid, dist, primaryMeasure } from "../lib/utils.js";
+import { resolveFacing } from "../lib/measureConventions.js";
 import { PREDEFINED } from "../data/constants.js";
 
-// The clinically meaningful value per markup type — computed measurements
-// (ratio/sum/difference/percentage) reference these, never raw coordinates.
-const PRIMARY_VALUE_KEY = {
-  line: "length", parallel: "length", ruler: "length", arrow: "length", tangent: "length",
-  angle3: "angle", angle4: "angle",
-  polygon: "area", ellipse: "area", circle: "area",
-  arc: "arcLength", concentric: "arcLength",
-  curve: "length", polyline: "length", bezier: "length",
-  perp: "distance", projDist: "projectedDistance",
-  ratio: "value", sum: "value", difference: "value", percentage: "value",
-};
-
-export function getMeasValue(m, calibration) {
-  const ms = computeMeasurements(m, calibration);
-  const key = PRIMARY_VALUE_KEY[m.type];
-  if (key && typeof ms[key] === "number" && isFinite(ms[key])) return ms[key];
+// Value a computed measurement (ratio/sum/difference/percentage) reads from a
+// referenced markup: its primary measurement, never a raw coordinate.
+export function getMeasValue(m, calibration, ctx) {
+  const pm = primaryMeasure(m, calibration, ctx);
+  if (pm) return pm.value;
   if ((m.type === "line" || m.type === "parallel" || m.type === "ruler" || m.type === "arrow") && m.points?.length >= 2) {
     const ppm = calibration?.done ? (calibration.pxPerMm || 1) : 1;
     return dist(m.points[0], m.points[1]) / ppm;
   }
-  const vals = Object.values(ms).filter(v => typeof v === "number" && isFinite(v));
-  return vals.length > 0 ? vals[0] : 0;
+  return 0;
 }
 
 function resolveLabel(rl, placedByLabel, placedByTemplateLabel) {
@@ -42,7 +31,7 @@ function buildLookups(markups) {
   return { byLabel, byTemplateLabel };
 }
 
-export function autoCreateMeasurements(markups, templateName, calibration) {
+export function autoCreateMeasurements(markups, templateName, calibration, facingSetting) {
   const analysis = PREDEFINED.lateral.find(a => a.name === templateName)
     || PREDEFINED.ap.find(a => a.name === templateName)
     || PREDEFINED.smv.find(a => a.name === templateName)
@@ -53,6 +42,7 @@ export function autoCreateMeasurements(markups, templateName, calibration) {
   if (!analysis || !analysis.measurements || analysis.measurements.length === 0) return [];
 
   const { byLabel: placed, byTemplateLabel: placedByTL } = buildLookups(markups);
+  const ctx = { facing: resolveFacing(facingSetting, markups) };
   const existingLabels = new Set(markups.map(m => m.label));
   const result = [];
 
@@ -91,17 +81,17 @@ export function autoCreateMeasurements(markups, templateName, calibration) {
     const resolvedRefTemplateIds = matched.map(m => m.templateId || null);
     let computedValue = 0;
     if (meas.type === "ratio") {
-      const v0 = getMeasValue(matched[0], calibration);
-      const v1 = getMeasValue(matched[1], calibration);
+      const v0 = getMeasValue(matched[0], calibration, ctx);
+      const v1 = getMeasValue(matched[1], calibration, ctx);
       computedValue = v1 !== 0 ? v0 / v1 : 0;
     } else if (meas.type === "difference") {
-      computedValue = getMeasValue(matched[0], calibration) - getMeasValue(matched[1], calibration);
+      computedValue = getMeasValue(matched[0], calibration, ctx) - getMeasValue(matched[1], calibration, ctx);
     } else if (meas.type === "percentage") {
-      const v0 = getMeasValue(matched[0], calibration);
-      const v1 = getMeasValue(matched[1], calibration);
+      const v0 = getMeasValue(matched[0], calibration, ctx);
+      const v1 = getMeasValue(matched[1], calibration, ctx);
       computedValue = v1 !== 0 ? (v0 / v1) * 100 : 0;
     } else {
-      computedValue = matched.reduce((s, m) => s + getMeasValue(m, calibration), 0);
+      computedValue = matched.reduce((s, m) => s + getMeasValue(m, calibration, ctx), 0);
     }
     result.push({
       id: uid(), type: meas.type, points: [],
@@ -153,7 +143,7 @@ export function analysisCoverage(analysis, markups) {
 }
 
 // Build the markup/norm set for applying `analysis` on top of the AI-placed points.
-export function applyAnalysis(markups, analysis, calibration) {
+export function applyAnalysis(markups, analysis, calibration, facingSetting) {
   const placed = placedLabelsOf(markups);
   const defByLabel = new Map((analysis?.pts || []).map(p => [p.l, p]));
 
@@ -183,7 +173,7 @@ export function applyAnalysis(markups, analysis, calibration) {
 
   const withPoints = [...enriched, ...missing];
   const readyLabels = placedLabelsOf(withPoints);
-  const measurements = autoCreateMeasurements(withPoints, analysis.name, calibration)
+  const measurements = autoCreateMeasurements(withPoints, analysis.name, calibration, facingSetting)
     .filter(m => (m.refLabels || []).every(rl => readyLabels.has(rl)));
 
   return {

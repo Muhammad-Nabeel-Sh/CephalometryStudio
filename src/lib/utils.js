@@ -4,6 +4,10 @@
 
 import { create, all } from "mathjs";
 import { SILHOUETTES } from "../data/silhouettes.js";
+import {
+  angle3Convention, angle4Convention, isSignedPerp, orderForVertex, resolveFacing,
+  signedAngle3, convexityAngle, abPlaneAngle, signedPerpDist, signedProjection,
+} from "./measureConventions.js";
 
 const math = create(all, { number: "number", precision: 14 });
 math.import({
@@ -93,24 +97,31 @@ export const getInfiniteLinePoints = (p1, p2, w, h) => {
   return [{ x: p1.x - nx * dist, y: p1.y - ny * dist }, { x: p1.x + nx * dist, y: p1.y + ny * dist }];
 };
 
-export function computeMeasurements(m, cal) {
+// `ctx.facing` ("right" | "left") orients every signed measure in the patient
+// frame (see lib/measureConventions.js). Callers that hold the whole markup list
+// should pass `resolveFacing(session.facing, markups)`; it defaults to "right".
+export function computeMeasurements(m, cal, ctx) {
   const calDone = cal?.done === true;
   const ppm = calDone ? (cal.pxPerMm || 1) : 1;
+  const facing = ctx?.facing === "left" ? "left" : "right";
   const meas = {}, vp = vpts(m);
   if (vp.length > 0) { meas.x = vp[0].x; meas.y = vp[0].y; }
   if ((m.type === "line" || m.type === "parallel") && vp.length >= 2 && m.mode !== "infinite") {
     meas.length = dist(vp[0], vp[1]) / ppm;
   }
   if (m.type === "angle3" && vp.length >= 3) {
-    if (m.measure === "ANB" || m.label === "ANB") {
-      const u = { x: vp[0].x - vp[1].x, y: vp[0].y - vp[1].y };
-      const w = { x: vp[2].x - vp[1].x, y: vp[2].y - vp[1].y };
-      meas.angle = Math.atan2(u.x * w.y - u.y * w.x, u.x * w.x + u.y * w.y) * 180 / Math.PI;
-    } else {
-      meas.angle = angle3pt(vp[0], vp[1], vp[2]);
-    }
+    const conv = angle3Convention(m);
+    const [p0, p1, p2] = orderForVertex(m, vp.slice(0, 3));
+    if (conv === "signed") meas.angle = signedAngle3(p0, p1, p2, facing);
+    else if (conv === "convexity") meas.angle = convexityAngle(p0, p1, p2, facing);
+    else if (conv === "supplement") meas.angle = 180 - angle3pt(p0, p1, p2);
+    else meas.angle = angle3pt(p0, p1, p2);
   }
-  if (m.type === "angle4" && vp.length >= 4) meas.angle = angle4pt(vp[0], vp[1], vp[2], vp[3]);
+  if (m.type === "angle4" && vp.length >= 4) {
+    meas.angle = angle4Convention(m) === "abPlane"
+      ? abPlaneAngle(vp[0], vp[1], vp[2], vp[3], facing)
+      : angle4pt(vp[0], vp[1], vp[2], vp[3]);
+  }
   if (m.type === "polygon" && vp.length >= 3) {
     const useSpline = m.curveStyle === "bspline" && vp.length >= 3;
     meas.area = (useSpline ? splineArea(vp) : polyArea(vp)) / ppm ** 2;
@@ -120,12 +131,14 @@ export function computeMeasurements(m, cal) {
     const useSpline = m.curveStyle === "bspline" && vp.length >= 3;
     meas.length = (useSpline ? splineLen(vp, false) : polyLen(vp, false)) / ppm;
   }
-  if (m.type === "perp" && vp.length >= 3) { meas.distance = perpDist(vp[2], vp[0], vp[1]) / ppm; }
+  if (m.type === "perp" && vp.length >= 3) {
+    meas.distance = (isSignedPerp(m) ? signedPerpDist(vp[2], vp[0], vp[1], facing) : perpDist(vp[2], vp[0], vp[1])) / ppm;
+  }
   if (m.type === "ratio" && m.computedValue !== undefined) { meas.value = m.computedValue; }
   if (m.type === "sum" && m.computedValue !== undefined) { meas.value = m.computedValue; }
   if (m.type === "difference" && m.computedValue !== undefined) { meas.value = m.computedValue; }
   if (m.type === "percentage" && m.computedValue !== undefined) { meas.value = m.computedValue; }
-  if (m.type === "projDist" && vp.length >= 4) { meas.projectedDistance = projectedDistance(vp[0], vp[1], vp[2], vp[3]) / ppm; }
+  if (m.type === "projDist" && vp.length >= 4) { meas.projectedDistance = signedProjection(vp[0], vp[1], vp[2], vp[3], facing) / ppm; }
   if (m.type === "silhouette") {
     const paths = (m.paths || SILHOUETTES?.[m.silhouetteType]?.paths);
     if (paths && paths.length > 0) {
@@ -185,6 +198,38 @@ export function computeMeasurements(m, cal) {
   }
   meas._unit = calDone ? "mm" : "px";
   return meas;
+}
+
+// The clinically meaningful value of each markup type. `x`/`y` (the first
+// point's raw pixel position) are never a measurement; points have none.
+export const PRIMARY_MEASURE_KEY = {
+  line: "length", parallel: "length", ruler: "length", arrow: "length", tangent: "length",
+  angle3: "angle", angle4: "angle",
+  polygon: "area", ellipse: "area", circle: "area",
+  arc: "arcLength", concentric: "arcLength",
+  curve: "length", polyline: "length", bezier: "length",
+  perp: "distance", projDist: "projectedDistance",
+  ratio: "value", sum: "value", difference: "value", percentage: "value",
+};
+
+const AREA_KEYS = new Set(["area"]);
+
+// { key, value, unit } for the markup's primary measurement, or null when the
+// markup has none (points, unfinished shapes, infinite lines). Every research
+// collector, export and computed measurement must read values through this.
+export function primaryMeasure(m, cal, ctx) {
+  const key = PRIMARY_MEASURE_KEY[m?.type];
+  if (!key) return null;
+  const meas = computeMeasurements(m, cal, ctx);
+  const value = meas[key];
+  if (typeof value !== "number" || !isFinite(value)) return null;
+  let unit;
+  if (key === "angle") unit = "°";
+  else if (m.type === "ratio") unit = "";
+  else if (m.type === "percentage") unit = "%";
+  else if (AREA_KEYS.has(key)) unit = meas._unit === "mm" ? "mm²" : "px²";
+  else unit = meas._unit === "mm" ? "mm" : "px";
+  return { key, value, unit };
 }
 
 export const catmullRom = (ctx, pts, closed = false) => {
@@ -307,16 +352,20 @@ export const alignTwoPoints = (s1, s2, d1, d2) => {
   return { tx: d1.x - (cos * s1.x - sin * s1.y), ty: d1.y - (sin * s1.x + cos * s1.y), rot, scale };
 };
 
-export function buildScope(markups, calibration) {
+export function buildScope(markups, calibration, facingSetting) {
   const scope = {};
+  const ctx = { facing: resolveFacing(facingSetting, markups) };
   markups.forEach(m => {
-    const meas = computeMeasurements(m, calibration);
+    const meas = computeMeasurements(m, calibration, ctx);
     const lbl = (m.label || m.type).replace(/[^a-zA-Z0-9]/g, "_");
     Object.entries(meas).forEach(([k, v]) => {
       if (k.startsWith("_")) return;
       scope[lbl] = v;
       scope[`${lbl}_${k}`] = v;
     });
+    // The bare label means the markup's primary measurement, never a coordinate.
+    const pk = PRIMARY_MEASURE_KEY[m.type];
+    if (pk && typeof meas[pk] === "number" && isFinite(meas[pk])) scope[lbl] = meas[pk];
   });
   return scope;
 }

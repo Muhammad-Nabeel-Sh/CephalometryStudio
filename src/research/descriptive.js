@@ -1,6 +1,5 @@
-import { computeMeasurements, chi2CDF, tDistributeCDF } from "../lib/utils.js";
-import { unitForKey, dominantUnit } from "./collect.js";
-import { logError } from "../lib/logger.js";
+import { chi2CDF, tDistributeCDF } from "../lib/utils.js";
+import { dominantUnit, isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
 function stdNormalCdf(x) {
@@ -191,8 +190,8 @@ export const RESEARCH_NORMS = [
     stratification: "Not stratified by age, sex, or ethnicity. Based on adolescent subjects — may not apply to adults.",
   }, {
     "Facial angle": { mean: 87.8, sd: 3.6 },
-    "Convexity": { mean: 0, sd: 5.9 },
-    "AB plane": { mean: -4.6, sd: 3.7 },
+    "Angle of convexity": { mean: 0, sd: 5.1 },
+    "AB plane angle": { mean: -4.6, sd: 3.7 },
     "Mandibular plane": { mean: 21.9, sd: 3.7 },
     "Y-axis": { mean: 59.4, sd: 3.8 },
     "Occlusal plane": { mean: 9.3, sd: 3.8 },
@@ -278,29 +277,13 @@ function collectMeasurements(sessions, labelIds, calibration) {
   const byLabel = {};
   for (const s of sessions) {
     if (!s) continue;
-    const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
-    const markups = s.markups || [];
-    for (const m of markups) {
-      if (!m.label) continue;
+    for (const m of s.markups || []) {
+      if (!isResearchMarkup(m)) continue;
       if (labelIds.length > 0 && !labelIds.includes(m.label)) continue;
-      if (m.type === "ruler" || m.type === "silhouette") continue;
-      if (!m.visible || !m.placed) continue;
-        try {
-          const vals = computeMeasurements(m, cal);
-          for (const [key, raw] of Object.entries(vals)) {
-            if (typeof raw !== "number" || !isFinite(raw)) continue;
-            if (!byLabel[m.label]) byLabel[m.label] = [];
-            byLabel[m.label].push({ value: raw, key, sessionId: s.id, unit: unitForKey(key, vals._unit) });
-          }
-          // If no specific measureKey, also push the first numeric value
-          if (!Object.keys(vals).some(k => typeof vals[k] === "number")) {
-            const first = Object.values(vals).find(v => typeof v === "number" && isFinite(v));
-            if (first != null) {
-              if (!byLabel[m.label]) byLabel[m.label] = [];
-              byLabel[m.label].push({ value: first, key: "value", sessionId: s.id, unit: vals._unit === "mm" ? "mm" : "px" });
-            }
-          }
-        } catch (e) { logError("descriptive/collect", e); }
+      const pm = sessionPrimaryMeasure(s, m, calibration);
+      if (!pm) continue;
+      if (!byLabel[m.label]) byLabel[m.label] = [];
+      byLabel[m.label].push({ value: pm.value, key: pm.key, sessionId: s.id, unit: pm.unit });
     }
   }
   return byLabel;

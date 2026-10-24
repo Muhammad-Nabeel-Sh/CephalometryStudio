@@ -10,10 +10,10 @@ Steiner Analysis,Angle,SNA,"Angle between Sella, Nasion, and Point A","S,N,A",82
 Steiner Analysis,Angle,SNB,"Angle between Sella, Nasion, and Point B","S,N,B",80,2
 Steiner Analysis,Angle,ANB,"Angle between Point A, Nasion, and Point B","A,N,B",2,2
 Steiner Analysis,Angle 4-pt,SN-GoMe,Angle between SN line and mandibular plane (Go-Me),"S,N,Go,Me",32,4
-Steiner Analysis,Angle 4-pt,Occlusal Plane-SN,Angle between occlusal plane (APOcc-PPOcc) and SN line.,"APOcc,PPOcc,S,N",14,4
+Steiner Analysis,Angle 4-pt,Occlusal Plane-SN,Angle between occlusal plane (PPOcc→APOcc) and SN line (S→N).,"PPOcc,APOcc,S,N",14,4
 Steiner Analysis,Angle 4-pt,SN-GoGn,Angle between SN line and mandibular plane (Go-Gn).,"S,N,Go,Gn",32,4
 Steiner Analysis,Perp,U1-NA (mm),Distance from upper incisor tip to NA line.,"N,A,Is",4,2
-Steiner Analysis,Angle 4-pt,U1-NA (°),Angle between upper incisor axis and NA line.,"Is,Ia,N,A",22,2
+Steiner Analysis,Angle 4-pt,U1-NA (°),Angle between upper incisor axis (apex→tip) and NA line.,"Ia,Is,N,A",22,2
 Steiner Analysis,Perp,L1-NB (mm),Distance from lower incisor tip to NB line.,"N,B,Ii",4,2
 Steiner Analysis,Angle 4-pt,L1-NB (°),Angle between lower incisor axis and NB line.,"Ii,Iia,N,B",25,4
 Steiner Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Is,Ia,Ii,Iia",130,5
@@ -25,38 +25,37 @@ Ricketts Analysis,Angle 4-pt,SN-FH,Angle between SN line and Frankfort Horizonta
 Ricketts Analysis,Angle 4-pt,Facial axis,Angle between facial axis (PT-Gn) and Basion-Nasion plane.,"Ba,N,PT,Gn",90,3
 Ricketts Analysis,Angle 4-pt,Mandibular plane angle,Angle between FH (Po-Or) and mandibular plane (Go-Me).,"Po,Or,Go,Me",26,4
 Ricketts Analysis,Angle,Lower facial height,Angle between ANS-Xi-PM.,"ANS,Xi,PM",47,4
-Ricketts Analysis,Angle,Mandibular arc,Angle of the mandibular arc (Xi-PM-DC).,"Xi,PM,DC",26,4
+Ricketts Analysis,Angle,Mandibular arc,"Angle between the condylar axis (DC-Xi) and the corpus axis (Xi-PM), i.e. 180° minus DC-Xi-PM.","DC,Xi,PM",26,4
 Ricketts Analysis,Perp,Lower incisor to A-Pog,Distance from lower incisor tip to the A-Pog line.,"A,Pog,Ii",1,2
 Ricketts Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Is,Ia,Ii,Iia",130,6
 Ricketts Analysis,Perp,Upper lip to E-plane,Distance from upper lip to the esthetic plane (Prn-Pog').,"Prn,Pog',UL",-2,2
 Ricketts Analysis,Perp,Lower lip to E-plane,Distance from lower lip to the esthetic plane (Prn-Pog').,"Prn,Pog',LL",-2,2
-McNamara Analysis,Distance,N-A,Length from Nasion to Point A.,"N,A",1,2
-McNamara Analysis,Distance,N-B,Length from Nasion to Point B.,"N,B",4,3
-McNamara Analysis,Distance,Co-A,Maxillary length from Condylion to Point A.,"Co,A",90,3
-McNamara Analysis,Distance,Co-Pog,Mandibular length from Condylion to Pogonion.,"Co,Pog",130,5
-McNamara Analysis,Distance,ANS-Me,Lower facial height from ANS to Menton.,"ANS,Me",65,4
-McNamara Analysis,Difference,MMD,Maxillomandibular difference — Co-Pog minus Co-A.,"Co-Pog,Co-A",28,4
-McNamara Analysis,Perp,Upper incisor to NA line,Distance from upper incisor tip to the NA line.,"N,A,Is",4,2
-McNamara Analysis,Perp,Lower incisor to A-Pog,Distance from lower incisor tip to the A-Pog line.,"A,Pog,Ii",2,2
+McNamara Analysis,Projected distance,A to N-perp,"Signed distance of Point A from the Nasion perpendicular (line through N perpendicular to FH); positive = anterior. Adult ≈ +1 mm, child ≈ 0 mm.","A,N,Po,Or",1,2
+McNamara Analysis,Projected distance,Pog to N-perp,"Signed distance of Pogonion from the Nasion perpendicular; positive = anterior. Adult ≈ −2 to +4 mm, child ≈ −8 to −6 mm.","Pog,N,Po,Or",-1,4
+McNamara Analysis,Distance,Co-A,"Effective midfacial length, Condylion to Point A. Adult female 91.0±4.3 (male 99.8±6.0); size-dependent — interpret against Co-Gn.","Co,A",91,4.3
+McNamara Analysis,Distance,Co-Gn,"Effective mandibular length, Condylion to Gnathion. Adult female 120.2±5.3 (male 134.3±6.8).","Co,Gn",120.2,5.3
+McNamara Analysis,Distance,ANS-Me,"Lower anterior face height, ANS to Menton. Adult female 66.7±4.1 (male 74.6±5.0).","ANS,Me",66.7,4.1
+McNamara Analysis,Difference,MMD,"Maxillomandibular differential, Co-Gn minus Co-A (adult female ≈ 29, male ≈ 34; SD approximate).","Co-Gn,Co-A",29.2,3.5
+McNamara Analysis,Projected distance,U1 to A-vertical,"Signed distance of the upper incisor tip from the vertical through Point A parallel to N-perp; positive = anterior (norm 4–6 mm).","Is,A,Po,Or",5,1.5
+McNamara Analysis,Perp,Lower incisor to A-Pog,"Signed distance of the lower incisor tip from the A-Pog line; positive = anterior (norm 1–3 mm).","A,Pog,Ii",2,1
 McNamara Analysis,Distance,PNS-Ad (airway),Distance from PNS to the posterior pharyngeal wall (adenoid).,"PNS,Ad",15,3
 Downs Analysis,Angle 4-pt,Facial depth,Angle between FH (Po-Or) and facial plane (N-Pog),"Po,Or,N,Pog",87,3
-Downs Analysis,Perp,Convexity,Distance from Point A to the facial plane (N-Pog).,"N,Pog,A",0,5
 Downs Analysis,Angle 4-pt,Mandibular plane angle,Angle between FH (Po-Or) and mandibular plane (Go-Me),"Po,Or,Go,Me",22,4
 Downs Analysis,Angle 4-pt,Y-axis,Angle between FH (Po-Or) and Y-axis (S-Gn),"Po,Or,S,Gn",59,3
-Downs Analysis,Angle 4-pt,AB plane angle,Angle between AB plane (A-B) and Frankfort Horizontal (Po-Or).,"A,B,Po,Or",-5,4
-Downs Analysis,Angle 4-pt,Occlusal plane angle,Angle between occlusal plane (APOcc-PPOcc) and FH (Po-Or).,"APOcc,PPOcc,Po,Or",9,4
-Downs Analysis,Angle,Angle of convexity,Angle between Point A-Nasion-Pogonion.,"A,N,Pog",0,5
+Downs Analysis,Angle 4-pt,AB plane angle,"Angle between the AB plane and the facial plane (N-Pog); negative when B is posterior to A (Downs 1948).","A,B,N,Pog",-4.6,3.7
+Downs Analysis,Angle 4-pt,Occlusal plane angle,Angle between occlusal plane (PPOcc→APOcc) and FH (Po-Or).,"PPOcc,APOcc,Po,Or",9.3,3.8
+Downs Analysis,Angle,Angle of convexity,"180° minus N-A-Pog; positive when A lies anterior to the facial plane (convex), negative when concave (Downs 1948).","N,A,Pog",0,5.1
 Downs Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Is,Ia,Ii,Iia",135,5
 Bjork Analysis,Angle,S-N-A,"Angle between Sella, Nasion, and Point A","S,N,A",82,2
 Bjork Analysis,Angle,S-N-B,"Angle between Sella, Nasion, and Point B","S,N,B",80,2
 Bjork Analysis,Angle,A-N-B,"Angle between Point A, Nasion, and Point B","A,N,B",2,2
-Bjork Analysis,Angle 4-pt,ML-NSL,Angle between mandibular plane (Go-Me) and nasion-sella line (N-S),"N,S,Go,Me",32,2
+Bjork Analysis,Angle 4-pt,ML-NSL,Angle between mandibular plane (Me-Go) and nasion-sella line (N-S),"N,S,Me,Go",32,2
 Bjork Analysis,Angle 4-pt,NL-NSL,Angle between nasal line (ANS-PNS) and nasion-sella line (N-S),"N,S,ANS,PNS",8,3
 Bjork Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Is,Ia,Ii,Iia",135,5
-Bjork Analysis,Angle 4-pt,U1-ML,Angle between upper incisor axis and mandibular plane (Go-Me).,"Is,Ia,Go,Me",65,5
-Bjork Analysis,Angle 4-pt,U1-NSL,Angle between upper incisor axis and nasion-sella line (N-S).,"Is,Ia,N,S",105,5
+Bjork Analysis,Angle 4-pt,U1-ML,"Angle between upper incisor axis and mandibular plane (Go-Me). Norm withheld: the former 65±5° is not attainable for a typical skull (≈39°/141°) — needs a sourced value.","Is,Ia,Go,Me",,
+Bjork Analysis,Angle 4-pt,U1-NSL,Angle between upper incisor axis (apex→tip) and nasion-sella line (N-S).,"Ia,Is,N,S",105,5
 Tweed Analysis,Angle 4-pt,FMA,Frankfort Mandibular Angle,"Po,Or,Go,Me",25,3
-Tweed Analysis,Angle 4-pt,FMIA,Angle between FH (Po-Or) and mandibular incisor axis (Ii-Iia).,"Po,Or,Ii,Iia",65,3
+Tweed Analysis,Angle 4-pt,FMIA,Angle between FH (Po-Or) and mandibular incisor axis (apex→tip).,"Po,Or,Iia,Ii",65,3
 Tweed Analysis,Angle 4-pt,IMPA,Angle between mandibular incisor axis (Iia-Ii) and mandibular plane (Go-Me).,"Iia,Ii,Go,Me",90,3
 Tweed Analysis,Angle,SNA,Angle between Sella-Nasion-Point A.,"S,N,A",82,2
 Tweed Analysis,Angle,SNB,Angle between Sella-Nasion-Point B.,"S,N,B",80,2
@@ -67,6 +66,9 @@ Jarv-Bjork,Angle,Ar-Go-Me,"Gonial angle","Ar,Go,Me",130,7
 Jarv-Bjork,Angle 4-pt,ML-NSL,Angle between mandibular plane (Me-Go) and nasion-sella line (N-S),"N,S,Me,Go",32,2
 Jarv-Bjork,Angle 4-pt,NL-NSL,Angle between nasal line (ANS-PNS) and nasion-sella line (N-S),"N,S,ANS,PNS",8,3
 Jarv-Bjork,Sum,Björk sum,"Sum of saddle + articular + gonial angles","N-S-Ar,S-Ar-Go,Ar-Go-Me",396,6
+Jarv-Bjork,Distance,S-Go,Posterior face height: Sella to Gonion.,"S,Go",,
+Jarv-Bjork,Distance,N-Me,Anterior face height: Nasion to Menton.,"N,Me",,
+Jarv-Bjork,Percentage,Jarabak ratio,"Posterior/anterior face height, S-Go ÷ N-Me × 100. 62–65 % = neutral growth; < 59 % clockwise (vertical), > 65 % counter-clockwise (horizontal).","S-Go,N-Me",63.5,1.5
 Wits Analysis,Projected distance,A-B distance,"Distance between perpendicular projections of Point A and B onto the functional occlusal plane (APOcc-PPOcc).","A,B,APOcc,PPOcc",0,2
 General Ceph Analysis,Line,Sella-Nasion line,Reference line connecting Sella to Nasion.,"S,N",,
 General Ceph Analysis,Line,Frankfort Horizontal,Reference plane connecting Porion to Orbitale.,"Po,Or",,
@@ -76,7 +78,7 @@ Steiner Analysis,Line,Sella-Nasion line,Reference line connecting Sella to Nasio
 Ricketts Analysis,Line,Sella-Nasion line,Reference line connecting Sella to Nasion.,"S,N",,
 Ricketts Analysis,Line,Frankfort Horizontal,Reference plane connecting Porion to Orbitale.,"Po,Or",,
 Ricketts Analysis,Line,Facial plane,Reference plane connecting Nasion to Pogonion.,"N,Pog",,
-McNamara Analysis,Line,Sella-Nasion line,Reference line connecting Sella to Nasion.,"S,N",,
+McNamara Analysis,Line,Frankfort Horizontal,Reference plane connecting Porion to Orbitale.,"Po,Or",,
 Downs Analysis,Line,Frankfort Horizontal,Reference plane connecting Porion to Orbitale.,"Po,Or",,
 Downs Analysis,Line,Y-axis of growth,Reference line connecting Sella to Gnathion.,"S,Gn",,
 Bjork Analysis,Line,Sella-Nasion line,Reference line connecting Sella to Nasion.,"S,N",,
@@ -125,9 +127,9 @@ Legan and Burstone Soft Tissue,Angle,Facial convexity,Angle between Glabella-Sub
 Legan and Burstone Soft Tissue,Angle,Nasolabial angle,Angle between columella and upper lip.,"Cm,Sn,Ls",100,8
 Legan and Burstone Soft Tissue,Distance,Lower face height,Sn-Me' distance.,"Sn,Me'",50,4
 Legan and Burstone Soft Tissue,Angle 4-pt,Vertical facial ratio,Sn-Stms to Stmi-Me'.,"Sn,Stms,Stmi,Me'",0.5,0.05
-Kim Analysis,Angle 4-pt,ODI,Angle between AB plane and Frankfort Horizontal (Po-Or),"A,B,Po,Or",75,6
-Kim Analysis,Angle 4-pt,APDI,Angle between facial plane (N-Pog) and AB plane,"N,Pog,A,B",81,5
-Kim Analysis,Sum,CF,"Combination Factor = ODI + APDI","ODI,APDI",156,10
+Kim Analysis,Angle 4-pt,ODI,"AB plane to FH only — NOT the composite ODI (AB-MP + PP-FH); norm withheld until implemented.","A,B,Po,Or",,
+Kim Analysis,Angle 4-pt,APDI,"Facial plane to AB plane only — NOT the composite APDI (FH-NPog + AB-NPog ± PP-FH); norm withheld until implemented.","N,Pog,A,B",,
+Kim Analysis,Sum,CF,"Combination Factor = ODI + APDI (norm withheld until ODI/APDI are implemented).","ODI,APDI",,
 Eastman Analysis,Angle,BaN-A,"Angle between Basion, Nasion, and Point A","Ba,N,A",60,3
 Eastman Analysis,Angle,BaN-B,"Angle between Basion, Nasion, and Point B","Ba,N,B",55,3
 Eastman Analysis,Angle,BaN-Pog,"Angle between Basion, Nasion, and Pogonion","Ba,N,Pog",58,3
@@ -298,7 +300,7 @@ Bimler Analysis,Angle,SNB,"Angle between Sella, Nasion, and Point B","S,N,B",80,
 Bimler Analysis,Angle,ANB,"Angle between Point A, Nasion, and Point B","A,N,B",2,2
 Bimler Analysis,Angle 4-pt,U1-NA,Angle between upper incisor axis and NA line.,"Ia,Is,N,A",22,5
 Bimler Analysis,Angle 4-pt,L1-NB,Angle between lower incisor axis and NB line.,"Ii,Iia,N,B",25,5
-Bimler Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Ia,Is,Ii,Iia",130,10
+Bimler Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Is,Ia,Ii,Iia",130,10
 Tollaro Analysis,Distance,Anterior cranial base,Length of the anterior cranial base from Sella to Nasion.,"S,N",71,3
 Tollaro Analysis,Distance,Posterior cranial base,Length of the posterior cranial base from Sella to Basion.,"S,Ba",44,4
 Tollaro Analysis,Angle,Cranial base angle,Angle between Nasion-Sella-Basion.,"N,S,Ba",130,5
@@ -329,7 +331,7 @@ Lautrou Analysis,Angle,Articular angle,Angle between Sella-Articulare-Gonion.,"S
 Lautrou Analysis,Angle 4-pt,Facial angle,Angle between Frankfort horizontal and facial plane (N-Pog).,"Po,Or,N,Pog",87,3
 Lautrou Analysis,Angle 4-pt,Mandibular plane angle,Angle between SN line and mandibular plane (Go-Me).,"S,N,Go,Me",32,4
 Lautrou Analysis,Angle 4-pt,Y-axis,Angle between FH (Po-Or) and Y-axis (S-Gn).,"Po,Or,S,Gn",59,3
-Lautrou Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Ia,Is,Ii,Iia",130,10
+Lautrou Analysis,Angle 4-pt,Interincisal angle,Angle between upper and lower incisor axes.,"Is,Ia,Ii,Iia",130,10
 Gugino Analysis,Angle,Cranial base deflection,Angle between Nasion-Sella-Basion.,"N,S,Ba",130,5
 Gugino Analysis,Angle,Facial axis,Angle between Basion-Nasion-Pogonion.,"Ba,N,Pog",60,3
 Gugino Analysis,Angle 4-pt,Facial depth,Angle between FH (Po-Or) and facial plane (N-Pog).,"Po,Or,N,Pog",87,3

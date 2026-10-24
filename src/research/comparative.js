@@ -1,7 +1,6 @@
-import { computeMeasurements, mean, stdev, variance, shapiroWilk, oneWayAnova, tTestPaired, tDistributeCDF, fCDF, chi2CDF } from "../lib/utils.js";
+import { mean, stdev, variance, shapiroWilk, oneWayAnova, tTestPaired, tDistributeCDF, fCDF, chi2CDF } from "../lib/utils.js";
 import { normalCdf, matMul, matInverse, benjaminiHochberg } from "./statsCore.js";
-import { unitForKey } from "./collect.js";
-import { logError } from "../lib/logger.js";
+import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
 function rankArray(arr) {
@@ -784,23 +783,14 @@ function collectGroupedMeasurements(sessions, groups, labelIds, calibration) {
     const byLabel = {};
     const units = {};
     for (const s of gSessions) {
-      const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
-      const markups = s.markups || [];
-      for (const m of markups) {
-        if (!m.label) continue;
+      for (const m of s.markups || []) {
+        if (!isResearchMarkup(m)) continue;
         if (labelIds.length > 0 && !labelIds.includes(m.label)) continue;
-        if (m.type === "ruler" || m.type === "silhouette") continue;
-        if (!m.visible || !m.placed) continue;
-        try {
-          const vals = computeMeasurements(m, cal);
-          const firstKey = Object.keys(vals).find(k => typeof vals[k] === "number" && isFinite(vals[k]) && !k.startsWith("_"));
-          const firstNum = firstKey != null ? vals[firstKey] : undefined;
-          if (firstNum != null) {
-            if (!byLabel[m.label]) byLabel[m.label] = [];
-            byLabel[m.label].push(firstNum);
-            if (!units[m.label]) units[m.label] = unitForKey(firstKey, vals._unit);
-          }
-        } catch (e) { logError("comparative/label", e); }
+        const pm = sessionPrimaryMeasure(s, m, calibration);
+        if (!pm) continue;
+        if (!byLabel[m.label]) byLabel[m.label] = [];
+        byLabel[m.label].push(pm.value);
+        if (!units[m.label]) units[m.label] = pm.unit;
       }
     }
     byGroup[g.label] = { group: g, sessions: gSessions, byLabel, units };
@@ -922,17 +912,14 @@ export function runComparativeAll(sessions, config, calibration) {
       manovaGroups[gLabel] = [];
       const sessionsInGroup = byGroup[gLabel]?.sessions || [];
       for (const s of sessionsInGroup) {
-        const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
         const entry = {};
         let valid = true;
         for (const label of validLabels) {
-          const markups = (s.markups || []).filter(m => m.label === label && m.visible && m.placed);
+          const markups = (s.markups || []).filter(m => m.label === label && isResearchMarkup(m));
           let val = null;
           for (const m of markups) {
-            try {
-              const v = Object.values(computeMeasurements(m, cal)).find(x => typeof x === "number" && isFinite(x));
-              if (v != null) { val = v; break; }
-        } catch (e) { logError("comparative/collect", e); }
+            const pm = sessionPrimaryMeasure(s, m, calibration);
+            if (pm) { val = pm.value; break; }
           }
           if (val == null) { valid = false; break; }
           entry[label] = val;

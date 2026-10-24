@@ -1,4 +1,4 @@
-import { clamp, dist, angle3pt, angle4pt, perpDist, polyArea, polyLen, vpts, catmullRom, sampleCatmullRom, splineArea, splineLen, getInfiniteLinePoints, projectedDistance, ellipseFromAxes, circleFrom3pts, autoControlPoints, distToMultiBezier, distToEllipse, distToArc, perpPoint, perpPointSeg, distToSeg } from "../lib/utils.js";
+import { clamp, dist, angle3pt, angle4pt, computeMeasurements, polyArea, polyLen, vpts, catmullRom, sampleCatmullRom, splineArea, splineLen, getInfiniteLinePoints, ellipseFromAxes, circleFrom3pts, autoControlPoints, distToMultiBezier, distToEllipse, distToArc, perpPoint, perpPointSeg, distToSeg } from "../lib/utils.js";
 import { SILHOUETTES } from "../data/silhouettes.js";
 import { LUT_PRESETS } from "../data/constants.js";
 import { AIRWAY_NORMS } from "../data/norms.js";
@@ -9,6 +9,8 @@ function isReproPointVisible(m, reproCollecting){
 }
 
 let _annotationBold = false;
+// Profile direction for signed labels (set per drawMarkup call from displayOpts).
+let _facing = "right";
 
 export function drawMeasLabel(ctx, text, x, y, showAnnotations = true, annotationSize = 1, m = null, color = "#fff", bgColor = "rgba(46, 46, 46, 0.85)"){
   if(!showAnnotations || (m && m.noLabel)) return;
@@ -36,8 +38,9 @@ export function drawMeasLabel(ctx, text, x, y, showAnnotations = true, annotatio
 export function drawMarkup(ctx, m, zoom, pan, cal, sel, t, reproCollecting, canvasSize, angleMode, showAnnotations = true, annotationSize = 1, hoveredPt = null, displayOpts = {}){
   if(m.visible === false) return;
   if(m.type === "point" && m.repro && !isReproPointVisible(m, reproCollecting)) return;
-  const { autoHideLabels, annotationBold } = displayOpts;
+  const { autoHideLabels, annotationBold, facing } = displayOpts;
   _annotationBold = !!annotationBold;
+  _facing = facing === "left" ? "left" : "right";
   
   const sc = p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y });
   const fmtAngle = (v) => {
@@ -282,12 +285,8 @@ function drawAngle3(ctx, m, sp, isSel, t, cal, zoom, fmtAngle, showAnnotations, 
   ctx.stroke();
   
   if(showAnnotations && !m.noLabel){
-    const ang = m.label === "ANB"
-      ? Math.atan2(
-          (ip[0].x - ip[1].x) * (ip[2].y - ip[1].y) - (ip[0].y - ip[1].y) * (ip[2].x - ip[1].x),
-          (ip[0].x - ip[1].x) * (ip[2].x - ip[1].x) + (ip[0].y - ip[1].y) * (ip[2].y - ip[1].y)
-        ) * 180 / Math.PI
-      : angle3pt(ip[0], ip[1], ip[2]);
+    // Same value the measurement tables use (signed/convexity conventions included).
+    const ang = computeMeasurements(m, null, { facing: _facing }).angle ?? angle3pt(ip[0], ip[1], ip[2]);
     const midA = (startA + endA) / 2;
     ctx.font = `bold ${clamp(11 * Math.sqrt(zoom), 9, 15)}px "DM Mono",monospace`;
     ctx.fillStyle = m.color || "#f472b6";
@@ -314,7 +313,7 @@ function drawAngle4(ctx, m, sp, t, fmtAngle, zoom, showAnnotations, annotationSi
   
   if(showAnnotations && !m.noLabel){
     const ip = vpts(m);
-    const ang = angle4pt(ip[0], ip[1], ip[2], ip[3]);
+    const ang = computeMeasurements(m, null, { facing: _facing }).angle ?? angle4pt(ip[0], ip[1], ip[2], ip[3]);
     const cx = (sp[0].x + sp[1].x + sp[2].x + sp[3].x) / 4;
     const cy = (sp[0].y + sp[1].y + sp[2].y + sp[3].y) / 4;
     
@@ -461,7 +460,7 @@ function drawPerp(ctx, m, sp, t, cal, zoom, pan, showAnnotations, annotationSize
       }
       
       if(cal?.done && !m.noLabel){
-        const pd = perpDist(ip[2], ip[0], ip[1]) / cal.pxPerMm;
+        const pd = computeMeasurements(m, cal, { facing: _facing }).distance ?? 0;
         const lx = (sp[2].x + fs.x) / 2;
         const ly = (sp[2].y + fs.y) / 2;
         ctx.font = `bold ${clamp(10 * Math.sqrt(zoom), 8, 14)}px "DM Mono",monospace`;
@@ -476,7 +475,6 @@ function drawProjDist(ctx, m, sp, isSel, t, cal, zoom, pan, showAnnotations, ann
   if(sp.length < 4){ ctx.restore(); return; }
   const ip = vpts(m);
   if(ip.length < 4) return;
-  const ppm = cal?.pxPerMm || 1;
   const col = m.color || "#a78bfa";
 
   // reference line (points 2 and 3)
@@ -535,7 +533,7 @@ function drawProjDist(ctx, m, sp, isSel, t, cal, zoom, pan, showAnnotations, ann
 
   // annotation
   if(cal?.done && showAnnotations && !m.noLabel){
-    const pd = projectedDistance(ip[0], ip[1], ip[2], ip[3]) / ppm;
+    const pd = computeMeasurements(m, cal, { facing: _facing }).projectedDistance ?? 0;
     const mx = (sfA.x + sfB.x) / 2;
     const my = (sfA.y + sfB.y) / 2 - 8 * Math.sqrt(zoom);
     ctx.font = `bold ${clamp(10 * Math.sqrt(zoom), 8, 14)}px "DM Mono",monospace`;

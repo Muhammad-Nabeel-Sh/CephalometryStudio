@@ -16,6 +16,8 @@ export const useSessionStore = create((set, get) => ({
   processing: EMPTY_PROC,
   sessionImage: [],
   angleMode: "signed-deg",
+  // Profile direction for signed measures: "auto" (inferred from landmarks) | "right" | "left".
+  facing: "auto",
   lutMode: "gray",
   lutInvert: false,
 
@@ -32,6 +34,7 @@ export const useSessionStore = create((set, get) => ({
       processing: session?.processing || EMPTY_PROC,
       sessionImage: session?.images || [],
       angleMode: session?.angleMode || "signed-deg",
+      facing: session?.facing || "auto",
       lutMode: session?.lutMode || "gray",
       lutInvert: session?.lutInvert || false,
       undoStack: [],
@@ -106,7 +109,7 @@ export const useSessionStore = create((set, get) => ({
   },
 
   updMarkups(fn) {
-    const ms = refreshAutoMeasurements(fn(get().markups), get().calibration);
+    const ms = refreshAutoMeasurements(fn(get().markups), get().calibration, get().facing);
     set({ markups: ms });
     _onChange?.();
   },
@@ -132,7 +135,7 @@ export const useSessionStore = create((set, get) => ({
   merge(patch) {
     const s = get();
     const next = {};
-    for (const k of ["markups", "calibration", "norms", "formulas", "processing", "angleMode", "lutMode", "lutInvert"]) {
+    for (const k of ["markups", "calibration", "norms", "formulas", "processing", "angleMode", "facing", "lutMode", "lutInvert"]) {
       if (patch[k] !== undefined && patch[k] !== s[k]) next[k] = patch[k];
     }
     if (patch.images !== undefined && patch.images !== s.sessionImage) next.sessionImage = patch.images;

@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { lineMarkup, angleMarkup } from "./helpers/cephFixtures.js";
 import { runComparativeAll, boxMTest, mannWhitneyU, wilcoxonSignedRank, mannWhitneyExactP, wilcoxonExactP } from "../research/comparative.js";
 
 function makeSession(id, markups, opts = {}) {
   return { id, markups, calibration: { done: true, pxPerMm: 1 }, meta: { group: "", timepoint: "" }, ...opts };
 }
 
-function makePoint(label, x) {
-  return { type: "point", label, points: [{ x, y: 999 }], visible: true, placed: true, id: `${label}_${Date.now()}_${Math.random()}_${x}` };
-}
+// Each session carries one measurement whose value is `v` (a line of length v).
+const makeMeas = (label, v) => lineMarkup(label, v);
 
 describe("runComparativeAll", () => {
   it("returns error when fewer than 2 groups", () => {
@@ -16,8 +16,8 @@ describe("runComparativeAll", () => {
   });
 
   it("routes to Independent t-test for 2 groups with varying data", () => {
-    const aSessions = Array.from({ length: 20 }, (_, i) => makeSession(`a${i}`, [makePoint("M", 10 + (i % 3) * 0.5)]));
-    const bSessions = Array.from({ length: 20 }, (_, i) => makeSession(`b${i}`, [makePoint("M", 12 + (i % 3) * 0.5)]));
+    const aSessions = Array.from({ length: 20 }, (_, i) => makeSession(`a${i}`, [makeMeas("M", 10 + (i % 3) * 0.5)]));
+    const bSessions = Array.from({ length: 20 }, (_, i) => makeSession(`b${i}`, [makeMeas("M", 12 + (i % 3) * 0.5)]));
     const sessions = [...aSessions, ...bSessions];
     const aIds = aSessions.map(s => s.id);
     const bIds = bSessions.map(s => s.id);
@@ -44,9 +44,9 @@ describe("runComparativeAll", () => {
   });
 
   it("returns result structure for 3 groups", () => {
-    const aS = Array.from({ length: 6 }, (_, i) => makeSession(`a${i}`, [makePoint("M", 10 + i)]));
-    const bS = Array.from({ length: 6 }, (_, i) => makeSession(`b${i}`, [makePoint("M", 15 + i)]));
-    const cS = Array.from({ length: 6 }, (_, i) => makeSession(`c${i}`, [makePoint("M", 20 + i)]));
+    const aS = Array.from({ length: 6 }, (_, i) => makeSession(`a${i}`, [makeMeas("M", 10 + i)]));
+    const bS = Array.from({ length: 6 }, (_, i) => makeSession(`b${i}`, [makeMeas("M", 15 + i)]));
+    const cS = Array.from({ length: 6 }, (_, i) => makeSession(`c${i}`, [makeMeas("M", 20 + i)]));
     const sessions = [...aS, ...bS, ...cS];
     const config = {
       design: "independent",
@@ -183,5 +183,20 @@ describe("mannWhitneyU / wilcoxonSignedRank — exact method selection", () => {
     const r = wilcoxonSignedRank([1, 2, 2, 4], [0, 0, 0, 0]); // |diff| tie at 2
     expect(r.method).toBe("normal approximation");
     expect(isFinite(r.pValue)).toBe(true);
+  });
+});
+
+describe("runComparativeAll — analyzes the measurement, not coordinates", () => {
+  it("compares the angle values, independent of where the tracing sits on the film", () => {
+    const a = Array.from({ length: 10 }, (_, i) => makeSession(`a${i}`, [angleMarkup("SNA", 80 + (i % 5) * 0.4, { cx: 900 - i * 40 })]));
+    const b = Array.from({ length: 10 }, (_, i) => makeSession(`b${i}`, [angleMarkup("SNA", 84 + (i % 5) * 0.4, { cx: 200 + i * 40 })]));
+    const r = runComparativeAll([...a, ...b], {
+      design: "independent", labelIds: ["SNA"], alpha: 0.05, mcCorrection: "none",
+      groups: [{ label: "A", caseIds: a.map(s => s.id) }, { label: "B", caseIds: b.map(s => s.id) }],
+    });
+    const L = r.labels.SNA;
+    expect(L.rawData.A.mean).toBeCloseTo(80.8, 6);
+    expect(L.rawData.B.mean).toBeCloseTo(84.8, 6);
+    expect(L.unit).toBe("°");
   });
 });

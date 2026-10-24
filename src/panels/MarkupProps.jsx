@@ -1,12 +1,15 @@
 import { useState, useMemo } from "react";
 import { computeMeasurements, normDeviation, deviationColor, uid } from "../lib/utils.js";
 import { Btn, PropRow, Inp, Divider } from "../ui/ui.jsx";
+import { useSessionStore } from "../state/sessionStore.js";
+import { resolveFacing } from "../lib/measureConventions.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUP PROPERTIES
 // ═══════════════════════════════════════════════════════════════════════════════
 export function MarkupProps({ m, t, theme, onUpdate, onDelete, calibration, onParallel, formatAngle, norms, onUpdateNorms, groupOptions, stageOptions }) {
-  const meas = computeMeasurements(m, calibration);
+  const facing = useSessionStore(s => resolveFacing(s.facing, s.markups));
+  const meas = computeMeasurements(m, calibration, { facing });
   const relNorms = (norms || []).filter(n => n.markupLabel === m.label);
   const [editingNorm, setEditingNorm] = useState(null);
 

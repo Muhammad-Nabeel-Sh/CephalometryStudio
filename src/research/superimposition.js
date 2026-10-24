@@ -4,7 +4,8 @@
 // multi-timepoint longitudinal analysis, and group-level research.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { vpts, angle3pt, computeMeasurements, tDistributeCDF } from "../lib/utils.js";
+import { vpts, primaryMeasure, tDistributeCDF } from "../lib/utils.js";
+import { resolveFacing } from "../lib/measureConventions.js";
 
 // ─── Structural reference planes ─────────────────────────────────────────────
 
@@ -675,22 +676,29 @@ export function detectPatterns(displacements, angularChanges, rotationTracking, 
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function computeAngularChanges(srcMarkups, dstMarkups) {
+  // Same values the measurement tables show: signed conventions (ANB, convexity,
+  // AB plane) evaluated in each session's patient frame.
+  const srcCtx = { facing: resolveFacing("auto", srcMarkups) };
+  const dstCtx = { facing: resolveFacing("auto", dstMarkups) };
   const changes = [];
   const angleTypes = ["angle3", "angle4"];
   for (const m1 of srcMarkups) {
     if (!angleTypes.includes(m1.type)) continue;
     const m2 = dstMarkups.find(m => m.type === m1.type && m.label === m1.label);
     if (!m2) continue;
-    const pts1 = vpts(m1), pts2 = vpts(m2);
-    if (pts1.length < 3 || pts2.length < 3) continue;
-    const a1 = angle3pt(pts1[0], pts1[1], pts1[2]);
-    const a2 = angle3pt(pts2[0], pts2[1], pts2[2]);
+    const a1 = primaryMeasure(m1, null, srcCtx)?.value;
+    const a2 = primaryMeasure(m2, null, dstCtx)?.value;
+    if (a1 == null || a2 == null) continue;
     changes.push({ label: m1.label, type: m1.type, angle1: a1, angle2: a2, delta: a1 - a2 });
   }
   return changes;
 }
 
 export function computeLinearChanges(srcMarkups, dstMarkups, calibration) {
+  // Primary non-angular measurement per markup (angles are in computeAngularChanges;
+  // raw x/y coordinates are never a "change").
+  const srcCtx = { facing: resolveFacing("auto", srcMarkups) };
+  const dstCtx = { facing: resolveFacing("auto", dstMarkups) };
   const changes = [];
   const seen = new Set();
   for (const m1 of srcMarkups) {
@@ -698,16 +706,13 @@ export function computeLinearChanges(srcMarkups, dstMarkups, calibration) {
     const m2 = dstMarkups.find(m => m.type === m1.type && m.label === m1.label);
     if (!m2) continue;
     try {
-      const v1 = computeMeasurements(m1, calibration);
-      const v2 = computeMeasurements(m2, calibration);
-      const keys = Object.keys(v1).filter(k => !k.startsWith("_") && typeof v1[k] === "number" && isFinite(v1[k]));
-      for (const k of keys) {
-        if (v2[k] == null || !isFinite(v2[k])) continue;
-        const key = `${m1.label}::${k}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        changes.push({ label: m1.label, measureKey: k, value1: v1[k], value2: v2[k], delta: v1[k] - v2[k], unit: v1._unit || "px" });
-      }
+      const v1 = primaryMeasure(m1, calibration, srcCtx);
+      const v2 = primaryMeasure(m2, calibration, dstCtx);
+      if (!v1 || !v2 || v1.key === "angle") continue;
+      const key = `${m1.label}::${v1.key}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      changes.push({ label: m1.label, measureKey: v1.key, value1: v1.value, value2: v2.value, delta: v1.value - v2.value, unit: v1.unit });
     } catch { /* skip */ }
   }
   return changes;

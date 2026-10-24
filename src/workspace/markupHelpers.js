@@ -1,5 +1,6 @@
 import { uid } from "../lib/utils.js";
 import { getMeasValue } from "./template.js";
+import { resolveFacing } from "../lib/measureConventions.js";
 
 function buildLookups(markups) {
   const byLabel = {}, byTemplateLabel = {}, byTemplateId = {};
@@ -19,7 +20,8 @@ function resolveRef(rl, refTemplateId, lookups) {
   return lookups.byTemplateLabel[rl] || lookups.byLabel[rl] || null;
 }
 
-export function refreshAutoMeasurements(markups, calibration) {
+export function refreshAutoMeasurements(markups, calibration, facingSetting) {
+  const ctx = { facing: resolveFacing(facingSetting, markups) };
   const { byLabel: placed, byTemplateLabel: placedTL, byTemplateId: placedTID } = buildLookups(markups.filter(m => m.placed));
   const { byLabel: markupMap, byTemplateLabel: markupMapTL, byTemplateId: markupMapTID } = buildLookups(markups);
   return markups.map(m => {
@@ -29,17 +31,17 @@ export function refreshAutoMeasurements(markups, calibration) {
       if (matched.some(x => !x)) return m;
       let nv = 0;
       if (m.type === "ratio") {
-        const v0 = getMeasValue(matched[0], calibration);
-        const v1 = getMeasValue(matched[1], calibration);
+        const v0 = getMeasValue(matched[0], calibration, ctx);
+        const v1 = getMeasValue(matched[1], calibration, ctx);
         nv = v1 !== 0 ? v0 / v1 : 0;
       } else if (m.type === "difference") {
-        nv = getMeasValue(matched[0], calibration) - getMeasValue(matched[1], calibration);
+        nv = getMeasValue(matched[0], calibration, ctx) - getMeasValue(matched[1], calibration, ctx);
       } else if (m.type === "percentage") {
-        const v0 = getMeasValue(matched[0], calibration);
-        const v1 = getMeasValue(matched[1], calibration);
+        const v0 = getMeasValue(matched[0], calibration, ctx);
+        const v1 = getMeasValue(matched[1], calibration, ctx);
         nv = v1 !== 0 ? (v0 / v1) * 100 : 0;
       } else {
-        nv = matched.reduce((s, x) => s + getMeasValue(x, calibration), 0);
+        nv = matched.reduce((s, x) => s + getMeasValue(x, calibration, ctx), 0);
       }
       if (m.computedValue !== nv) return { ...m, computedValue: nv };
       return m;

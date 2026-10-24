@@ -85,7 +85,7 @@ export function applyDetections(store, detections, templateName, calibration, la
   let measurements = 0;
   store.updMarkups((ms) => {
     const withPoints = [...ms, ...points];
-    const meas = autoCreateMeasurements(withPoints, templateName, calibration);
+    const meas = autoCreateMeasurements(withPoints, templateName, calibration, state.facing);
     measurements = meas.length;
     return [...withPoints, ...meas];
   });

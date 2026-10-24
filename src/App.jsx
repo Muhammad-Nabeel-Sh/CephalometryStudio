@@ -26,6 +26,7 @@ import {
   snapTangentToCurve,
   mirrorPoint,
 } from "./lib/utils.js";
+import { resolveFacing } from "./lib/measureConventions.js";
 import { generateInterpretation } from "./lib/interpretation.js";
 import { generateReport } from "./report/reportGenerator.js";
 import {
@@ -1827,6 +1828,7 @@ function Workspace({
         formulas: s.formulas,
         processing: s.processing,
         angleMode: s.angleMode,
+        facing: s.facing,
         lutMode: s.lutMode,
         lutInvert: s.lutInvert,
       });
@@ -1835,6 +1837,10 @@ function Workspace({
   }, [updSession]);
   const angleMode = activeSession?.angleMode || "signed-deg";
   const setAngleMode = (m) => updSession({ angleMode: m });
+  // Profile direction for signed measures (ANB, Wits, E-line, convexity…).
+  const facingSetting = activeSession?.facing || "auto";
+  const setFacingSetting = (f) => updSession({ facing: f });
+  const facing = useMemo(() => resolveFacing(facingSetting, markups), [facingSetting, markups]);
   const formatAngle = useCallback(
     (v) => {
       const [sign, unit] = angleMode.split("-");
@@ -1858,8 +1864,8 @@ function Workspace({
     syncPlacingQueue();
   }, []);
   const refreshAutoMeas = useCallback(
-    (ms) => refreshAutoMeasurements(ms, calibration),
-    [calibration],
+    (ms) => refreshAutoMeasurements(ms, calibration, facingSetting),
+    [calibration, facingSetting],
   );
   const updMarkups = useCallback((fn) => {
     useSessionStore.getState().pushUndo();
@@ -2233,6 +2239,7 @@ function Workspace({
       currentDraw: ts.currentDraw,
       snapEnabled: ts.snapEnabled,
       angleMode: ss.angleMode,
+      facing: resolveFacing(ss.facing, ss.markups),
       lutMode: ss.lutMode,
       lutInvert: ss.lutInvert,
       activeTool: ts.activeTool,
@@ -2322,6 +2329,7 @@ function Workspace({
         lm: ss.lutMode,
         li: ss.lutInvert,
         am: ss.angleMode,
+        fc: ss.facing,
         sg: us.showGrid,
         sb: us.showScaleBar,
         dt: us.showDefTooltips,
@@ -2623,6 +2631,7 @@ function Workspace({
           updatedMarkups,
           analysisTemplate,
           calibration,
+          facingSetting,
         ).filter((m) => (m.refLabels || []).every((rl) => placedSet.has(rl)));
         const newNorms = deriveNorms(newAuto, analysisTemplate).filter(
           (n) =>
@@ -3353,6 +3362,7 @@ function Workspace({
       getCanvasPos,
       t,
       analysisTemplate,
+      facingSetting,
       dispatch,
       norms,
       pushUndo,
@@ -4199,8 +4209,8 @@ function Workspace({
   };
 
   const exportCSV = useCallback(() => {
-    exportCSVData(markups, calibration, formatAngle, project.name);
-  }, [markups, calibration, formatAngle, project.name]);
+    exportCSVData(markups, calibration, formatAngle, project.name, facing);
+  }, [markups, calibration, formatAngle, project.name, facing]);
 
   const captureMarkupImage = useCallback(async () => {
     const imgEl = sessionImage?.[0]
@@ -4229,21 +4239,23 @@ function Workspace({
         "deg",
         true,
         1.2,
+        null,
+        { facing },
       ),
     );
     return c.toDataURL("image/png");
-  }, [sessionImage, markups, calibration, t]);
+  }, [sessionImage, markups, calibration, t, facing]);
 
   const measScope = useMemo(
-    () => buildScope(markups, calibration),
-    [markups, calibration],
+    () => buildScope(markups, calibration, facingSetting),
+    [markups, calibration, facingSetting],
   );
   const allMeas = useMemo(
     () =>
       markups
-        .map((m) => ({ m, meas: computeMeasurements(m, calibration) }))
+        .map((m) => ({ m, meas: computeMeasurements(m, calibration, { facing }) }))
         .filter((x) => Object.keys(x.meas).length > 0),
-    [markups, calibration],
+    [markups, calibration, facing],
   );
   const formulaMeas = useMemo(() => {
     const res = [];
@@ -4414,7 +4426,7 @@ function Workspace({
     if (!analysisName) return;
     const analysis = findAnalysis(analysisName);
     if (!analysis) return;
-    const res = applyAnalysis(markups, analysis, calibration);
+    const res = applyAnalysis(markups, analysis, calibration, facingSetting);
     pushUndo();
     const mergedNorms = [...norms];
     for (const n of res.norms) {
@@ -4436,7 +4448,7 @@ function Workspace({
       }.`,
       tone: res.missing.length ? "info" : "ok",
     });
-  }, [markups, calibration, norms, refreshAutoMeas, pushUndo, updSession, dispatch, setAutoTraceInfo]);
+  }, [markups, calibration, facingSetting, norms, refreshAutoMeas, pushUndo, updSession, dispatch, setAutoTraceInfo]);
 
   // ── Panel prop bundles ──
   const pMarkups = {
@@ -4454,6 +4466,9 @@ function Workspace({
     formatAngle,
     angleMode,
     setAngleMode,
+    facingSetting,
+    setFacingSetting,
+    facing,
     replacingId,
     dispatch,
     showCpAlways,

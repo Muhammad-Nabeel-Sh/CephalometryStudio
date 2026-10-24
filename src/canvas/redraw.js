@@ -28,7 +28,7 @@ export function createRedraw(dc) {
       markups, selectedId, selectedIds, sessionImage, calibration, t,
       currentDraw, snapEnabled, showScaleBar, showDefTooltips, showLUT,
       showAnnotations, annotationSize, showDisplacement, compareSession,
-      getProcessed, angleMode, lutMode, lutInvert, activeTool,
+      getProcessed, angleMode, facing, lutMode, lutInvert, activeTool,
       displacementOverlay, overlayBlend, overlayAlignMode, overlayVectorScale,
       showTrackingLines, refLandmark1, refLandmark2, showCalib, pendingRuler,
       showGrid, showAirwayOverlay, showCpAlways, showAnchorAlways,
@@ -127,7 +127,7 @@ export function createRedraw(dc) {
     }
 
     // ── Draw all markups ──
-        drawMarkups.forEach(m => dc.drawMarkup(ctx2d, m, zoom, pan, drawCalibration, selectedId, t, false, dc.canvasSize.current, angleMode, showAnnotations, annotationSize, dc.hoveredPtRef.current, { showCpAlways, showAnchorAlways, autoHideLabels, annotationBold }));
+        drawMarkups.forEach(m => dc.drawMarkup(ctx2d, m, zoom, pan, drawCalibration, selectedId, t, false, dc.canvasSize.current, angleMode, showAnnotations, annotationSize, dc.hoveredPtRef.current, { showCpAlways, showAnchorAlways, autoHideLabels, annotationBold, facing }));
 
     // ── Calibration ruler highlight ──
     if (showCalib && pendingRuler) {

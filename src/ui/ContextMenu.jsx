@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { uid, computeMeasurements, autoControlPoints } from "../lib/utils.js";
 import { useStoreDispatch, useToolStore, useUIStore } from "../state/workspaceStore.js";
+import { useSessionStore } from "../state/sessionStore.js";
+import { resolveFacing } from "../lib/measureConventions.js";
 
 export default function ContextMenu({
   theme: t,
@@ -77,7 +79,7 @@ export default function ContextMenu({
 
   const copyMeas = () => {
     if (!m) return;
-    const meas = computeMeasurements(m, calibration);
+    const meas = computeMeasurements(m, calibration, { facing: resolveFacing(useSessionStore.getState().facing, markups) });
     const txt = Object.entries(meas)
       .filter(([k]) => !k.startsWith("_") && k !== "x" && k !== "y")
       .map(([k, v]) => `${m.label || m.type} ${k}: ${k === "angle" ? v.toFixed(1) + "°" : v.toFixed(2) + (k === "area" ? (calibration.done ? " mm²" : " px²") : (calibration.done ? " mm" : " px"))}`)

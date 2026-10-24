@@ -241,15 +241,13 @@ describe("Cohen's d from paired t-test", () => {
 // ICC (via runReliabilityAll, the public API)
 // ═══════════════════════════════════════════════════════════════════════════
 describe("ICC via runReliabilityAll", () => {
-  // Create sessions with measurements that `runReliabilityAll` can process.
-  // Each session has a point markup at a known coordinate; the measurement
-  // is the x-coordinate.
-  function makeSession(id, label, x, y) {
+  // Each session has one line markup; the measurement is its length `x`.
+  function makeSession(id, label, x) {
     return {
       id,
       markups: [{
-        id: id + "_m", type: "point", label, placed: true, visible: true,
-        points: [{ x, y }], color: "#f59e0b",
+        id: id + "_m", type: "line", label, placed: true, visible: true,
+        points: [{ x: 0, y: 0 }, { x, y: 0 }], color: "#f59e0b",
       }],
       calibration: { done: true, pxPerMm: 1 },
       meta: {},
@@ -258,11 +256,11 @@ describe("ICC via runReliabilityAll", () => {
 
   it("returns a valid reliability result structure", () => {
     const sessions = [
-      makeSession("s1", "N", 10, 20),
-      makeSession("s2", "N", 12, 22),
+      makeSession("s1", "N-Me", 10),
+      makeSession("s2", "N-Me", 12),
     ];
     const config = {
-      labelIds: ["N"],
+      labelIds: ["N-Me"],
       cases: [
         { id: "c1", name: "Case 1", sessions: [{ sessionId: "s1", operatorId: "op1", occasion: 1 }] },
         { id: "c2", name: "Case 2", sessions: [{ sessionId: "s2", operatorId: "op1", occasion: 1 }] },

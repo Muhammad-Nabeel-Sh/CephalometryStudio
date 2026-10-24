@@ -3,6 +3,8 @@ import { computeMeasurements, normDeviation, deviationColor, onEnter } from "../
 import { Btn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { MarkupGearSettings } from "./MarkupGearSettings.jsx";
+import { useSessionStore } from "../state/sessionStore.js";
+import { resolveFacing } from "../lib/measureConventions.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUPS PANEL
@@ -16,8 +18,9 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
   defaultLineStyle, setDefaultLineStyle, defaultMarkupColor, setDefaultMarkupColor,
   defaultLineWidth, setDefaultLineWidth, autoHideLabels, setAutoHideLabels,
   annotationBold, setAnnotationBold, snapTolerance, setSnapTolerance,
-  onLockAll, onUnlockAll,
+  onLockAll, onUnlockAll, facingSetting, setFacingSetting,
 }) {
+  const facing = useSessionStore(s => resolveFacing(s.facing, s.markups));
   const [collapsed, setCollapsed] = useState({});
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [guideKey, setGuideKey] = useState(null);
@@ -78,6 +81,7 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
         <MarkupGearSettings
           t={t} theme={theme} dispatch={dispatch} markups={markups}
           angleMode={angleMode} setAngleMode={setAngleMode}
+          facingSetting={facingSetting} setFacingSetting={setFacingSetting} resolvedFacing={facing}
           showCpAlways={showCpAlways} showAnchorAlways={showAnchorAlways}
           showAnnotations={showAnnotations} setShowAnnotations={setShowAnnotations}
           annotationSize={annotationSize} setAnnotationSize={setAnnotationSize}
@@ -147,7 +151,7 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
               </button>
             </div>
             {!isCollapsed && items.map(m => {
-              const meas = computeMeasurements(m, calibration);
+              const meas = computeMeasurements(m, calibration, { facing });
               const filteredMeas = Object.entries(meas).filter(([k]) => !k.startsWith("_") && (m.type === "point" || (k !== "x" && k !== "y"))); const u = meas._unit === "mm" ? "mm" : "px"; const ms = filteredMeas.map(([k, v]) => k === "angle" ? formatAngle(v) : v.toFixed(1) + (k === "area" ? ` ${u}²` : ` ${u}`)).join("  ");
               const isHidden = m.visible === false, isPlacing = placingMode && placingQueue[placingIdx] === m.id, isLocked = m.locked;
               const unplaced = m.type === "point" && !m.placed;

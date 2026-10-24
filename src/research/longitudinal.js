@@ -1,8 +1,7 @@
-import { computeMeasurements, mean, stdev, variance, tTestPaired, fCDF, chi2CDF, tDistributeCDF, clamp } from "../lib/utils.js";
+import { mean, stdev, variance, tTestPaired, fCDF, chi2CDF, tDistributeCDF, clamp } from "../lib/utils.js";
 import { matInverse } from "./statsCore.js";
 import { checkLongitudinalTimeSeparation } from "./validation.js";
-import { unitForKey } from "./collect.js";
-import { logError } from "../lib/logger.js";
+import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Matrix helpers ─────────────────────────────────────────────────────────
 function sum(arr) {
@@ -264,7 +263,7 @@ function linearMixedModel(data, timepointLabels) {
 
   // OLS: y = b0 + b1*t (where t = 0, 1, ..., k-1)
   const tVals = Array.from({ length: k }, (_, i) => i);
-  const allY = data.flatMap(row => tVals.map(t => row[`tp_${t}`] || null)).filter(v => v != null);
+  const allY = data.flatMap(row => tVals.map(t => row[`tp_${t}`] ?? null)).filter(v => v != null);
   const allX = [];
   for (let i = 0; i < n; i++)
     for (let j = 0; j < k; j++)
@@ -374,15 +373,10 @@ function linearMixedModel(data, timepointLabels) {
 // ─── Extract measurement from a session ──────────────────────────────────
 function getMeasurementForLabel(session, label, calibration) {
   if (!session) return null;
-  const cal = session.calibration?.done ? session.calibration : calibration || { done: false, pxPerMm: 1 };
-  const markups = (session.markups || []).filter(m => m.label === label && m.visible && m.placed);
+  const markups = (session.markups || []).filter(m => m.label === label && isResearchMarkup(m));
   for (const m of markups) {
-    try {
-      const vals = computeMeasurements(m, cal);
-      const firstKey = Object.keys(vals).find(k => typeof vals[k] === "number" && isFinite(vals[k]) && !k.startsWith("_"));
-      const num = firstKey != null ? vals[firstKey] : undefined;
-      if (num != null) return { value: num, unit: unitForKey(firstKey, vals._unit) };
-    } catch (e) { logError("longitudinal/value", e); }
+    const pm = sessionPrimaryMeasure(session, m, calibration);
+    if (pm) return { value: pm.value, unit: pm.unit };
   }
   return null;
 }

@@ -52,7 +52,7 @@ const PRESET_COLORS = [
 
 export function MarkupGearSettings({
   t, theme, dispatch, markups,
-  angleMode, setAngleMode, showCpAlways, showAnchorAlways,
+  angleMode, setAngleMode, facingSetting = "auto", setFacingSetting, resolvedFacing = "right", showCpAlways, showAnchorAlways,
   showAnnotations, setShowAnnotations, annotationSize, setAnnotationSize,
   showDefTooltips, setShowDefTooltips, showDisplacement, setShowDisplacement,
   showGrid, setShowGrid, showAirwayOverlay, setShowAirwayOverlay,
@@ -144,6 +144,18 @@ export function MarkupGearSettings({
               <option value="reflex">reflex</option>
             </select>
           </div>
+          {setFacingSetting && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 11, color: t.tx }}
+              title="Direction the patient's profile faces. Signed measures (ANB, Wits, E-line, convexity, incisor-to-line distances) are computed with anterior = positive.">
+              <span style={{ flexShrink: 0 }}>Profile faces</span>
+              <select value={facingSetting} onChange={e => setFacingSetting(e.target.value)}
+                style={{ background: t.surf2, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "2px 4px", color: t.tx, fontSize: 11, fontFamily: "inherit", cursor: "pointer", flex: 1 }}>
+                <option value="auto">Auto ({resolvedFacing})</option>
+                <option value="right">Right</option>
+                <option value="left">Left</option>
+              </select>
+            </div>
+          )}
 
           {/* ── BEZIER ── */}
           <SectionHeader t={t} label="Bezier" />

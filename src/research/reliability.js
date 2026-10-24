@@ -1,7 +1,6 @@
-import { computeMeasurements, tDistributeCDF, fCDF } from "../lib/utils.js";
+import { tDistributeCDF, fCDF } from "../lib/utils.js";
 import { checkReliabilityTimeSeparation } from "./validation.js";
-import { unitForKey, dominantUnit } from "./collect.js";
-import { logError } from "../lib/logger.js";
+import { dominantUnit, isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
 function fCritical(p, df1, df2) {
@@ -336,36 +335,39 @@ export function runReliabilityAll(sessions, config, calibration) {
     if (!s) continue;
     const mapping = sessionMap[s.id];
     if (!mapping) continue;
-    const markups = s.markups || [];
-    const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
-    for (const m of markups) {
-      if (!m.label) continue;
+    // One value per markup: its primary measurement. Points (coordinates) are
+    // assessed by the landmark error map below, not by ICC/Bland-Altman.
+    for (const m of s.markups || []) {
+      if (!isResearchMarkup(m)) continue;
       if (labelIds.length > 0 && !labelIds.includes(m.label)) continue;
-      if (m.type === "ruler" || m.type === "silhouette") continue;
-      if (!m.visible || !m.placed) continue;
-      try {
-        const vals = computeMeasurements(m, cal);
-        for (const [key, raw] of Object.entries(vals)) {
-          if (key.startsWith("_")) continue;
-          if (typeof raw !== "number" || !isFinite(raw)) continue;
-          mRows.push({
-            caseId: mapping.caseId,
-            caseName: mapping.caseName,
-            operatorId: mapping.operatorId,
-            occasion: mapping.occasion,
-            sessionId: s.id,
-            label: m.label,
-            measureKey: key,
-            value: raw,
-            unit: unitForKey(key, vals._unit),
-          });
-        }
-      } catch (e) { logError("reliability/markup", e); }
+      const pm = sessionPrimaryMeasure(s, m, calibration);
+      if (!pm) continue;
+      mRows.push({
+        caseId: mapping.caseId,
+        caseName: mapping.caseName,
+        operatorId: mapping.operatorId,
+        occasion: mapping.occasion,
+        sessionId: s.id,
+        label: m.label,
+        measureKey: pm.key,
+        value: pm.value,
+        unit: pm.unit,
+      });
     }
   }
 
   if (mRows.length === 0) {
-    return { measurements: 0, sessions: sessions.length, labels: 0, details: [], note: "No measurements collected from mapped sessions." };
+    // Landmark-only studies (point placement reliability) have no scalar
+    // measurements but still get the coordinate error map.
+    const mappedIds = new Set(Object.keys(sessionMap));
+    const landmarkMap = runLandmarkErrorMap(collectLandmarkCoords(sessions.filter(s => s && mappedIds.has(s.id)), labelIds, calibration));
+    const hasMap = Object.keys(landmarkMap).length > 0;
+    return {
+      measurements: 0, sessions: sessions.length, labels: 0, details: [], landmarkMap, warnings: [],
+      note: hasMap
+        ? "No angle/length measurements in the mapped sessions — only landmark placement error is reported."
+        : "No measurements collected from mapped sessions.",
+    };
   }
 
   // Group by label

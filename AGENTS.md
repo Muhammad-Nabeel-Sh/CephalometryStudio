@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **510 tests (Vitest)**
+- **No TypeScript**, **627 tests (Vitest)**
 
 ---
 
@@ -73,13 +73,14 @@ src/
 │   └── examplesData.js         Example project data
 │
 ├── hooks/                      Custom React hooks
-│   ├── useKatex.js             KaTeX rendering (useKatex, KatexSpan, LatexFloatingPanel)
+│   ├── useKatex.jsx            KaTeX rendering (useKatex, KatexSpan, LatexFloatingPanel; CSS bundled from npm)
 │   └── useMediaQuery.js        Responsive breakpoint hook
 │
 ├── lib/                        Core utilities
 │   ├── utils.js                Geometry, math, formatting, export (dist, angle3pt, buildPDF, etc.)
 │   ├── interpretation.js       Clinical interpretation engine
 │   ├── landmarkModel.js        Model preprocessing + heatmap/regression decode
+│   ├── measureConventions.js   Patient-facing frame + signed cephalometric geometry
 │   └── logger.js               Logging utility
 │
 ├── model/                      Data models
@@ -178,7 +179,7 @@ src/
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (510 tests)
+└── test/                       Vitest test files (627 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -322,6 +323,19 @@ const result = compiled.evaluate(scope);
   knownMm: string,
 }
 ```
+
+### Measurement Values & Sign Conventions
+
+- **Read values through `primaryMeasure(m, cal, ctx)`** (`lib/utils.js`) — never "the first numeric key" of
+  `computeMeasurements()`: it always emits `x`/`y` (first point, raw px) before the real measure. Research
+  collectors use `sessionPrimaryMeasure(session, m, cal)` from `research/collect.js`.
+- Signed measures are computed in the **patient frame** (`lib/measureConventions.js`): +x = anterior. Pass
+  `{ facing: resolveFacing(session.facing, markups) }` as the third argument of `computeMeasurements`/`primaryMeasure`.
+- Conventions: template perp distances positive = anterior (superior for near-horizontal lines); projected
+  distance (Wits) positive when the first point is anterior; ANB/A-N-Pog positive when the first ray is anterior;
+  Downs convexity = 180° − N-A-Pog (convex +); Downs AB-plane negative when B is posterior to A.
+- 4-point angles use **directed** vectors: the CSV reference order decides θ vs 180° − θ. Add new angle4 rows so
+  the mean-skull plausibility test (`measureConventions.test.js`) stays green.
 
 ### Measurement Types
 
@@ -482,7 +496,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 510 tests pass (28 test files, 0 failures)
+- `npm test` — 627 tests pass (33 test files, 0 failures)
 
 
 

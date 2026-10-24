@@ -1,4 +1,5 @@
-import { computeMeasurements } from "../lib/utils.js";
+import { primaryMeasure } from "../lib/utils.js";
+import { sessionFacing } from "../lib/measureConventions.js";
 import { logError } from "../lib/logger.js";
 
 let _collectCacheKey = "";
@@ -27,41 +28,54 @@ export function dominantUnit(rows, keyField = "measureKey") {
   return top ? top[0] : "";
 }
 
-export function collectMeasurements(sessions, labelIds, calibration, angleMode) {
+// Calibration a session's measurements are expressed in: its own when done,
+// otherwise the study-level fallback.
+export function sessionCalibration(session, calibration) {
+  return session?.calibration?.done ? session.calibration : calibration || { done: false, pxPerMm: 1 };
+}
+
+// Whether a markup takes part in scalar research analyses.
+export function isResearchMarkup(m) {
+  return Boolean(m?.label) && m.type !== "ruler" && m.type !== "silhouette" && m.visible !== false && m.placed !== false;
+}
+
+// { key, value, unit } of a markup's primary measurement within `session`
+// (session calibration + patient-facing frame), or null. The single source of
+// research values — never read `x`/`y` or "the first numeric key".
+export function sessionPrimaryMeasure(session, m, calibration) {
+  try {
+    return primaryMeasure(m, sessionCalibration(session, calibration), { facing: sessionFacing(session) });
+  } catch (e) {
+    logError("collect/primary", e);
+    return null;
+  }
+}
+
+export function collectMeasurements(sessions, labelIds, calibration) {
   const labelKey = [...(labelIds || [])].sort().join(",");
   const calKey = calibration ? `${calibration.done}:${calibration.pxPerMm}:${calibration.knownMm}` : "";
-  const sesKey = (sessions||[]).map(s => `${s.id}:${s.modified||0}`).join("|");
-  const cacheKey = `${sesKey}|${labelKey}|${calKey}|${angleMode || ""}`;
+  const sesKey = (sessions||[]).map(s => `${s.id}:${s.modified||0}:${s.facing||""}`).join("|");
+  const cacheKey = `${sesKey}|${labelKey}|${calKey}`;
   if (_collectCacheKey === cacheKey && _collectCacheResult) return _collectCacheResult;
 
   const rows = [];
   for (const s of sessions) {
     if (!s) continue;
-    const markups = s.markups || [];
-    const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
-    const mode = s.angleMode || angleMode || "signed-deg";
-    for (const m of markups) {
-      if (!m.label) continue;
+    for (const m of s.markups || []) {
+      if (!isResearchMarkup(m)) continue;
       if (labelIds.length > 0 && !labelIds.includes(m.label)) continue;
-      if (m.type === "ruler" || m.type === "silhouette") continue;
-      if (!m.visible || !m.placed) continue;
-      try {
-        const vals = computeMeasurements(m, cal, mode);
-        for (const [key, raw] of Object.entries(vals)) {
-          if (key.startsWith("_")) continue;
-          if (typeof raw !== "number" || !isFinite(raw)) continue;
-          rows.push({
-            sessionId: s.id,
-            sessionName: s.name || s.label || "Session",
-            markupId: m.id,
-            label: m.label,
-            measureKey: key,
-            value: raw,
-            unit: unitForKey(key, vals._unit),
-            type: m.type,
-          });
-        }
-      } catch (e) { logError("collect/markup", e); }
+      const pm = sessionPrimaryMeasure(s, m, calibration);
+      if (!pm) continue;
+      rows.push({
+        sessionId: s.id,
+        sessionName: s.name || s.label || "Session",
+        markupId: m.id,
+        label: m.label,
+        measureKey: pm.key,
+        value: pm.value,
+        unit: pm.unit,
+        type: m.type,
+      });
     }
   }
   _collectCacheKey = cacheKey;

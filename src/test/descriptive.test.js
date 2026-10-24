@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runDescriptiveAll, selectNormStratum, RESEARCH_NORMS } from "../research/descriptive.js";
+import { lineMarkup, angleMarkup } from "./helpers/cephFixtures.js";
 
 function makeSession(id, markups, opts = {}) {
   return {
@@ -18,22 +19,21 @@ function makePoint(label, x, y) {
 describe("runDescriptiveAll", () => {
   it("returns stats for a single landmark across sessions", () => {
     const sessions = [
-      makeSession("s1", [makePoint("S", 100, 100)]),
-      makeSession("s2", [makePoint("S", 102, 102)]),
-      makeSession("s3", [makePoint("S", 98, 98)]),
+      makeSession("s1", [lineMarkup("S-N", 100)]),
+      makeSession("s2", [lineMarkup("S-N", 102)]),
+      makeSession("s3", [lineMarkup("S-N", 98)]),
     ];
-    const config = { sessionIds: ["s1", "s2", "s3"], labelIds: ["S"] };
+    const config = { sessionIds: ["s1", "s2", "s3"], labelIds: ["S-N"] };
     const result = runDescriptiveAll(sessions, config, { done: true, pxPerMm: 1 });
 
     expect(result).not.toBeNull();
     expect(result.combined).toBeDefined();
-    expect(result.combined.S).toBeDefined();
-    expect(result.combined.S.stats).toBeDefined();
-    // point type emits both x and y => 6 values across 3 sessions
-    expect(result.combined.S.stats.mean).toBeCloseTo(100, 1);
-    expect(result.combined.S.stats.n).toBe(6);
-    expect(result.combined.S.stats.min).toBe(98);
-    expect(result.combined.S.stats.max).toBe(102);
+    expect(result.combined["S-N"]).toBeDefined();
+    // One value per session: the line's length (never its coordinates).
+    expect(result.combined["S-N"].stats.mean).toBeCloseTo(100, 6);
+    expect(result.combined["S-N"].stats.n).toBe(3);
+    expect(result.combined["S-N"].stats.min).toBeCloseTo(98, 6);
+    expect(result.combined["S-N"].stats.max).toBeCloseTo(102, 6);
   });
 
   it("handles empty sessions gracefully", () => {
@@ -107,10 +107,9 @@ describe("runDescriptiveAll — z-score stratum + warning propagation", () => {
   function makeSession(id, markups, opts = {}) {
     return { id, markups, calibration: { done: true, pxPerMm: 1 }, meta: { group: "", timepoint: "", ...opts.meta }, ...opts };
   }
-  function makePoint(label, x, y) { return { type: "point", label, points: [{ x, y }], visible: true, placed: true, id: label }; }
 
   it("records the matched stratum and an age-mismatch warning on z-scores", () => {
-    const sessions = [makeSession("s1", [makePoint("ANB", 4, 0)], { meta: { age: "9", sex: "female" } })];
+    const sessions = [makeSession("s1", [angleMarkup("ANB", 4)], { meta: { age: "9", sex: "female" } })];
     const mcnamara = RESEARCH_NORMS.find(n => n.id === "mcnamara");
     const config = { labelIds: ["ANB"], referenceNorms: [{ ...mcnamara, id: "test-mc" }], patientAge: "9", patientSex: "female" };
     const result = runDescriptiveAll(sessions, config, { done: true, pxPerMm: 1 });
@@ -123,7 +122,7 @@ describe("runDescriptiveAll — z-score stratum + warning propagation", () => {
   });
 
   it("emits an adult-norm-on-child warning for Steiner", () => {
-    const sessions = [makeSession("s1", [makePoint("SNA", 82, 0)], { meta: { age: "9" } })];
+    const sessions = [makeSession("s1", [angleMarkup("SNA", 82)], { meta: { age: "9" } })];
     const steiner = RESEARCH_NORMS.find(n => n.id === "steiner");
     const config = { labelIds: ["SNA"], referenceNorms: [{ ...steiner, id: "test-st" }], patientAge: "9" };
     const result = runDescriptiveAll(sessions, config, { done: true, pxPerMm: 1 });
@@ -131,12 +130,33 @@ describe("runDescriptiveAll — z-score stratum + warning propagation", () => {
   });
 
   it("auto-derives patient age/sex from session meta when not in config", () => {
-    const sessions = [makeSession("s1", [makePoint("ANB", 4, 0)], { meta: { age: "30", sex: "male" } })];
+    const sessions = [makeSession("s1", [angleMarkup("ANB", 4)], { meta: { age: "30", sex: "male" } })];
     const mcnamara = RESEARCH_NORMS.find(n => n.id === "mcnamara");
     const config = { labelIds: ["ANB"], referenceNorms: [{ ...mcnamara, id: "test-mc2" }] };
     const result = runDescriptiveAll(sessions, config, { done: true, pxPerMm: 1 });
     expect(result.patientContext.age).toBe(30);
     expect(result.patientContext.sex).toBe("male");
     expect(result.zScores["test-mc2"].ANB.stratum).toMatch(/adult.*male/i);
+  });
+});
+
+describe("runDescriptiveAll — analyzes the measurement, not coordinates", () => {
+  it("averages angles (one value per markup), not pixel positions", () => {
+    const sessions = [80, 82, 84, 86].map((deg, i) => makeSession(`s${i}`, [angleMarkup("SNA", deg, { cx: 400 + i * 150 })]));
+    const r = runDescriptiveAll(sessions, { labelIds: ["SNA"] }, { done: true, pxPerMm: 1 });
+    expect(r.combined.SNA.stats.n).toBe(4);
+    expect(r.combined.SNA.stats.mean).toBeCloseTo(83, 6);
+    expect(r.combined.SNA.unit).toBe("°");
+  });
+
+  it("keeps the sign of signed measures (ANB < 0 for Class III)", () => {
+    const sessions = [-3, -2, -4].map((deg, i) => makeSession(`s${i}`, [angleMarkup("ANB", deg)]));
+    const r = runDescriptiveAll(sessions, { labelIds: ["ANB"] }, { done: true, pxPerMm: 1 });
+    expect(r.combined.ANB.stats.mean).toBeCloseTo(-3, 6);
+  });
+
+  it("point landmarks are not scalar measurements", () => {
+    const r = runDescriptiveAll([makeSession("s1", [makePoint("S", 100, 100)])], { labelIds: ["S"] }, { done: true, pxPerMm: 1 });
+    expect(r.combined.S).toBeUndefined();
   });
 });

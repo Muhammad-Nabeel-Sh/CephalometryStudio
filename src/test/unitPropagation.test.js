@@ -9,8 +9,10 @@ function makeSession(id, markups, opts = {}) {
   return { id, markups, calibration: { done: true, pxPerMm: 1 }, meta: {}, ...opts };
 }
 
-function makePoint(label, x, y) {
-  return { type: "point", label, points: [{ x, y }], visible: true, placed: true, id: `${label}_${Math.random().toString(36).slice(2)}` };
+// A length measurement (line) whose value is `len` — research modules analyze
+// measurements, never the coordinates of point landmarks.
+function makeLine(label, len) {
+  return { type: "line", label, points: [{ x: 50, y: 50 }, { x: 50 + len, y: 50 }], visible: true, placed: true, id: `${label}_${Math.random().toString(36).slice(2)}` };
 }
 
 function makeAngle(label) {
@@ -55,23 +57,23 @@ const cases = [
 const reliabilityConfig = { labelIds: ["S"], cases, operators: ["OP1", "OP2"], protocol: { occasions: 1 }, design: "inter" };
 
 describe("runReliabilityAll — details carry unit", () => {
-  it("labels point measurements as px when uncalibrated", () => {
+  it("labels length measurements as px when uncalibrated", () => {
     const sessions = [
-      makeSession("s1", [makePoint("S", 100, 999)], { calibration: CAL_PX }),
-      makeSession("s2", [makePoint("S", 102, 999)], { calibration: CAL_PX }),
-      makeSession("s3", [makePoint("S", 200, 999)], { calibration: CAL_PX }),
-      makeSession("s4", [makePoint("S", 203, 999)], { calibration: CAL_PX }),
+      makeSession("s1", [makeLine("S", 100)], { calibration: CAL_PX }),
+      makeSession("s2", [makeLine("S", 102)], { calibration: CAL_PX }),
+      makeSession("s3", [makeLine("S", 200)], { calibration: CAL_PX }),
+      makeSession("s4", [makeLine("S", 203)], { calibration: CAL_PX }),
     ];
     const result = runReliabilityAll(sessions, reliabilityConfig, CAL_PX);
     expect(result.details.find(d => d.label === "S")?.unit).toBe("px");
   });
 
-  it("labels point measurements as mm when calibrated", () => {
+  it("labels length measurements as mm when calibrated", () => {
     const sessions = [
-      makeSession("s1", [makePoint("S", 100, 999)], { calibration: CAL_MM }),
-      makeSession("s2", [makePoint("S", 102, 999)], { calibration: CAL_MM }),
-      makeSession("s3", [makePoint("S", 200, 999)], { calibration: CAL_MM }),
-      makeSession("s4", [makePoint("S", 203, 999)], { calibration: CAL_MM }),
+      makeSession("s1", [makeLine("S", 100)], { calibration: CAL_MM }),
+      makeSession("s2", [makeLine("S", 102)], { calibration: CAL_MM }),
+      makeSession("s3", [makeLine("S", 200)], { calibration: CAL_MM }),
+      makeSession("s4", [makeLine("S", 203)], { calibration: CAL_MM }),
     ];
     const result = runReliabilityAll(sessions, reliabilityConfig, CAL_MM);
     expect(result.details.find(d => d.label === "S")?.unit).toBe("mm");
@@ -93,9 +95,9 @@ describe("runReliabilityAll — details carry unit", () => {
 describe("runDescriptiveAll — combined stats carry unit", () => {
   it("px when uncalibrated", () => {
     const sessions = [
-      makeSession("a", [makePoint("S", 100, 200)], { calibration: CAL_PX }),
-      makeSession("b", [makePoint("S", 102, 201)], { calibration: CAL_PX }),
-      makeSession("c", [makePoint("S", 99, 199)], { calibration: CAL_PX }),
+      makeSession("a", [makeLine("S", 100)], { calibration: CAL_PX }),
+      makeSession("b", [makeLine("S", 102)], { calibration: CAL_PX }),
+      makeSession("c", [makeLine("S", 99)], { calibration: CAL_PX }),
     ];
     const result = runDescriptiveAll(sessions, { labelIds: ["S"], groupBy: "none", referenceNorms: [] }, CAL_PX);
     expect(result.combined["S"]?.unit).toBe("px");
@@ -103,9 +105,9 @@ describe("runDescriptiveAll — combined stats carry unit", () => {
 
   it("mm when calibrated", () => {
     const sessions = [
-      makeSession("a", [makePoint("S", 100, 200)], { calibration: CAL_MM }),
-      makeSession("b", [makePoint("S", 102, 201)], { calibration: CAL_MM }),
-      makeSession("c", [makePoint("S", 99, 199)], { calibration: CAL_MM }),
+      makeSession("a", [makeLine("S", 100)], { calibration: CAL_MM }),
+      makeSession("b", [makeLine("S", 102)], { calibration: CAL_MM }),
+      makeSession("c", [makeLine("S", 99)], { calibration: CAL_MM }),
     ];
     const result = runDescriptiveAll(sessions, { labelIds: ["S"], groupBy: "none", referenceNorms: [] }, CAL_MM);
     expect(result.combined["S"]?.unit).toBe("mm");
@@ -137,10 +139,10 @@ describe("runComparativeAll — label results carry unit", () => {
 
   it("mm when calibrated", () => {
     const sessions = [
-      makeSession("s1", [makePoint("S", 100, 200)], { calibration: CAL_MM }),
-      makeSession("s2", [makePoint("S", 102, 201)], { calibration: CAL_MM }),
-      makeSession("s3", [makePoint("S", 300, 200)], { calibration: CAL_MM }),
-      makeSession("s4", [makePoint("S", 302, 201)], { calibration: CAL_MM }),
+      makeSession("s1", [makeLine("S", 100)], { calibration: CAL_MM }),
+      makeSession("s2", [makeLine("S", 102)], { calibration: CAL_MM }),
+      makeSession("s3", [makeLine("S", 300)], { calibration: CAL_MM }),
+      makeSession("s4", [makeLine("S", 302)], { calibration: CAL_MM }),
     ];
     const result = runComparativeAll(sessions, comparativeConfig, CAL_MM);
     expect(result.labels["S"]?.unit).toBe("mm");
@@ -148,10 +150,10 @@ describe("runComparativeAll — label results carry unit", () => {
 
   it("px when uncalibrated", () => {
     const sessions = [
-      makeSession("s1", [makePoint("S", 100, 200)], { calibration: CAL_PX }),
-      makeSession("s2", [makePoint("S", 102, 201)], { calibration: CAL_PX }),
-      makeSession("s3", [makePoint("S", 300, 200)], { calibration: CAL_PX }),
-      makeSession("s4", [makePoint("S", 302, 201)], { calibration: CAL_PX }),
+      makeSession("s1", [makeLine("S", 100)], { calibration: CAL_PX }),
+      makeSession("s2", [makeLine("S", 102)], { calibration: CAL_PX }),
+      makeSession("s3", [makeLine("S", 300)], { calibration: CAL_PX }),
+      makeSession("s4", [makeLine("S", 302)], { calibration: CAL_PX }),
     ];
     const result = runComparativeAll(sessions, comparativeConfig, CAL_PX);
     expect(result.labels["S"]?.unit).toBe("px");
@@ -177,12 +179,12 @@ describe("runLongitudinalAll — label results carry unit", () => {
 
   it("mm when calibrated", () => {
     const sessions = [
-      makeSession("a1", [makePoint("S", 100, 200)], { calibration: CAL_MM }),
-      makeSession("a2", [makePoint("S", 110, 200)], { calibration: CAL_MM }),
-      makeSession("b1", [makePoint("S", 120, 210)], { calibration: CAL_MM }),
-      makeSession("b2", [makePoint("S", 130, 210)], { calibration: CAL_MM }),
-      makeSession("c1", [makePoint("S", 140, 220)], { calibration: CAL_MM }),
-      makeSession("c2", [makePoint("S", 150, 220)], { calibration: CAL_MM }),
+      makeSession("a1", [makeLine("S", 100)], { calibration: CAL_MM }),
+      makeSession("a2", [makeLine("S", 110)], { calibration: CAL_MM }),
+      makeSession("b1", [makeLine("S", 120)], { calibration: CAL_MM }),
+      makeSession("b2", [makeLine("S", 130)], { calibration: CAL_MM }),
+      makeSession("c1", [makeLine("S", 140)], { calibration: CAL_MM }),
+      makeSession("c2", [makeLine("S", 150)], { calibration: CAL_MM }),
     ];
     const result = runLongitudinalAll(sessions, longitudinalConfig, CAL_MM);
     expect(result.labels["S"]?.unit).toBe("mm");
@@ -191,12 +193,12 @@ describe("runLongitudinalAll — label results carry unit", () => {
 
   it("px when uncalibrated", () => {
     const sessions = [
-      makeSession("a1", [makePoint("S", 100, 200)], { calibration: CAL_PX }),
-      makeSession("a2", [makePoint("S", 110, 200)], { calibration: CAL_PX }),
-      makeSession("b1", [makePoint("S", 120, 210)], { calibration: CAL_PX }),
-      makeSession("b2", [makePoint("S", 130, 210)], { calibration: CAL_PX }),
-      makeSession("c1", [makePoint("S", 140, 220)], { calibration: CAL_PX }),
-      makeSession("c2", [makePoint("S", 150, 220)], { calibration: CAL_PX }),
+      makeSession("a1", [makeLine("S", 100)], { calibration: CAL_PX }),
+      makeSession("a2", [makeLine("S", 110)], { calibration: CAL_PX }),
+      makeSession("b1", [makeLine("S", 120)], { calibration: CAL_PX }),
+      makeSession("b2", [makeLine("S", 130)], { calibration: CAL_PX }),
+      makeSession("c1", [makeLine("S", 140)], { calibration: CAL_PX }),
+      makeSession("c2", [makeLine("S", 150)], { calibration: CAL_PX }),
     ];
     const result = runLongitudinalAll(sessions, longitudinalConfig, CAL_PX);
     expect(result.labels["S"]?.unit).toBe("px");
