@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **710 tests (Vitest)**
+- **No TypeScript**, **730 tests (Vitest)**
 
 ---
 
@@ -151,8 +151,16 @@ src/
 │   ├── DiagnosticPanel.jsx     Diagnostic config + results
 │   ├── SuperimpositionPanel.jsx Superimposition config + results (7 tabs)
 │   ├── AirwayStudyPanel.jsx    Airway study config + results
-│   ├── ResearchPanel.jsx       Research module router
-│   ├── ResultsDialog.jsx       Floating results modal
+│   ├── ResearchWorkspace.jsx   Full-screen studies workspace (list, stepper, run, blinding lock)
+│   ├── StudyResultsView.jsx    Summary, caveats, APA text, glossary, tables/charts, exports
+│   ├── studyState.js           Data fingerprint + study status (stale / current / …)
+│   ├── studyWarnings.js        One ranked list of caveats per study
+│   ├── studyReport.js          Plain-language summary + APA 7 methods/results/references
+│   ├── studyReportExport.js    PDF (jsPDF) and Word report export
+│   ├── studyDefaults.js        Remembered per-type settings + copy settings
+│   ├── blinding.js             Sealed sessions during blinded reliability collection
+│   ├── assignment.js           Assignment check, bulk group add, subjects from patient IDs
+│   ├── glossary.js             Statistical term glossary per study type
 │   ├── StudyGuideModal.jsx     Study-type guides
 │   ├── PlotlyChart.jsx         Plotly wrapper
 │   ├── moduleCharts.jsx        All chart components
@@ -183,7 +191,7 @@ src/
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (710 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (730 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -443,7 +451,7 @@ Recommended settings for `.vscode/settings.json`:
 - **Diagnostic module**: ROC/AUC with DeLong CI, optimal thresholds (Youden/F1/distance/accuracy), Hosmer-Lemeshow calibration, logistic composite index, cross-validated AUC (LOOCV/k-fold, seeded PRNG for reproducibility) — config + results UI (`DiagnosticPanel.jsx`)
 - **Superimposition/Growth module** (F3): Procrustes + structural alignment (rotation-only 2-point), alignment-aware displacements with error propagation, rotation tracking (mandibular/palatal/occlusal/Y-axis), plane intersections, delta norms (age/sex-stratified), clinical pattern detection (8 pattern types), multi-timepoint longitudinal analysis, group-level research, centroid size — config + results UI (`SuperimpositionPanel.jsx`) with 7 tabs, engine in `superimposition.js` (~920 lines)
 - **Charts module** (`moduleCharts.jsx`): ICC forest plot, Bland-Altman plot, Error map, Distribution+normal curve, Box plots, Group means bar, Effect size forest, P-value dot chart, Longitudinal trajectories, Change score chart, Displacement bar/polar/vector field, Rotation tracking bar, Plane angle dot, Delta norm bar, Pattern severity bar (all Plotly basic-dist-compatible)
-- **ResultsDialog**: Floating modal (normogram pattern) with Tables/Charts tabs for all 8 modules (incl. superimposition)
+- **Research workspace (A1–A16)**: the studies module opens full screen (`ResearchWorkspace.jsx`; replaces `ResearchPanel` + `ResultsDialog`) with a Setup → Check data → Run → Results stepper, stale-result detection by data fingerprint, ranked caveats, plain-language summary, APA 7 methods/results text with references, glossary, tables/charts side by side, copy/CSV/PDF/Word export, run progress with cancel, rename/notes/duplicate/archive/delete-with-undo, saved per-type defaults, assignment checks, subjects built from patient IDs, session scope, and blinded reliability collection (sealed sessions are covered on the canvas, unsealing is logged and reported). 20 tests in `src/test/studyWorkflowLogic.test.js`
 - **Study guides**: `PanelGuideModal.jsx` — 17+ guides (incl. superimposition); `StudyGuideModal.jsx` — 7 study-type-specific guides with diagrams
 - **Guide Dialog Boxes**: PanelGuideModal.jsx with superimposition guide; StudyGuideModal.jsx covers all 7 research modules
 - **New LUTs**: magma, inferno, cividis color maps; grayscale legend fix

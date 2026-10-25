@@ -14,6 +14,8 @@ export const useUIStore = create(() => ({
   showAnnotations: true,
   annotationSize: 1,
   rightPanel: "markups",
+  // Full-screen Research workspace (opened from the Research tab).
+  researchOpen: false,
   showCalib: false,
   pendingRuler: null,
   showExport: false,

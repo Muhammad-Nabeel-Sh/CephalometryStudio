@@ -9,8 +9,19 @@
 
 import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
+// Studies of these types analyze every project session unless the user limits
+// them to a selection (config.sessionScope === "selected").
+export const ALL_SESSION_TYPES = new Set(["descriptive", "correlation", "diagnostic"]);
+
+export function scopedSessions(study, sessions) {
+  const all = (sessions || []).filter(Boolean);
+  if (!ALL_SESSION_TYPES.has(study?.type) || study?.config?.sessionScope !== "selected") return all;
+  const ids = new Set(study.config.sessionIds || []);
+  return all.filter(s => ids.has(s.id));
+}
+
 // [{ sessionId, role }] in the order the study uses them.
-export function studySessions(study) {
+export function studySessions(study, sessions) {
   const c = study?.config || {};
   const out = [];
   const add = (sessionId, role) => { if (sessionId && !out.some(o => o.sessionId === sessionId && o.role === role)) out.push({ sessionId, role }); };
@@ -32,7 +43,8 @@ export function studySessions(study) {
       add(c.sessionId, "");
       break;
     default:
-      for (const id of c.sessionIds || []) add(id, "");
+      if (ALL_SESSION_TYPES.has(study?.type) && sessions) for (const s of scopedSessions(study, sessions)) add(s.id, "");
+      else for (const id of c.sessionIds || []) add(id, "");
   }
   return out;
 }
@@ -43,7 +55,7 @@ export function buildDataMatrix(study, sessions, calibration) {
   const columns = new Map();
   const rows = [];
   let missingSessions = 0;
-  for (const { sessionId, role } of studySessions(study)) {
+  for (const { sessionId, role } of studySessions(study, sessions)) {
     const s = byId.get(sessionId);
     if (!s) { missingSessions++; continue; }
     const values = {};

@@ -317,7 +317,8 @@ function ResultsView({ results, t }) {
               lr.testName === "Wilcoxon signed-rank" ? r?.W :
               lr.testName === "Kruskal-Wallis" ? r?.H :
               lr.testName === "Friedman test" ? r?.Q : null;
-            const df = lr.testName === "Independent t-test" || lr.testName === "Welch's t-test" ? r?.df :
+            const fmtDf = v => (typeof v === "number" && !Number.isInteger(v) ? v.toFixed(2) : v);
+            const df = lr.testName === "Independent t-test" || lr.testName === "Welch's t-test" ? fmtDf(r?.df) :
               lr.testName === "One-way ANOVA" ? `${r?.dfBetween},${r?.dfWithin}` :
               lr.testName === "Welch's ANOVA" ? `${r?.df1},${r?.df2?.toFixed(1)}` :
               lr.testName === "Repeated measures ANOVA" ? `${r?.dfCond},${r?.dfErr}` :

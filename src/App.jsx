@@ -87,7 +87,8 @@ import { RightPanelSidebar } from "./panels/RightPanelSidebar.jsx";
 import SessionFilmstrip from "./panels/SessionFilmstrip.jsx";
 import AnonModal from "./panels/AnonModal.jsx";
 import AnalysisModal from "./panels/AnalysisModal.jsx";
-import ResearchPanel from "./research/ResearchPanel.jsx";
+import ResearchWorkspace from "./research/ResearchWorkspace.jsx";
+import { sessionSeal, unsealSession } from "./research/blinding.js";
 import InterpretationPanel from "./panels/InterpretationPanel.jsx";
 import NormogramPanel from "./panels/NormogramPanel.jsx";
 import MobileTabBar from "./ui/MobileTabBar.jsx";
@@ -1248,6 +1249,42 @@ function MobileMorePanel({
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORKSPACE
 // ═══════════════════════════════════════════════════════════════════════════════
+// Covers a session whose tracing is sealed by a blinded reliability study. The
+// seal can only be broken explicitly (two clicks), and the break is logged on
+// the study and reported with its results.
+function SealedSessionCover({ t, seal, onOpenResearch, onUnseal }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sealed session"
+      style={{ position: "fixed", inset: 0, zIndex: 50, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+    >
+      <div style={{ maxWidth: 460, padding: 24, borderRadius: 12, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>🔒 Sealed for blinding</div>
+        <div style={{ fontSize: 13, color: t.tx2, lineHeight: 1.6 }}>
+          {seal.reason.replace(/\.$/, "")} (study “{seal.studyName}”). Continue with the next tracing from the study’s workflow.
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={onOpenResearch} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: t.acc, color: t.bg, fontWeight: 700, cursor: "pointer" }}>
+            Back to the study
+          </button>
+          {!confirming ? (
+            <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: `1px solid ${t.err}88`, background: "transparent", color: t.err, cursor: "pointer" }}>
+              Break the seal…
+            </button>
+          ) : (
+            <button onClick={onUnseal} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: t.err, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+              Unseal — this is recorded in the study
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Workspace({
   project,
   onUpdateProject,
@@ -1324,6 +1361,8 @@ function Workspace({
   const toolbarPos = useUIStore((s) => s.toolbarPos);
   const toolbarDragging = useUIStore((s) => s.toolbarDragging);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
+  const researchOpen = useUIStore((s) => s.researchOpen);
+  const closeResearch = useCallback(() => useUIStore.setState({ researchOpen: false }), []);
   const rightPanelResizing = useUIStore((s) => s.rightPanelResizing);
   const displacementOverlay = useUIStore((s) => s.displacementOverlay);
   const refLandmark1 = useUIStore((s) => s.refLandmark1);
@@ -1672,6 +1711,11 @@ function Workspace({
   const activeSession =
     project.sessions?.find((s) => s.id === project.activeSessionId) ||
     project.sessions?.[0];
+  // Blinded reliability collection: is the session on screen sealed?
+  const activeSeal = useMemo(
+    () => (activeSession ? sessionSeal(project, activeSession.id) : null),
+    [project, activeSession],
+  );
 
   // Migration: legacy session.image -> session.images[]
   const legacyMigrationDoneRef = useRef(false);
@@ -5618,6 +5662,25 @@ function Workspace({
             formatAngle={formatAngle}
           />
         </Modal>
+      )}
+
+      {activeSeal && !researchOpen && (
+        <SealedSessionCover
+          t={t}
+          seal={activeSeal}
+          onOpenResearch={() => useUIStore.setState({ researchOpen: true })}
+          onUnseal={() => onUpdateProject((prev) => unsealSession(prev, activeSeal.studyId, activeSession.id))}
+        />
+      )}
+
+      {researchOpen && (
+        <ResearchWorkspace
+          t={t}
+          project={project}
+          onUpdateProject={onUpdateProject}
+          calibration={calibration}
+          onClose={closeResearch}
+        />
       )}
 
       {showAnalysisModal && (

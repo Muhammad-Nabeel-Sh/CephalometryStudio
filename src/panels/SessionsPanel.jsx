@@ -5,6 +5,7 @@ import { Btn, Tag, InfoBox } from "../ui/ui.jsx";
 import BatchImportModal from "./BatchImportModal.jsx";
 import SessionMetadataModal from "./SessionMetadataModal.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { sealedSessions } from "../research/blinding.js";
 
 
 export default function SessionsPanel({
@@ -33,7 +34,9 @@ export default function SessionsPanel({
   const subjects = project?.subjects || [];
   const activeId = project?.activeSessionId;
   const activeSession = sessionList.find(s => s.id === activeId);
-  const otherSessions = sessionList.filter(s => s.id !== activeId);
+  // Blinded reliability studies: sealed tracings are not offered for comparison.
+  const sealed = sealedSessions(project);
+  const otherSessions = sessionList.filter(s => s.id !== activeId && !sealed.has(s.id));
   const pointLabels = (activeSession?.markups || []).filter(m => m.type === "point" && m.label).map(m => m.label);
   const uniquePointLabels = [...new Set(pointLabels)];
   const groups = project?.groups || [];

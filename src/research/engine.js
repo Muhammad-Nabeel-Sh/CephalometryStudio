@@ -7,6 +7,7 @@ import { runDiagnosticAll } from "./diagnostic.js";
 import { runSuperimpositionAll } from "./superimposition.js";
 import { computeAirwayMeasurements } from "./airway.js";
 import { logError } from "../lib/logger.js";
+import { scopedSessions } from "./dataPreview.js";
 
 // `onProgress` is an optional coarse-grained callback (fraction 0..1, label).
 // It exists so the Web Worker wrapper (engineClient.js) can stream progress to
@@ -18,6 +19,8 @@ export function runStudy(study, sessions, calibration, onProgress) {
   const prog = typeof onProgress === "function" ? (p, label) => { try { onProgress(p, label); } catch { /* progress callback is best-effort */ } } : () => {};
 
   let results = {};
+  // Descriptive/correlation/diagnostic studies may be limited to selected sessions.
+  sessions = scopedSessions(study, sessions);
 
   try {
     prog(0.05, `starting ${study.type}`);

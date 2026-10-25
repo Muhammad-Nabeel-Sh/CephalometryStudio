@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] - Studies workspace (UI/UX A1–A16)
+
+### Added
+- The Research tab opens a **full-screen studies workspace**: study list with status chips,
+  a Setup → Check data → Run → Results stepper, and "← Canvas" / Escape to return.
+- **Out-of-date results** are detected (data fingerprint of the config and used sessions) with a
+  one-click re-run; runs show progress, elapsed time, an estimate and Cancel.
+- Results open with a **plain-language summary**, one ranked list of **caveats**, **APA 7**
+  methods and results paragraphs with references (copy as rich text), and a **glossary**.
+- Tables, charts or both side by side; copy a table for Excel/Word, CSV, **PDF report** and
+  **Word** export.
+- Study management: rename, notes, duplicate, archive, delete with Undo.
+- **Remembered settings** per study type and "Copy settings from…" another study.
+- Assignment check (unused traced sessions, duplicates), add sessions to a group in bulk, and
+  longitudinal **subjects built from patient IDs** ordered by age. Descriptive, correlation and
+  diagnostic studies can use all sessions or a selection.
+- **Blinded reliability collection**: completed tracings are sealed (covered on the canvas, hidden
+  from comparison overlays) and results stay locked until the workflow is complete. Breaking a
+  seal takes two clicks, is logged on the study and reported with its results.
+
+### Changed
+- `ResearchPanel` and `ResultsDialog` are replaced by the workspace; result tables are larger and
+  use tabular figures; fractional Welch df are rounded in the comparative table.
+
 ## [Unreleased] - Closing the C1–C7 / S1–S6 review items
 
 > Re-run studies once more: Shapiro-Wilk p-values were wrong (normality checks, the legacy

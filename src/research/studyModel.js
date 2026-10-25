@@ -8,6 +8,8 @@ export const STUDY_TYPES = [
   { id: "superimposition", name: "Superimposition / Growth",        icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sprout-icon lucide-sprout"><path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"/><path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"/><path d="M5 21h14"/></svg>', desc: "T1-on-T2 Procrustes/structural overlay, displacement", color: "#e879f9", needsGroups: false },
   { id: "airway", name: "Airway Analysis",                          icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.4999 2V8.91693C10.4999 9.57769 10.1218 10.1791 9.52884 10.4663M13.5001 2V8.91693C13.5001 9.57769 13.8782 10.1791 14.4712 10.4663M9.52884 10.4663L9.44504 8.80191C9.40961 8.09813 9.14467 7.36499 8.48047 7.12961C7.3348 6.72361 5.47114 6.99708 3.29204 9.81626C1.26663 12.4366 0.876278 16.5582 1.03002 19.662C1.11847 21.4477 2.92913 22.4379 4.60612 21.818L7.93312 20.5882C9.16298 20.1336 9.95513 18.933 9.88919 17.6235L9.71207 14.1055M9.52884 10.4663L9.71207 14.1055M14.2879 14.1057L12.5164 13.22C12.1911 13.0574 11.8084 13.0574 11.4832 13.22L9.71207 14.1055M14.2879 14.1057L14.1108 17.6235C14.0449 18.933 14.837 20.1336 16.0669 20.5882L19.3939 21.818C21.0709 22.4379 22.8815 21.4477 22.97 19.662C23.1237 16.5582 22.7334 12.4366 20.708 9.81626C18.5289 6.99708 16.6652 6.72361 15.5195 7.12961C14.8553 7.36499 14.5904 8.09813 14.555 8.80191L14.4712 10.4663M14.2879 14.1057L14.4712 10.4663" stroke="currentcolor" stroke-width="1.5" stroke-linecap="round"/></svg>',desc: "Pharyngeal airway measurements, norms, z-scores", color: "#38bdf8", needsGroups: false },];
 
+import { defaultsFor } from "./studyDefaults.js";
+
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -84,6 +86,12 @@ export function mkStudy(type, opts = {}) {
   if (type === "airway") {
     base.config.sessionId = opts.config?.sessionId || "";
     base.config.showOverlay = opts.config?.showOverlay !== false;
+  }
+
+  // The user's remembered analysis settings (A16), unless given explicitly.
+  const saved = defaultsFor(type);
+  for (const [k, v] of Object.entries(saved)) {
+    if (opts.config?.[k] === undefined) base.config[k] = v;
   }
 
   return base;

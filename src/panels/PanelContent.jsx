@@ -19,9 +19,28 @@ import { TemplatesPanel } from "./TemplatesPanel.jsx";
 import { SilhouettesPanel } from "./SilhouettesPanel.jsx";
 import { ExamplesPanel } from "./ExamplesPanel.jsx";
 import SessionsPanel from "./SessionsPanel.jsx";
-import ResearchPanel from "../research/ResearchPanel.jsx";
+import { useEffect } from "react";
+import { useUIStore } from "../state/uiStore.js";
 import InterpretationPanel from "./InterpretationPanel.jsx";
 import AirwayPanel from "./AirwayPanel.jsx";
+
+// The studies module lives in a full-screen workspace; selecting the Research tab
+// opens it, and this card reopens it after returning to the canvas.
+function ResearchLauncher({ t, studies }) {
+  const open = () => useUIStore.setState({ researchOpen: true });
+  useEffect(() => { open(); }, []);
+  return (
+    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 13, color: t.tx2, lineHeight: 1.5 }}>
+        Studies open in a full-screen workspace ({studies} stud{studies === 1 ? "y" : "ies"} in this project).
+      </div>
+      <button onClick={open}
+        style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: t.acc, color: t.bg, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        Open Research workspace
+      </button>
+    </div>
+  );
+}
 
 export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
   pMarkups, pSessions,
@@ -31,7 +50,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
   processing, lutMode, lutInvert, showLUT, setShowLUT, showScaleBar, setShowScaleBar,
   showHistogram, setShowHistogram,
   sessionImage, stackImgRef,
-  project, onUpdateProject,
+  project,
   markups, loadAirwayTier, showAirwayOverlay, setShowAirwayOverlay, loadTemplate, patientSex, patientAge, canvasRef,
   canvasSize, toImage, addMarkup, pushUndo,
 }) {
@@ -55,7 +74,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
           {rightPanel === "image" && <ImagePanel t={t} processing={processing} setProcessing={p => updSession({ processing: p })} lutMode={lutMode} setLutMode={m => updSession({ lutMode: m })} lutInvert={lutInvert} setLutInvert={v => updSession({ lutInvert: v })} showLUT={showLUT} setShowLUT={setShowLUT} showScaleBar={showScaleBar} setShowScaleBar={setShowScaleBar} calibration={calibration} onOpenCalib={() => dispatch({ type: "SET", payload: { showCalib: true } })} onReset={() => updSession({ processing: { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 128, edgeEnhance: 0 }, lutMode: "gray", lutInvert: false })} onShowHist={() => setShowHistogram(v => !v)} showHistogram={showHistogram} />}
           {rightPanel === "layers" && <LayersPanel t={t} images={sessionImage} markups={markups} onUpdateImages={imgs => updSession({ images: imgs })} onAddImage={() => stackImgRef.current?.click()} />}
           {rightPanel === "sessions" && <SessionsPanel {...pSessions} />}
-          {rightPanel === "research" && <ResearchPanel t={t} project={project} onUpdateProject={onUpdateProject} calibration={calibration} />}
+          {rightPanel === "research" && <ResearchLauncher t={t} studies={(project?.researchStudies || []).length} />}
           {rightPanel === "interpretation" && <InterpretationPanel allMeas={allMeas} norms={norms} t={t} formatAngle={formatAngle} calibration={calibration} />}
           {rightPanel === "airway" && <AirwayPanel t={t} markups={markups} calibration={calibration} norms={norms} loadAirwayTier={loadAirwayTier} showOverlay={showAirwayOverlay} onToggleOverlay={() => setShowAirwayOverlay(v => !v)} onUpdateMarkups={updSession} onLoadTemplate={loadTemplate} dispatch={dispatch} sex={patientSex} age={patientAge} canvasRef={canvasRef} />}
           {rightPanel === "silhouettes" && <SilhouettesPanel t={t} onInsert={(silhouetteType) => {

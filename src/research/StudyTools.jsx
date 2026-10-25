@@ -8,9 +8,9 @@ import { nTwoMeans, nPaired, nCorrelation, nICC, nBlandAltman } from "./sampleSi
 
 const fmt = v => (typeof v === "number" && isFinite(v) ? (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)) : "");
 
-export function DataPreview({ study, sessions, calibration, t }) {
+export function DataPreview({ study, sessions, calibration, t, defaultOpen = false }) {
   const matrix = useMemo(() => buildDataMatrix(study, sessions, calibration), [study, sessions, calibration]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   const download = () => {
     const blob = new Blob([dataMatrixToCSV(matrix)], { type: "text/csv" });
@@ -48,7 +48,7 @@ export function DataPreview({ study, sessions, calibration, t }) {
                     <th style={{ padding: "4px 6px", textAlign: "left", color: t.tx2 }}>Session</th>
                     {matrix.columns.map(c => (
                       <th key={c.label} style={{ padding: "4px 6px", textAlign: "right", color: t.tx2 }} title={`${c.n} value(s)`}>
-                        {c.label}{c.unit ? <span style={{ color: t.tx3, fontWeight: 400 }}> {c.unit}</span> : null}
+                        {c.label}{c.unit && !c.label.includes(`(${c.unit})`) ? <span style={{ color: t.tx3, fontWeight: 400 }}> {c.unit}</span> : null}
                       </th>
                     ))}
                   </tr>
