@@ -18,6 +18,54 @@ export const REFERENCE_PLANES = [
   { id: "OP",       label: "Occlusal Plane",                  pt1: "APOcc",    pt2: "PPOcc" },
 ];
 
+// Landmark names used above → the labels the app's templates and AI trace use.
+export const LANDMARK_ALIASES = {
+  Sella: ["S", "Sella"], Nasion: ["N", "Nasion"], Basion: ["Ba", "Basion"],
+  Porion: ["Po", "Porion"], Orbitale: ["Or", "Orbitale"], PT: ["PT", "Pt"],
+};
+const candidatesFor = name => LANDMARK_ALIASES[name] || [name];
+
+export function findLandmark(markups, name) {
+  for (const cand of candidatesFor(name)) {
+    const m = (markups || []).find(mk => mk.type === "point" && (mk.label === cand || mk.templateLabel === cand) && mk.points?.[0] && mk.points[0].x > -9000);
+    if (m) return m.points[0];
+  }
+  return null;
+}
+
+// ─── Stable-structure registrations (rotation + translation only) ────────────
+// `origin` is the registration point; the plane origin→other sets orientation.
+// Growth is then read relative to the registered structure (no scaling).
+export const REGISTRATIONS = [
+  { id: "SN_S", label: "Anterior cranial base: S-N registered at S", origin: "Sella", other: "Nasion" },
+  { id: "BaN_CC", label: "Ricketts: Ba-N registered at CC (Ba-N ∩ Pt-Gn)", origin: "CC", other: "Nasion" },
+  { id: "palatal_ANS", label: "Maxilla: palatal plane registered at ANS", origin: "ANS", other: "PNS" },
+  { id: "mandible_Me", label: "Mandible: Go-Me registered at Me (approximation of structural superimposition)", origin: "Me", other: "Go" },
+];
+
+function lineIntersection(p1, p2, p3, p4) {
+  const d = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+  if (Math.abs(d) < 1e-9) return null;
+  const a = p1.x * p2.y - p1.y * p2.x, b = p3.x * p4.y - p3.y * p4.x;
+  return { x: (a * (p3.x - p4.x) - (p1.x - p2.x) * b) / d, y: (a * (p3.y - p4.y) - (p1.y - p2.y) * b) / d };
+}
+
+// Registration point/axis for one session's markups, or null when landmarks are missing.
+export function registrationPoints(markups, regId) {
+  const reg = REGISTRATIONS.find(r => r.id === regId);
+  if (!reg) return null;
+  let origin;
+  if (reg.origin === "CC") {
+    const Ba = findLandmark(markups, "Basion"), N = findLandmark(markups, "Nasion");
+    const Pt = findLandmark(markups, "PT"), Gn = findLandmark(markups, "Gn");
+    origin = Ba && N && Pt && Gn ? lineIntersection(Ba, N, Pt, Gn) : null;
+  } else {
+    origin = findLandmark(markups, reg.origin);
+  }
+  const other = findLandmark(markups, reg.other);
+  return origin && other ? [origin, other] : null;
+}
+
 // ─── Growth/Rotation reference planes (2-point pairs for rotation tracking) ──
 
 export const ROTATION_TRACKING = [
@@ -186,7 +234,10 @@ function sd(values) {
 
 // ─── Procrustes alignment ────────────────────────────────────────────────────
 
-export function procrustesAlign(sourcePts, destPts) {
+// Rotation + translation by default. Scaling to equal centroid size removes the
+// size change a growth comparison is meant to measure, so it is opt-in
+// (`allowScale`) for size-standardised shape comparison only.
+export function procrustesAlign(sourcePts, destPts, { allowScale = false } = {}) {
   if (sourcePts.length < 2 || destPts.length < 2 || sourcePts.length !== destPts.length) {
     return { tx: 0, ty: 0, rot: 0, scale: 1, error: "Need ≥2 matched landmarks" };
   }
@@ -198,7 +249,7 @@ export function procrustesAlign(sourcePts, destPts) {
 
   const srcCS = centroidSize(srcC);
   const dstCS = centroidSize(dstC);
-  const scale = srcCS > 1e-12 ? dstCS / srcCS : 1;
+  const scale = allowScale && srcCS > 1e-12 ? dstCS / srcCS : 1;
   const srcS = srcC.map(p => ({ x: p.x * scale, y: p.y * scale }));
 
   let Hxx = 0, Hxy = 0, Hyx = 0, Hyy = 0;
@@ -328,14 +379,12 @@ export function computeDisplacementsWithError(matched, transform, pxPerMm) {
 
 export function computeRotationTracking(baseMarkups, compareMarkups, transform) {
   const results = [];
+  // Image y points down; for a left-facing profile a clockwise (opening)
+  // rotation appears counter-clockwise, so flip the sign.
+  const facingSign = resolveFacing("auto", baseMarkups) === "left" ? -1 : 1;
+  const findPt = findLandmark;
 
   for (const track of ROTATION_TRACKING) {
-    const findPt = (markups, label) => {
-      const m = markups.find(mk => mk.type === "point" && mk.label === label);
-      if (!m || !m.points?.[0]) return null;
-      return m.points[0];
-    };
-
     const bPt1 = findPt(baseMarkups, track.pt1);
     const bPt2 = findPt(baseMarkups, track.pt2);
     const cPt1 = findPt(compareMarkups, track.pt1);
@@ -350,8 +399,8 @@ export function computeRotationTracking(baseMarkups, compareMarkups, transform) 
     const acPt2 = applyTransform(cPt2, transform);
     const cAngle = lineAngle(acPt1, acPt2);
 
-    const deltaRad = cAngle - bAngle;
-    const deltaDeg = deltaRad * (180 / Math.PI);
+    const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+    const deltaDeg = facingSign * wrap(cAngle - bAngle) * (180 / Math.PI);
 
     // If reference points exist, compute angle relative to them
     let relDelta = null;
@@ -362,7 +411,7 @@ export function computeRotationTracking(baseMarkups, compareMarkups, transform) 
         const refAngle = lineAngle(bR1, bR2);
         const bAbs = bAngle - refAngle;
         const cAbs = cAngle - refAngle;
-        relDelta = (cAbs - bAbs) * (180 / Math.PI);
+        relDelta = facingSign * (cAbs - bAbs) * (180 / Math.PI);
       }
     }
 
@@ -381,10 +430,7 @@ export function computeRotationTracking(baseMarkups, compareMarkups, transform) 
 }
 
 export function computePlaneIntersections(baseMarkups, compareMarkups, transform) {
-  const findPt = (markups, label) => {
-    const m = markups.find(mk => mk.type === "point" && mk.label === label);
-    return m?.points?.[0] || null;
-  };
+  const findPt = findLandmark;
 
   const planes = [
     { name: "SN", pt1: "Sella", pt2: "Nasion" },
@@ -723,7 +769,7 @@ export function computeLinearChanges(srcMarkups, dstMarkups, calibration) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function runSuperimposition(baseMarkups, compareMarkups, config) {
-  const { method, planePoint1, planePoint2, labelFilter, basePxPerMm, compPxPerMm } = config || {};
+  const { method, planePoint1, planePoint2, labelFilter, basePxPerMm, compPxPerMm, registration, allowScale } = config || {};
 
   // Normalize both sessions to physical mm using their own calibrations
   // This prevents magnification mismatch when T1 and T2 have different pxPerMm
@@ -754,9 +800,22 @@ export function runSuperimposition(baseMarkups, compareMarkups, config) {
   let transform;
   let alignmentLabel;
 
-  if (method === "structural" && planePoint1 && planePoint2) {
-    const srcPlane = [matched.find(m => m.label === planePoint1)?.src, matched.find(m => m.label === planePoint2)?.src].filter(Boolean);
-    const dstPlane = [matched.find(m => m.label === planePoint1)?.dst, matched.find(m => m.label === planePoint2)?.dst].filter(Boolean);
+  if (method === "registration") {
+    const reg = REGISTRATIONS.find(r => r.id === registration) || REGISTRATIONS[0];
+    const srcPlane = registrationPoints(compNorm, reg.id);
+    const dstPlane = registrationPoints(baseNorm, reg.id);
+    if (!srcPlane || !dstPlane) {
+      return { error: `"${reg.label}" needs ${reg.origin === "CC" ? "Ba, N, PT and Gn" : `${candidatesFor(reg.origin)[0]} and ${candidatesFor(reg.other)[0]}`} in both sessions` };
+    }
+    transform = structuralAlign(srcPlane, dstPlane);
+    alignmentLabel = reg.label;
+  } else if (method === "structural" && planePoint1 && planePoint2) {
+    const pick = (name, side) => {
+      for (const cand of candidatesFor(name)) { const m = matched.find(x => x.label === cand); if (m) return m[side]; }
+      return null;
+    };
+    const srcPlane = [pick(planePoint1, "src"), pick(planePoint2, "src")].filter(Boolean);
+    const dstPlane = [pick(planePoint1, "dst"), pick(planePoint2, "dst")].filter(Boolean);
     if (srcPlane.length < 2 || dstPlane.length < 2) {
       return { error: `Structural alignment requires landmarks "${planePoint1}" and "${planePoint2}" to be present in both sessions` };
     }
@@ -765,9 +824,10 @@ export function runSuperimposition(baseMarkups, compareMarkups, config) {
   } else {
     transform = procrustesAlign(
       matched.map(m => ({ x: m.src.x, y: m.src.y })),
-      matched.map(m => ({ x: m.dst.x, y: m.dst.y }))
+      matched.map(m => ({ x: m.dst.x, y: m.dst.y })),
+      { allowScale: !!allowScale },
     );
-    alignmentLabel = `Procrustes (${matched.length} landmarks)`;
+    alignmentLabel = `Procrustes (${matched.length} landmarks${allowScale ? ", scaled" : ", no scaling"})`;
   }
 
   if (transform.error) return { error: transform.error };
@@ -846,7 +906,7 @@ export function runSuperimposition(baseMarkups, compareMarkups, config) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function runLongitudinalSuperimposition(sessions, config, calibration) {
-  const { sessionIds, method, planePoint1, planePoint2, baseSessionIndex } = config || {};
+  const { sessionIds, method, planePoint1, planePoint2, baseSessionIndex, registration, allowScale } = config || {};
   const orderedSessions = (sessionIds || [])
     .map(id => sessions.find(s => s.id === id))
     .filter(Boolean);
@@ -869,7 +929,7 @@ export function runLongitudinalSuperimposition(sessions, config, calibration) {
     const compMarkups = (compSession.markups || []).filter(m => m.visible !== false && m.placed !== false);
 
     const result = runSuperimposition(baseMarkups, compMarkups, {
-      method, planePoint1, planePoint2,
+      method, planePoint1, planePoint2, registration, allowScale,
       basePxPerMm: baseSession.calibration?.done ? baseSession.calibration.pxPerMm : (calibration?.pxPerMm || 0),
       compPxPerMm: compSession.calibration?.done ? compSession.calibration.pxPerMm : (calibration?.pxPerMm || 0),
     }, baseSession.calibration?.done ? baseSession.calibration : calibration);
@@ -1010,6 +1070,8 @@ export function runSuperimpositionAll(sessions, config, calibration) {
     method: method || "procrustes",
     planePoint1,
     planePoint2,
+    registration: config.registration,
+    allowScale: config.allowScale,
     labelFilter: labelIds,
     sex: config.sex,
     ageStart: config.ageStart,

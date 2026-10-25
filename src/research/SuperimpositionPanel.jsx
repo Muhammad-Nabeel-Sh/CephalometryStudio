@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState } from "react";
+import { REGISTRATIONS } from "./superimposition.js";
 import { InfoBox } from "../ui/ui.jsx";
 import { DELTA_NORMS } from "./superimposition.js";
 
@@ -108,7 +109,7 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
       <div>
         <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Alignment Method</div>
         <div style={{ display: "flex", gap: 6 }}>
-          {[{ id: "procrustes", label: "Procrustes (Best-Fit)" }, { id: "structural", label: "Structural (Reference Plane)" }].map(opt => (
+          {[{ id: "registration", label: "Stable structure (recommended)" }, { id: "structural", label: "Custom reference plane" }, { id: "procrustes", label: "Procrustes best-fit" }].map(opt => (
             <button key={opt.id} onClick={() => update({ method: opt.id })}
               style={{
                 flex: 1, padding: "6px 10px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
@@ -122,10 +123,33 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
         </div>
       </div>
 
+      {method === "registration" && (
+        <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
+          <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Registration</div>
+          <select value={config.registration || "SN_S"} onChange={e => update({ registration: e.target.value })}
+            style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 11 }}>
+            {REGISTRATIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+          <div style={{ fontSize: 9, color: t.tx3, marginTop: 4, lineHeight: 1.5 }}>
+            Registers on a structure that is stable during growth (rotation + translation, no scaling), so displacements show real growth and treatment change. Use the cranial-base registration for overall change, maxillary/mandibular registrations for regional change.
+          </div>
+        </div>
+      )}
+
+      {method === "procrustes" && (
+        <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44`, fontSize: 9, color: t.tx3, lineHeight: 1.5 }}>
+          Best-fit over all matched landmarks spreads change across stable and growing regions — use it for shape comparison, not for reading growth.
+          <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, color: t.tx2, fontSize: 10 }}>
+            <input type="checkbox" checked={!!config.allowScale} onChange={e => update({ allowScale: e.target.checked })} />
+            Scale to equal size (size-standardised shape comparison — removes growth in size)
+          </label>
+        </div>
+      )}
+
       {method === "structural" && (
         <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
           <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Reference Plane Points</div>
-          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6 }}>Select two landmarks to define the reference plane. Alignment uses rotation only (no scale/translation).</div>
+          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6 }}>Select two landmarks: the first is the registration point, the line to the second sets orientation (rotation + translation, no scaling).</div>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Point 1</div>
@@ -222,7 +246,7 @@ export function SuperimpositionResults({ results, t }) {
           {baseSession?.name || "T1"} → {compareSession?.name || "T2"}
         </div>
         <div>
-          Method: <span style={{ color: t.acc }}>{method === "procrustes" ? "Procrustes" : "Structural"}</span>
+          Method: <span style={{ color: t.acc }}>{method === "procrustes" ? "Procrustes" : method === "registration" ? "Stable-structure registration" : "Custom reference plane"}</span>
           {" | "}Aligned on: {alignmentLabel}
         </div>
         <div>

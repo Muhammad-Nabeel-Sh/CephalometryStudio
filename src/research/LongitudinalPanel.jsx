@@ -223,7 +223,7 @@ export function LongitudinalConfig({
                 color: config.modelType === m ? t.acc : t.tx2,
               }}
             >
-              {m === "rm_anova" ? "RM-ANOVA" : "Mixed Model*"}
+              {m === "rm_anova" ? "RM-ANOVA" : "Mixed Model (REML)"}
             </button>
           ))}
         </div>
@@ -240,13 +240,24 @@ export function LongitudinalConfig({
               lineHeight: 1.5,
             }}
           >
-            <b style={{ color: t.warn }}>Pseudo-OLS approximation.</b> Not a
-            true REML/ML mixed model. Fixed effects fitted via pooled OLS;
-            cluster-robust SEs partially correct for within-subject correlation.
-            Random-intercept variance estimated post-hoc (method-of-moments) and
-            may go <b>negative</b> &mdash; clamped to 0 in display.
-            LogLik/AIC/BIC use OLS likelihood. Use a proper mixed-model library
-            for definitive inference.
+            <b style={{ color: t.acc }}>REML linear mixed model.</b> Random
+            intercept per subject, plus a random slope when a likelihood-ratio
+            test supports it. Subjects with missing visits are kept. Growth is
+            modelled against the patient&apos;s <b>age</b> when every session has
+            one (else the timepoints&apos; target ages, else visit number).
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+              <span>Time axis:</span>
+              <select
+                value={config.timeAxis || "auto"}
+                onChange={(e) => update({ timeAxis: e.target.value })}
+                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}
+              >
+                <option value="auto">Auto (age → target age → visit)</option>
+                <option value="age">Session age (years)</option>
+                <option value="targetAge">Timepoint target age</option>
+                <option value="index">Visit number</option>
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -1366,21 +1377,16 @@ function MixedModelView({ results, t }) {
           marginBottom: 12,
           padding: "8px 10px",
           borderRadius: 4,
-          background: t.warn + "18",
-          border: `1px solid ${t.warn}44`,
+          background: t.acc + "12",
+          border: `1px solid ${t.acc}33`,
           fontSize: 10,
           color: t.tx2,
           lineHeight: 1.5,
         }}
       >
-        <b style={{ color: t.warn }}>
-          Pseudo-OLS approximation &mdash; not a true REML/ML mixed model.
-        </b>
-        Fixed effects fitted via pooled OLS ignoring within-subject correlation;
-        cluster-robust SEs partially correct for anti-conservative bias.
-        Random-intercept variance is a method-of-moments estimate that can go{" "}
-        <b>negative</b> (clamped to 0). LogLik/AIC/BIC are OLS-based (not REML).
-        Use a proper mixed-model library for definitive inference.
+        <b style={{ color: t.acc }}>REML linear mixed model.</b> Fixed-effect
+        tests use a conservative df = subjects − 2 (no Kenward–Roger correction).
+        The slope is the mean growth rate per unit of the time axis shown below.
       </div>
       {labels.map(([label, lr]) => {
         const m = lr.lmm;
@@ -1397,6 +1403,15 @@ function MixedModelView({ results, t }) {
               }}
             >
               {label}
+            </div>
+            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6, lineHeight: 1.5 }}>
+              Time axis: <b style={{ color: t.tx2 }}>{m.timeAxis === "age" ? "patient age (years)" : m.timeAxis === "targetAge" ? "timepoint target age (years)" : "visit number"}</b>
+              {" · "}{m.randomSlope ? "random intercept + slope" : "random intercept"}
+              {m.slopeTest ? ` (slope variance LRT p = ${m.slopeTest.pValue < 0.001 ? "<0.001" : m.slopeTest.pValue.toFixed(3)})` : ""}
+              {" · "}{m.fit?.subjects} subjects, {m.fit?.n} observations
+              {(m.warnings || []).map((w, i) => (
+                <div key={i} style={{ color: t.warn }}>⚠ {w}</div>
+              ))}
             </div>
 
             {/* Fixed effects */}

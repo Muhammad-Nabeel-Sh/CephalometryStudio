@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { InfoBox } from "../ui/ui.jsx";
+import { TEST_POLICIES } from "./comparative.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -102,8 +103,8 @@ export function ComparativeConfig({ study, sessions, onUpdateStudy, t, project }
           ))}
         </div>
         <div style={{ fontSize: 9, color: t.tx3, marginTop: 2 }}>
-          {config.design === "independent" ? "Groups are independent (2 groups → t-test/Mann-Whitney; 3+ → ANOVA/Kruskal-Wallis)" :
-           "Repeated measurements on same subjects (2 groups → paired t-test/Wilcoxon; 3+ → RM-ANOVA/Friedman)"}
+          {config.design === "independent" ? "Groups are independent (different subjects in each group)" :
+           "Repeated measurements on the same subjects — case N in every group must be the same subject"}
         </div>
       </div>
 
@@ -203,7 +204,14 @@ export function ComparativeConfig({ study, sessions, onUpdateStudy, t, project }
               {["bonferroni", "holm", "bh", "none"].map(c => <option key={c} value={c}>{c === "bh" ? "Benjamini-Hochberg" : c === "holm" ? "Holm" : c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
             </select>
           </label>
-          <span style={{ fontSize: 9, color: t.tx3 }}>Effect size auto-selected per test</span>
+          <label style={{ fontSize: 10, color: t.tx2, display: "flex", alignItems: "center", gap: 4 }}>
+            Test:
+            <select value={config.testPolicy || "welch"} onChange={e => update({ testPolicy: e.target.value })}
+              style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+              {Object.entries(TEST_POLICIES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </label>
+          <span style={{ fontSize: 9, color: t.tx3 }}>Choose the test before looking at results; the other family is reported as a sensitivity check.</span>
         </div>
       </div>
 
@@ -295,7 +303,7 @@ function ResultsView({ results, t }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
-            {["Label", "Test", "Statistic", "df", "p-value", "Significant", "MC Adjusted"].map(h => (
+            {["Label", "Test", "Statistic", "df", "p-value", "Significant", "MC Adjusted", "Sensitivity"].map(h => (
               <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
             ))}
           </tr>
@@ -304,13 +312,14 @@ function ResultsView({ results, t }) {
           {passed.map(([label, lr]) => {
             const r = lr.result;
             const statVal = lr.testName === "Independent t-test" || lr.testName === "Welch's t-test" ? r?.t :
-              lr.testName === "One-way ANOVA" || lr.testName === "Repeated measures ANOVA" ? r?.F :
+              lr.testName === "One-way ANOVA" || lr.testName === "Repeated measures ANOVA" || lr.testName === "Welch's ANOVA" ? r?.F :
               lr.testName === "Mann-Whitney U" ? r?.U :
               lr.testName === "Wilcoxon signed-rank" ? r?.W :
               lr.testName === "Kruskal-Wallis" ? r?.H :
               lr.testName === "Friedman test" ? r?.Q : null;
             const df = lr.testName === "Independent t-test" || lr.testName === "Welch's t-test" ? r?.df :
               lr.testName === "One-way ANOVA" ? `${r?.dfBetween},${r?.dfWithin}` :
+              lr.testName === "Welch's ANOVA" ? `${r?.df1},${r?.df2?.toFixed(1)}` :
               lr.testName === "Repeated measures ANOVA" ? `${r?.dfCond},${r?.dfErr}` :
               lr.testName === "Kruskal-Wallis" || lr.testName === "Friedman test" ? r?.df : "—";
             const p = r?.pValue;
@@ -333,6 +342,11 @@ function ResultsView({ results, t }) {
                 </td>
                 <td style={{ padding: "5px 6px", color: mcCorr ? (mcCorr.significant ? t.err : t.ok) : t.tx3 }}>
                   {mcCorr ? (mcCorr.significant ? "Yes" : "No") : "—"}
+                </td>
+                <td style={{ padding: "5px 6px", color: lr.sensitivity ? (lr.sensitivity.agrees ? t.tx3 : t.warn) : t.tx3 }}
+                  title={lr.sensitivity ? `${lr.sensitivity.testName}: p = ${fmtP(lr.sensitivity.pValue)}` : ""}>
+                  {lr.sensitivity ? `${lr.sensitivity.agrees ? "agrees" : "⚠ differs"} (${fmtP(lr.sensitivity.pValue)})` : "—"}
+                  {lr.droppedPairs ? ` · ${lr.droppedPairs} incomplete pair(s) dropped` : ""}
                 </td>
               </tr>
             );
@@ -484,7 +498,7 @@ function PostHocView({ results, t }) {
       {labels.map(label => (
         <div key={label} style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: t.tx, marginBottom: 4, fontFamily: "'DM Mono',monospace" }}>{label}{results.labels?.[label]?.unit ? ` (${results.labels[label].unit})` : ""}</div>
-          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 4 }}>{isPaired ? "Bonferroni-corrected paired t-tests" : "Tukey's HSD"}</div>
+          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 4 }}>{isPaired ? "Bonferroni-corrected paired t-tests" : (results.postHocMethod || "Tukey HSD")}</div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
             <thead>
               <tr style={{ background: t.surf2 }}>

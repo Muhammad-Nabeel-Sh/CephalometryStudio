@@ -4,15 +4,64 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ─── Normal CDF (standard normal distribution function) ────────────────────
+// Φ(x) = ½·erfc(−x/√2). The previous version evaluated erf(x) instead of
+// erf(x/√2), i.e. Φ(x·√2): Φ(1.96) came out 0.997 instead of 0.975, which made
+// large-sample Mann-Whitney/Wilcoxon and logistic p-values too small and DeLong
+// AUC intervals too narrow (z₀.₀₂₅ ≈ 1.39). erfc uses the Chebyshev fit of
+// Numerical Recipes (fractional error < 1.2e-7 everywhere, including the tails).
+export function erfc(x) {
+  const z = Math.abs(x);
+  const t = 1 / (1 + 0.5 * z);
+  const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 +
+    t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return x >= 0 ? r : 2 - r;
+}
+
 export function normalCdf(x) {
-  if (x < -8) return 0;
-  if (x > 8) return 1;
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
-  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-  const s = Math.sign(x), ax = Math.abs(x);
-  const t = 1 / (1 + p * ax);
-  const erf = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
-  return 0.5 * (1 + s * erf);
+  return 0.5 * erfc(-x / Math.SQRT2);
+}
+
+// ─── Studentized range distribution (Tukey HSD, Games-Howell) ───────────────
+// P(Q ≤ q | k, ν) = ∫₀^∞ f_ν(s) · W(q·s) ds,  W(w) = k ∫ φ(z)[Φ(z) − Φ(z − w)]^(k−1) dz,
+// with s = S/σ distributed as √(χ²_ν/ν). Both integrals use composite Simpson
+// rules; the s-integral runs in log-space around s = 1 with a width that shrinks
+// as ν grows. Accurate to ~1e-4 against published tables.
+function simpson(f, a, b, n) {
+  const h = (b - a) / n;
+  let s = f(a) + f(b);
+  for (let i = 1; i < n; i++) s += (i % 2 ? 4 : 2) * f(a + i * h);
+  return (s * h) / 3;
+}
+
+const SQRT2PI = Math.sqrt(2 * Math.PI);
+
+function rangeCdfInfinite(w, k) {
+  if (w <= 0) return 0;
+  const f = z => Math.exp(-z * z / 2) / SQRT2PI * Math.pow(Math.max(normalCdf(z) - normalCdf(z - w), 0), k - 1);
+  return Math.min(1, k * simpson(f, -8.5, 8.5, 170));
+}
+
+export function ptukey(q, k, df) {
+  if (!(q > 0) || k < 2) return 0;
+  if (!(df > 0) || df > 5000) return rangeCdfInfinite(q, k);
+  // log-density of s = √(χ²_ν/ν), up to a constant; integrate over u = log s.
+  const logDens = u => { const s = Math.exp(u); return df * u - (df * s * s) / 2; };
+  const half = Math.min(8, 10 / Math.sqrt(df) + 1);
+  const peak = logDens(0);
+  const num = simpson(u => Math.exp(logDens(u) - peak) * rangeCdfInfinite(q * Math.exp(u), k), -half, half, 120);
+  const den = simpson(u => Math.exp(logDens(u) - peak), -half, half, 120);
+  return den > 0 ? Math.min(1, Math.max(0, num / den)) : 0;
+}
+
+export function qtukey(p, k, df) {
+  let lo = 0, hi = 2;
+  while (ptukey(hi, k, df) < p && hi < 1e3) { lo = hi; hi *= 2; }
+  for (let it = 0; it < 60; it++) {
+    const mid = (lo + hi) / 2;
+    if (ptukey(mid, k, df) < p) lo = mid; else hi = mid;
+    if (hi - lo < 1e-6) break;
+  }
+  return (lo + hi) / 2;
 }
 
 export function matMul(A, B) {

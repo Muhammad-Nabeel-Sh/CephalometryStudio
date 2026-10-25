@@ -6,6 +6,7 @@ import { useState } from "react";
 import { InfoBox } from "../ui/ui.jsx";
 import { mkReliabilitySession } from "../model/session.js";
 import { addSession } from "../model/project.js";
+import { ICC_MODELS } from "./reliability.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -201,6 +202,22 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
           {config.design === "intra" ? "Same operator, repeated measurements on each case" :
            config.design === "inter" ? "Different operators measuring the same cases" :
            "Comparing two measurement methods on the same cases"}
+        </div>
+      </div>
+
+      {/* ICC model (Koo & Li 2016: report model, type and definition) */}
+      <div>
+        <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>ICC Model</div>
+        <select value={config.iccModel || "icc2"} onChange={e => update({ iccModel: e.target.value })}
+          style={{ width: "100%", padding: "4px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 10 }}>
+          {Object.entries(ICC_MODELS).map(([id, m]) => (
+            <option key={id} value={id}>{m.label} — {m.description}</option>
+          ))}
+        </select>
+        <div style={{ fontSize: 9, color: t.tx3, marginTop: 2, lineHeight: 1.4 }}>
+          {config.design === "intra"
+            ? "Intra-rater: ICC(3,1) (consistency) is common when one rater repeats measurements; ICC(2,1) also penalises systematic shifts between occasions."
+            : "Inter-rater / method agreement: ICC(2,1) (absolute agreement) generalises to other raters; use the k-forms only if the mean of k ratings is the reported measurement."}
         </div>
       </div>
 
@@ -680,9 +697,15 @@ export function ReliabilityResults({ results, t }) {
 function ICCView({ details, t }) {
   const valid = details.filter(d => !d.skip && d.icc != null).filter(d => d.icc !== undefined);
   if (valid.length === 0) return <EmptyDetail message="No ICC results available." t={t} />;
+  const m0 = valid[0];
 
   return (
     <div style={{ overflowX: "auto" }}>
+      {m0.iccModelLabel && (
+        <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6 }}>
+          <b style={{ color: t.tx2 }}>{m0.iccModelLabel}</b> — {m0.iccModelDescription}. 95% CI; interpretation per Koo &amp; Li (2016) — judge reliability by the CI, not only the point estimate.
+        </div>
+      )}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>

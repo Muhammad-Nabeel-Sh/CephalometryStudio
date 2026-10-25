@@ -1,5 +1,55 @@
 # Changelog
 
+## [Unreleased] - Phase 1: statistical methodology and AI review
+
+> Re-run Reliability, Comparative, Longitudinal and Diagnostic studies: several p-values and
+> confidence intervals were wrong (see *Fixed* below).
+
+### Fixed - Distribution functions
+- `statsCore.normalCdf` evaluated Φ(x·√2) (Φ(1.96) = 0.997). Large-sample Mann-Whitney/Wilcoxon
+  and logistic-regression p-values were too small and DeLong AUC intervals too narrow. Replaced
+  with an erfc-based Φ accurate in the tails.
+- Studentized range CDF was wrong even for k = 2 (0.99 at the 0.95 critical value), so Tukey HSD
+  p-values were too small. New exact `ptukey`/`qtukey` (statsCore) match published tables.
+- Holm correction was offered in the UI but silently applied no correction; now implemented.
+
+### Changed - Reliability
+- All six ICC forms with correct CIs — ICC(1,1/k), ICC(2,1/k) (McGraw & Wong / Satterthwaite),
+  ICC(3,1/k) — verified against R `psych::ICC` on the Shrout & Fleiss (1979) data; model selector
+  and Koo & Li model description in results.
+- Complete-case matrix (listwise, with a warning); Bland-Altman per ordered pair with a defined
+  direction (occasion 2 − 1, rater 2 − 1, test − reference), classic d̄ ± 1.96·SD limits with exact
+  CIs plus the prediction interval; Dahlberg generalised to √MSW; CV% suppressed near zero.
+
+### Changed - Longitudinal
+- The pseudo-OLS "mixed model" is replaced by a REML linear mixed model (`research/mixedModel.js`):
+  random intercept, random slope when an LRT supports it, all subjects with ≥1 visit kept, time =
+  patient age (else timepoint target age, else visit number with a warning). Verified against the
+  closed-form balanced solution and simulation.
+- Change scores are later − earlier.
+
+### Changed - Comparative
+- Test chosen by a pre-specified policy (default: Welch t / Welch ANOVA + Games-Howell; also
+  rank-based or the legacy assumption-driven route); the other family is reported as a sensitivity
+  check. Paired designs pair subjects by position and drop incomplete pairs instead of shifting them.
+
+### Changed - Superimposition
+- Stable-structure registrations: S-N at S, Ba-N at CC, palatal plane at ANS, Go-Me at Me (new
+  default). Procrustes no longer scales away growth unless asked. Fixed landmark lookups that used
+  "Sella"/"Nasion" names (app labels are S/N), which had silently dropped SN-based rotation tracking;
+  rotation direction is facing-aware.
+
+### Added
+- Research → **Sample size** (two groups, paired, correlation, ICC per Walter et al. 1998,
+  Bland-Altman precision) and per-study **Preview data** with tidy CSV export.
+- AI landmarks carry a review state: dashed confidence ring until reviewed, "AI 82%" badges,
+  *Confirm all*, dragging a point marks it adjusted; CSV export gains a *Source* column. In production
+  a configured model that fails to load is an error (no demo points) and the next click retries.
+  The detector, model manifest and training scripts are unchanged.
+
+### Tests
+- 681 tests (39 files), lint clean, build OK.
+
 ## [Unreleased] - Phase 0 correctness sprint
 
 > **Research results produced by earlier versions are invalid — re-run your studies.**

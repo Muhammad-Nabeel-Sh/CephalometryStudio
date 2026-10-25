@@ -1,5 +1,5 @@
 import { mean, stdev, variance, shapiroWilk, oneWayAnova, tTestPaired, tDistributeCDF, fCDF, chi2CDF } from "../lib/utils.js";
-import { normalCdf, matMul, matInverse, benjaminiHochberg } from "./statsCore.js";
+import { normalCdf, matMul, matInverse, benjaminiHochberg, ptukey, qtukey } from "./statsCore.js";
 import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
@@ -334,6 +334,10 @@ function effectSizeForTest(testName, result, groups) {
     const interpretation = absR < 0.1 ? "Negligible" : absR < 0.3 ? "Small" : absR < 0.5 ? "Medium" : absR < 0.7 ? "Large" : "Very large";
     return { matchedPairsR: r, interpretation, measure: "Matched-pairs rank-biserial" };
   }
+  if (testName === "Welch's ANOVA") {
+    const ow = oneWayAnova(...groups);
+    return ow ? effectSizeForTest("One-way ANOVA", ow, groups) : null;
+  }
   if (testName === "One-way ANOVA") {
     const etaSq = result.ssBetween / (result.ssBetween + result.ssWithin);
     const omegaSq = (result.ssBetween - result.dfBetween * result.msWithin) / (result.ssBetween + result.ssWithin + result.msWithin);
@@ -385,64 +389,22 @@ function independentTTest(arr1, arr2, welch = false) {
   return { t, df, pValue, significant: pValue < 0.05, method: "Independent t-test" };
 }
 
-// Studentized range distribution CDF: P(q ≤ Q) where Q = range/k · ... is the
-// distribution of (max mean − min mean)/s with k means and df error df.
-// Integrand: ∫₀^∞ [Φ(q·x/√2)]^(k−1) · 2·f_df(x) dx, where the previous version raised
-// Φ to only (k−1) and used a single Φ factor — that misses the k-th order statistic
-// structure. The correct density integrates the probability that k−1 N(0,1) draws are
-// all below q·x/√2 AND the remaining one is the maximum, giving the standard form
-// P(q) = √(df/π) · Γ(df/2) / Γ((df+1)/2) · ∫₀^∞ [Φ(qx) − Φ(−qx)]^(k−1) · x·... .
-// We use the standard Glidden form (Φ(qx)−Φ(−qx))^(k-1) integrated over the chi
-// distribution.
+// Studentized range CDF — exact double integral in statsCore (ptukey). The
+// previous single-integral form was only valid for k = 2 and even then wrong:
+// it returned 0.99 at the 0.95 critical value, so Tukey p-values were too small.
 function studentizedRangeCDF(q, k, df) {
-  if (q <= 0 || k < 2 || df < 1) return 0;
-  // Use more Simpson steps and wider integration bound for accuracy with small df
-  const steps = Math.max(200, Math.round(40 * Math.min(1, df / 10)));
-  const dHalf = df / 2;
-  let p = 0;
-  const maxX = Math.max(6 + q / 2, q + 10);
-  for (let i = 0; i <= steps; i++) {
-    const x = (maxX * i) / steps;
-    const z = q * x / Math.SQRT2;
-    const inner = Math.pow(normalCdf(z) - normalCdf(-z), k - 1);
-    const w = (i === 0 || i === steps) ? 1 : (i % 2 === 1 ? 4 : 2);
-    const logF = (df - 1) * Math.log(Math.max(x, 1e-9)) - dHalf * x * x;
-    p += w * inner * Math.exp(logF);
-  }
-  p = p * (maxX / (3 * steps));
-  let norm = 0;
-  for (let i = 0; i <= steps; i++) {
-    const x = (maxX * i) / steps;
-    const w = (i === 0 || i === steps) ? 1 : (i % 2 === 1 ? 4 : 2);
-    const logF = (df - 1) * Math.log(Math.max(x, 1e-9)) - dHalf * x * x;
-    norm += w * Math.exp(logF);
-  }
-  norm = norm * (maxX / (3 * steps));
-  if (norm <= 0) return 0;
-  return Math.min(1, Math.max(0, p / norm));
+  return ptukey(q, k, df);
 }
 
-// Tukey's HSD with the q-critical value obtained by inverting the studentized range CDF
-// (binary search) instead of the crude linear guess `3.6 + (k-2)*0.5` that ignored dfError
-// and was far too conservative for small k.
-function tukeysHSD(groups, labels, mse, dfError) {
+// Tukey–Kramer HSD (pooled variance; assumes equal variances).
+function tukeysHSD(groups, labels, mse, dfError, alpha = 0.05) {
   const results = [];
   const k = groups.length;
-  // Solve studentizedRangeCDF(qCrit, k, dfError) = 1 - alpha (alpha=0.05 → 0.95)
-  const target = 0.95;
-  let lo = 1.0, hi = 12.0, qCrit = hi;
-  for (let it = 0; it < 60; it++) {
-    const mid = (lo + hi) / 2;
-    const cdf = studentizedRangeCDF(mid, k, dfError);
-    if (cdf < target) lo = mid; else hi = mid;
-    if (Math.abs(cdf - target) < 1e-4) { qCrit = mid; break; }
-  }
-  if (qCrit > 11.9) qCrit = 3.6 + (k - 2) * 0.5; // fallback if inversion fails
+  const qCrit = qtukey(1 - alpha, k, dfError);
   for (let i = 0; i < groups.length; i++) {
     for (let j = i + 1; j < groups.length; j++) {
       const ni = groups[i].length, nj = groups[j].length;
-      const mi = mean(groups[i]), mj = mean(groups[j]);
-      const diff = mi - mj;
+      const diff = mean(groups[i]) - mean(groups[j]);
       const se = Math.sqrt(mse * (1 / ni + 1 / nj) / 2);
       if (se === 0) continue;
       const q = Math.abs(diff) / se;
@@ -450,13 +412,72 @@ function tukeysHSD(groups, labels, mse, dfError) {
       results.push({
         groupA: labels[i], groupB: labels[j],
         meanDiff: diff, se, q, pValue: Math.min(1, Math.max(0, p)),
-        significant: q > qCrit,
-        qCritical: qCrit,
+        significant: q > qCrit, qCritical: qCrit,
         ci95: [diff - qCrit * se, diff + qCrit * se],
       });
     }
   }
   return results;
+}
+
+// Games-Howell: pairwise comparisons without assuming equal variances or sizes
+// (Welch–Satterthwaite df per pair, studentized range reference distribution).
+export function gamesHowell(groups, labels, alpha = 0.05) {
+  const k = groups.length;
+  const stats = groups.map(g => { const m = mean(g); return { m, v: variance(g, m), n: g.length }; });
+  const results = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const a = stats[i], b = stats[j];
+      const vi = a.v / a.n, vj = b.v / b.n;
+      const se = Math.sqrt((vi + vj) / 2);
+      if (!(se > 0)) continue;
+      const df = (vi + vj) ** 2 / (vi ** 2 / (a.n - 1) + vj ** 2 / (b.n - 1));
+      const diff = a.m - b.m;
+      const q = Math.abs(diff) / se;
+      const qCrit = qtukey(1 - alpha, k, df);
+      const p = 1 - ptukey(q, k, df);
+      results.push({
+        groupA: labels[i], groupB: labels[j], meanDiff: diff, se, q, df,
+        pValue: Math.min(1, Math.max(0, p)), significant: p < alpha, qCritical: qCrit,
+        ci95: [diff - qCrit * se, diff + qCrit * se],
+      });
+    }
+  }
+  return results;
+}
+
+// Welch's one-way ANOVA (unequal variances).
+export function welchAnova(groups) {
+  const k = groups.length;
+  if (k < 2 || groups.some(g => g.length < 2)) return null;
+  const st = groups.map(g => { const m = mean(g); return { m, v: variance(g, m), n: g.length }; });
+  if (st.some(x => !(x.v > 0))) return null;
+  const w = st.map(x => x.n / x.v);
+  const W = w.reduce((a, b) => a + b, 0);
+  const mw = st.reduce((a, x, i) => a + w[i] * x.m, 0) / W;
+  const A = st.reduce((a, x, i) => a + w[i] * (x.m - mw) ** 2, 0) / (k - 1);
+  const lambda = st.reduce((a, x, i) => a + (1 - w[i] / W) ** 2 / (x.n - 1), 0);
+  const B = 1 + (2 * (k - 2) / (k * k - 1)) * lambda;
+  const F = A / B;
+  const df1 = k - 1, df2 = (k * k - 1) / (3 * lambda);
+  const pValue = 1 - fCDF(F, df1, df2);
+  return { F, df1, df2, pValue, significant: pValue < 0.05 };
+}
+
+// Holm step-down adjustment (uniformly more powerful than Bonferroni).
+export function holmAdjust(pValues, alpha = 0.05) {
+  const m = pValues.length;
+  const order = pValues.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
+  const adj = Array(m);
+  let running = 0, rejecting = true;
+  order.forEach(({ p, i }, r) => {
+    running = Math.max(running, Math.min(1, (m - r) * p));
+    adj[i] = { index: i, original: p, adjusted: running };
+    if (rejecting && p > alpha / (m - r)) rejecting = false;
+    adj[i].significant = rejecting;
+  });
+  return adj;
 }
 
 function bonferroniAdjust(pValues, alpha = 0.05) {
@@ -687,7 +708,30 @@ function runMANOVA(groups, measurements) {
 }
 
 // ─── Test selection logic ──────────────────────────────────────────────────
-function selectAndRunTest(labelData, design, alpha) {
+// Test policies (chosen BEFORE seeing the data — choosing a test from a
+// normality pre-test inflates the type-I error; Rochon et al. 2012):
+//   "welch"         (default) Welch t / Welch ANOVA + Games-Howell; paired t / RM-ANOVA
+//   "nonparametric" Mann-Whitney / Kruskal-Wallis; Wilcoxon / Friedman
+//   "auto"          legacy assumption-driven selection (normality + Levene)
+// The other family is always reported as a sensitivity analysis, and normality /
+// variance checks are reported as diagnostics.
+export const TEST_POLICIES = {
+  welch: "Parametric, robust to unequal variances (recommended)",
+  nonparametric: "Rank-based (non-parametric)",
+  auto: "Assumption-driven selection (legacy)",
+};
+
+function runFamily(family, groups, groupLabels, paired) {
+  const k = groups.length;
+  if (family === "nonparametric") {
+    if (paired) return k === 2 ? ["Wilcoxon signed-rank", wilcoxonSignedRank(groups[0], groups[1])] : ["Friedman test", friedmanTest(groups, groupLabels)];
+    return k === 2 ? ["Mann-Whitney U", mannWhitneyU(groups[0], groups[1])] : ["Kruskal-Wallis", kruskalWallis(groups, groupLabels)];
+  }
+  if (paired) return k === 2 ? ["Paired t-test", tTestPaired(groups[0], groups[1])] : ["Repeated measures ANOVA", repeatedMeasuresANOVA(groups)];
+  return k === 2 ? ["Welch's t-test", independentTTest(groups[0], groups[1], true)] : ["Welch's ANOVA", welchAnova(groups)];
+}
+
+function selectAndRunTest(labelData, design, alpha, policy = "welch") {
   const groups = Object.values(labelData);
   const groupLabels = Object.keys(labelData);
   const nGroups = groups.length;
@@ -699,63 +743,34 @@ function selectAndRunTest(labelData, design, alpha) {
   }
 
   const a = alpha || 0.05;
+  const paired = design === "paired";
   const normalityTests = groups.map(g => shapiroWilk(g));
   const allNormal = normalityTests.every(t => t && t.pValue > a);
-  const paired = design === "paired";
-
-  // For paired designs, all groups must have equal size
-  if (paired && groups.some(g => g.length !== groups[0].length)) {
-    return { skip: true, reason: "Paired design requires equal group sizes" };
-  }
-
-  let testName, result, assumptions = { normalityTests, allNormal };
-
-  // Check equal variance only for independent designs
+  const assumptions = { normalityTests, allNormal, policy };
   if (!paired) {
-    const levene = allNormal ? levenesTest(...groups) : null;
-    const equalVar = levene ? levene.pValue > a : false;
+    const levene = levenesTest(...groups);
     assumptions.levene = levene;
-    assumptions.equalVar = equalVar;
+    assumptions.equalVar = levene ? levene.pValue > a : false;
   }
 
+  let testName, result, sensitivity = null;
   try {
-    if (paired) {
-      if (nGroups === 2) {
-        if (allNormal && minN >= 5) {
-          testName = "Paired t-test";
-          result = tTestPaired(groups[0], groups[1]);
-        } else {
-          testName = "Wilcoxon signed-rank";
-          result = wilcoxonSignedRank(groups[0], groups[1]);
-        }
-      } else {
-        if (allNormal && minN >= 5) {
-          testName = "Repeated measures ANOVA";
-          result = repeatedMeasuresANOVA(groups);
-        } else {
-          testName = "Friedman test";
-          result = friedmanTest(groups, groupLabels);
-        }
-      }
-    } else {
-      // independent design
-      if (nGroups === 2) {
+    if (policy === "auto") {
+      if (paired) {
+        [testName, result] = allNormal && minN >= 5 ? runFamily("parametric", groups, groupLabels, true) : runFamily("nonparametric", groups, groupLabels, true);
+      } else if (nGroups === 2) {
         if (allNormal && minN >= 5) {
           testName = assumptions.equalVar ? "Independent t-test" : "Welch's t-test";
           result = independentTTest(groups[0], groups[1], !assumptions.equalVar);
-        } else {
-          testName = "Mann-Whitney U";
-          result = mannWhitneyU(groups[0], groups[1]);
-        }
-      } else {
-        if (allNormal && assumptions.equalVar && minN >= 5) {
-          testName = "One-way ANOVA";
-          result = oneWayAnova(...groups);
-        } else {
-          testName = "Kruskal-Wallis";
-          result = kruskalWallis(groups, groupLabels);
-        }
-      }
+        } else [testName, result] = runFamily("nonparametric", groups, groupLabels, false);
+      } else if (allNormal && assumptions.equalVar && minN >= 5) {
+        testName = "One-way ANOVA"; result = oneWayAnova(...groups);
+      } else [testName, result] = runFamily("nonparametric", groups, groupLabels, false);
+    } else {
+      const primary = policy === "nonparametric" ? "nonparametric" : "parametric";
+      [testName, result] = runFamily(primary, groups, groupLabels, paired);
+      const [sName, sRes] = runFamily(primary === "parametric" ? "nonparametric" : "parametric", groups, groupLabels, paired);
+      if (sRes) sensitivity = { testName: sName, pValue: sRes.pValue, agrees: sRes.pValue < a === (result?.pValue < a) };
     }
   } catch (e) {
     return { skip: true, reason: e.message };
@@ -763,37 +778,39 @@ function selectAndRunTest(labelData, design, alpha) {
 
   if (!result) return { skip: true, reason: "Test returned null" };
 
-  // ── Compute effect size appropriate for the test ──
   const effectSize = effectSizeForTest(testName, result, groups);
-
-  // ── Build raw data summary ──
   const rawData = {};
   groupLabels.forEach((l, i) => {
     rawData[l] = { values: groups[i], n: ns[i], mean: mean(groups[i]), sd: stdev(groups[i], mean(groups[i])) };
   });
 
-  return { testName, result, assumptions, rawData, effectSize };
+  return { testName, result, assumptions, rawData, effectSize, sensitivity };
 }
 
 // ─── Collect measurements per group ────────────────────────────────────────
+// `aligned[label][i]` is the value from the group's i-th case (null if missing):
+// paired designs pair subjects by position in each group's case list, so a
+// missing measurement must not shift every later pair.
 function collectGroupedMeasurements(sessions, groups, labelIds, calibration) {
   const byGroup = {};
   for (const g of groups) {
-    const gSessions = (g.caseIds || []).map(id => sessions.find(s => s.id === id)).filter(Boolean);
-    const byLabel = {};
-    const units = {};
-    for (const s of gSessions) {
+    const caseSessions = (g.caseIds || []).map(id => sessions.find(s => s.id === id) || null);
+    const byLabel = {}, aligned = {}, units = {};
+    caseSessions.forEach((s, idx) => {
+      if (!s) return;
       for (const m of s.markups || []) {
         if (!isResearchMarkup(m)) continue;
         if (labelIds.length > 0 && !labelIds.includes(m.label)) continue;
         const pm = sessionPrimaryMeasure(s, m, calibration);
         if (!pm) continue;
-        if (!byLabel[m.label]) byLabel[m.label] = [];
-        byLabel[m.label].push(pm.value);
+        if (!aligned[m.label]) aligned[m.label] = caseSessions.map(() => null);
+        if (aligned[m.label][idx] != null) continue; // first markup with that label wins
+        aligned[m.label][idx] = pm.value;
         if (!units[m.label]) units[m.label] = pm.unit;
       }
-    }
-    byGroup[g.label] = { group: g, sessions: gSessions, byLabel, units };
+    });
+    for (const [label, vals] of Object.entries(aligned)) byLabel[label] = vals.filter(v => v != null);
+    byGroup[g.label] = { group: g, sessions: caseSessions.filter(Boolean), byLabel, aligned, units };
   }
   return byGroup;
 }
@@ -801,6 +818,7 @@ function collectGroupedMeasurements(sessions, groups, labelIds, calibration) {
 // ─── Main entry point ──────────────────────────────────────────────────────
 export function runComparativeAll(sessions, config, calibration) {
   const { design, groups, labelIds, alpha, mcCorrection } = config;
+  const policy = TEST_POLICIES[config.testPolicy] ? config.testPolicy : "welch";
 
   if (!groups || groups.length < 2) return { error: "At least 2 groups required" };
   const byGroup = collectGroupedMeasurements(sessions, groups, labelIds || [], calibration);
@@ -819,6 +837,7 @@ export function runComparativeAll(sessions, config, calibration) {
     groupData: {},
     alpha: alpha || 0.05,
     mcCorrection: mcCorrection || "bonferroni",
+    testPolicy: policy,
     warnings: [],
   };
 
@@ -832,11 +851,19 @@ export function runComparativeAll(sessions, config, calibration) {
   // Per-label test results
   for (const label of allLabels) {
     const labelData = {};
-    for (const gLabel of groupLabels) {
-      const vals = (byGroup[gLabel]?.byLabel[label] || []);
-      labelData[gLabel] = vals;
+    let droppedPairs = 0;
+    if (design === "paired") {
+      // Keep only subjects measured in every condition (listwise), pairing by position.
+      const cols = groupLabels.map(gl => byGroup[gl]?.aligned?.[label] || []);
+      const len = Math.min(...cols.map(c => c.length));
+      const keep = Array.from({ length: len }, (_, i) => i).filter(i => cols.every(c => c[i] != null));
+      droppedPairs = Math.max(...cols.map(c => c.filter(v => v != null).length)) - keep.length;
+      groupLabels.forEach((gl, gi) => { labelData[gl] = keep.map(i => cols[gi][i]); });
+    } else {
+      for (const gLabel of groupLabels) labelData[gLabel] = byGroup[gLabel]?.byLabel[label] || [];
     }
-    results.labels[label] = selectAndRunTest(labelData, design, alpha || 0.05);
+    results.labels[label] = selectAndRunTest(labelData, design, alpha || 0.05, policy);
+    if (droppedPairs > 0) results.labels[label].droppedPairs = droppedPairs;
     results.labels[label].label = label;
     for (const gLabel of groupLabels) {
       const u = byGroup[gLabel]?.units?.[label];
@@ -862,15 +889,18 @@ export function runComparativeAll(sessions, config, calibration) {
     for (const [label, lr] of Object.entries(results.labels)) {
       if (lr.skip || !lr.result) continue;
       const isIndependentANOVA = lr.testName === "One-way ANOVA";
+      const isWelchANOVA = lr.testName === "Welch's ANOVA";
       const isRepeatedANOVA = lr.testName === "Repeated measures ANOVA";
-      if (!isIndependentANOVA && !isRepeatedANOVA) continue;
+      if (!isIndependentANOVA && !isWelchANOVA && !isRepeatedANOVA) continue;
 
-      const gVals = groupLabels.map(gl => (byGroup[gl]?.byLabel[label] || []));
+      const gVals = groupLabels.map(gl => lr.rawData?.[gl]?.values || []);
 
-      if (isIndependentANOVA) {
-        const mse = lr.result.msWithin;
-        const dfE = lr.result.dfWithin;
-        results.postHoc[label] = tukeysHSD(gVals, groupLabels, mse, dfE);
+      if (isWelchANOVA) {
+        results.postHoc[label] = gamesHowell(gVals, groupLabels, alpha || 0.05);
+        results.postHocMethod = "Games-Howell";
+      } else if (isIndependentANOVA) {
+        results.postHoc[label] = tukeysHSD(gVals, groupLabels, lr.result.msWithin, lr.result.dfWithin, alpha || 0.05);
+        results.postHocMethod = results.postHocMethod || "Tukey HSD";
       } else if (isRepeatedANOVA) {
         // Bonferroni-corrected paired t-tests for repeated measures
         const raw = pairedPostHoc(gVals, groupLabels);
@@ -893,6 +923,7 @@ export function runComparativeAll(sessions, config, calibration) {
     if (pValues.length > 0) {
       let corrected;
       if (mcCorrection === "bonferroni") corrected = bonferroniAdjust(pValues, alpha || 0.05);
+      else if (mcCorrection === "holm") corrected = holmAdjust(pValues, alpha || 0.05);
       else if (mcCorrection === "bh") corrected = benjaminiHochberg(pValues, alpha || 0.05);
       else corrected = pValues.map(p => ({ original: p, adjusted: p, significant: p < (alpha || 0.05) }));
       labels.forEach(([label], i) => {

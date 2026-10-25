@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { refreshAutoMeasurements } from "../workspace/markupHelpers.js";
+import { markMovedAiPoints } from "../workspace/aiReview.js";
 
 const EMPTY_CALIB = { done: false, pxPerMm: 1 };
 const EMPTY_PROC = { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 128, edgeEnhance: 0 };
@@ -109,7 +110,8 @@ export const useSessionStore = create((set, get) => ({
   },
 
   updMarkups(fn) {
-    const ms = refreshAutoMeasurements(fn(get().markups), get().calibration, get().facing);
+    const prev = get().markups;
+    const ms = refreshAutoMeasurements(markMovedAiPoints(prev, fn(prev)), get().calibration, get().facing);
     set({ markups: ms });
     _onChange?.();
   },

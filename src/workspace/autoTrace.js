@@ -12,7 +12,7 @@ import { PREDEFINED } from "../data/constants.js";
 import { appLabelForSymbol } from "../data/landmarkMap.js";
 import { LANDMARK_MODEL, isModelConfigured } from "../data/landmarkModelInfo.js";
 import { autoCreateMeasurements } from "./template.js";
-import { detectLandmarks, initDetector } from "../canvas/landmarkDetector.js";
+import { detectLandmarks, initDetector, getDetectorDebug } from "../canvas/landmarkDetector.js";
 import { loadModelAsset } from "../storage/modelCache.js";
 
 export function findAnalysis(templateName) {
@@ -63,6 +63,7 @@ export function buildDetectionMarkups(detections, templateName, existingMarkups 
       // Marks the point as AI-produced so a re-trace can reliably clear the
       // previous trace even if the backend reported no numeric confidence.
       aiPlaced: true,
+      aiReviewed: false,
       aiConfidence: typeof d.confidence === "number" ? d.confidence : undefined,
       aiScore: typeof d.score === "number" ? d.score : undefined,
     });
@@ -122,9 +123,23 @@ export function ensureDetectorReady(onProgress) {
     return initDetector(opts);
   })().catch((err) => {
     logWarn("AI auto-trace: model unavailable — run scripts/convert-hrnet19-onnx.py, npm run setup:ort, and place the .onnx in public/models/. Using demo detector.", err);
+    _lastLoadError = err?.message || String(err);
     return "mock";
+  }).then((backend) => {
+    // Don't cache a failed load: the next click retries the download.
+    if (backend !== "onnx") _readyPromise = null;
+    return backend;
   });
   return _readyPromise;
+}
+
+let _lastLoadError = null;
+
+// The demo detector places synthetic, anatomically meaningless points. It is a
+// development aid only: in production a configured model that fails to load is
+// an error, never a silent fallback.
+export function demoDetectorAllowed() {
+  try { return Boolean(import.meta.env?.DEV); } catch { return false; }
 }
 
 // Detect + place. `forceHypothesis` ({ mirror?, invert? }) re-runs detection with
@@ -133,7 +148,12 @@ export function ensureDetectorReady(onProgress) {
 // `suppressUndo` is set by the re-trace retry, which already pushed a snapshot
 // covering the removal of the previous trace, so the replace stays one undo step.
 export async function runAutoTrace({ imageInput, calibration, store, onProgress, forceHypothesis, suppressUndo = false }) {
-  await ensureDetectorReady(onProgress);
+  const backend0 = await ensureDetectorReady(onProgress);
+  if (backend0 !== "onnx" && isModelConfigured() && !demoDetectorAllowed()) {
+    const why = _lastLoadError || getDetectorDebug() || "model download or runtime failed";
+    _lastLoadError = null;
+    throw new Error(`AI model unavailable (${why}). Check your connection and try again.`);
+  }
   const { landmarks, backend, orientation, polarity, quality, hypotheses, refined } = await detectLandmarks(imageInput, {
     landmarkSet: LANDMARK_MODEL.landmarkSet,
     forceHypothesis,

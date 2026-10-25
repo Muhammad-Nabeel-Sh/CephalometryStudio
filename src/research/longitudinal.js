@@ -1,7 +1,7 @@
-import { mean, stdev, variance, tTestPaired, fCDF, chi2CDF, tDistributeCDF, clamp } from "../lib/utils.js";
-import { matInverse } from "./statsCore.js";
+import { mean, stdev, tTestPaired, fCDF, chi2CDF, tDistributeCDF, clamp } from "../lib/utils.js";
 import { checkLongitudinalTimeSeparation } from "./validation.js";
 import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
+import { fitGrowthModel } from "./mixedModel.js";
 
 // ─── Matrix helpers ─────────────────────────────────────────────────────────
 function sum(arr) {
@@ -247,126 +247,71 @@ function pairedPostHoc(data, timepointKeys, labels) {
   return results;
 }
 
-// ─── "LMM" via pooled OLS (simplified two-level model) ─────────────────────
-// WARNING: this is NOT a true linear mixed model. It fits a pooled OLS regression
-// ignoring within-subject correlation, then post-hoc estimates a random-intercept
-// variance. The fixed-effect SEs assume independence and are therefore ANTI-
-// CONSERVATIVE (too small → p-values too significant) when observations within a
-// subject are correlated. The logLik/AIC/BIC are computed under the OLS (not REML)
-// likelihood. For inference that respects the multilevel structure, use a proper
-// REML/ML mixed model. We now expose a `modelType: "ols_pseudo_lmm"` label and a
-// `limitations` note so callers can warn the user.
-function linearMixedModel(data, timepointLabels) {
-  const n = data.length;
-  const k = timepointLabels.length;
-  if (n < 3 || k < 2) return null;
+// ─── Linear mixed model (REML) ──────────────────────────────────────────────
+// Uses every subject with ≥1 observation (no listwise deletion). The time axis is
+// the patient's age when every observation has one, else the timepoints'
+// target ages, else the visit index (flagged — unequal spacing is then ignored).
+export function chooseTimeAxis(rows, timepoints, requested = "auto") {
+  const k = timepoints.length;
+  const cells = rows.flatMap(row => Array.from({ length: k }, (_, j) => j).filter(j => row[`tp_${j}`] != null).map(j => ({ row, j })));
+  const ageOk = cells.length > 0 && cells.every(({ row, j }) => Number.isFinite(row[`age_${j}`]));
+  const targetOk = timepoints.every(tp => tp.targetAge !== null && tp.targetAge !== "" && isFinite(Number(tp.targetAge)));
+  let axis = requested;
+  if (axis === "auto") axis = ageOk ? "age" : targetOk ? "targetAge" : "index";
+  if (axis === "age" && !ageOk) axis = targetOk ? "targetAge" : "index";
+  if (axis === "targetAge" && !targetOk) axis = "index";
+  const timeOf = (row, j) => (axis === "age" ? Number(row[`age_${j}`]) : axis === "targetAge" ? Number(timepoints[j].targetAge) : j);
+  return { axis, timeOf, unit: axis === "index" ? "visit" : "year" };
+}
 
-  // OLS: y = b0 + b1*t (where t = 0, 1, ..., k-1)
-  const tVals = Array.from({ length: k }, (_, i) => i);
-  const allY = data.flatMap(row => tVals.map(t => row[`tp_${t}`] ?? null)).filter(v => v != null);
-  const allX = [];
-  for (let i = 0; i < n; i++)
-    for (let j = 0; j < k; j++)
-      if (data[i][`tp_${j}`] != null) allX.push([1, j]);
+function linearMixedModel(rows, timepoints, requestedAxis) {
+  const k = timepoints.length;
+  if (rows.length < 3 || k < 2) return null;
+  const { axis, timeOf, unit } = chooseTimeAxis(rows, timepoints, requestedAxis);
+  const raw = [];
+  rows.forEach((row, i) => {
+    for (let j = 0; j < k; j++) {
+      const y = row[`tp_${j}`];
+      if (y == null || !isFinite(y)) continue;
+      raw.push({ subject: i, t: timeOf(row, j), y });
+    }
+  });
+  if (raw.length < 4) return null;
+  // Intercept = expected value at the earliest time point.
+  const t0 = Math.min(...raw.map(o => o.t));
+  const obs = raw.map(o => ({ ...o, t: o.t - t0 }));
+  const fit = fitGrowthModel(obs);
+  if (!fit) return null;
+  fit.fixedEffects[0].term = axis === "index" ? "Intercept (first visit)" : `Intercept (at ${axis === "age" ? "age" : "target age"} ${+t0.toFixed(2)})`;
+  fit.fixedEffects[1].term = `Time (slope per ${unit})`;
 
-  if (allY.length < 3) return null;
+  // Per-subject OLS slopes (descriptive; shown in trajectory charts).
+  const slopes = rows.map((row, i) => {
+    const pts = obs.filter(o => o.subject === i);
+    if (pts.length < 2) return null;
+    const xm = mean(pts.map(p => p.t)), ym = mean(pts.map(p => p.y));
+    const den = sum(pts.map(p => (p.t - xm) ** 2));
+    return den > 0 ? sum(pts.map(p => (p.t - xm) * (p.y - ym))) / den : null;
+  }).filter(v => v != null);
 
-  // (X'X)^{-1} X'y
-  const XtX = [[0, 0], [0, 0]];
-  const Xty = [0, 0];
-  for (let i = 0; i < allY.length; i++) {
-    const x = allX[i];
-    XtX[0][0] += x[0] * x[0];
-    XtX[0][1] += x[0] * x[1];
-    XtX[1][0] += x[1] * x[0];
-    XtX[1][1] += x[1] * x[1];
-    Xty[0] += x[0] * allY[i];
-    Xty[1] += x[1] * allY[i];
-  }
-
-  const XtXinv = matInverse(XtX);
-  if (!XtXinv) return null;
-  const beta = [XtXinv[0][0] * Xty[0] + XtXinv[0][1] * Xty[1],
-                XtXinv[1][0] * Xty[0] + XtXinv[1][1] * Xty[1]];
-
-  // Residual variance
-  let ssRes = 0;
-  for (let i = 0; i < allY.length; i++) {
-    const pred = beta[0] + beta[1] * allX[i][1];
-    ssRes += (allY[i] - pred) ** 2;
-  }
-  const sigma2 = ssRes / (allY.length - 2);
-
-  // Cluster-robust (sandwich) variance for the fixed effects: V_robust = (X'X)^{-1}
-  // X' · diag(e_i²) · X · (X'X)^{-1}. This accounts for within-subject correlation
-  // and is the minimum fix for the anti-conservative OLS SEs.
-  const meat = [[0, 0], [0, 0]];
-  for (let i = 0; i < allY.length; i++) {
-    const x = allX[i];
-    const resid = allY[i] - (beta[0] + beta[1] * x[1]);
-    meat[0][0] += x[0] * x[0] * resid * resid;
-    meat[0][1] += x[0] * x[1] * resid * resid;
-    meat[1][0] += x[1] * x[0] * resid * resid;
-    meat[1][1] += x[1] * x[1] * resid * resid;
-  }
-  // V_robust = (X'X)^{-1} · meat · (X'X)^{-1}
-  const Vrobust = [[0, 0], [0, 0]];
-  for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) {
-    Vrobust[r][c] = XtXinv[r][0] * meat[0][c] + XtXinv[r][1] * meat[1][c];
-  }
-  const seRobust = [Math.sqrt(Math.max(Vrobust[0][0], 0)), Math.sqrt(Math.max(Vrobust[1][1], 0))];
-
-  // Also keep the naive (OLS) SEs for comparison
-  const seOLS = [Math.sqrt(XtXinv[0][0] * sigma2), Math.sqrt(XtXinv[1][1] * sigma2)];
-
-  // Use cluster-robust SEs for inference with conservative df
-  const se = seRobust;
-  const tValsBeta = [beta[0] / se[0], beta[1] / se[1]];
-  const df = n - 2;
-  const pVals = tValsBeta.map(t => 2 * (1 - tDistributeCDF(Math.abs(t), df)));
-
-  // Subject-level variance (random intercept estimate)
-  const subjMeans = data.map(row => mean(timepointLabels.map((_, j) => row[`tp_${j}`]).filter(v => v != null)));
-  const grandMean2 = mean(subjMeans);
-  const tau2_intercept = variance(subjMeans, grandMean2) - sigma2 / k;
-  const icc = (tau2_intercept + sigma2) > 0 ? tau2_intercept / (tau2_intercept + sigma2) : 0;
-
-  // Growth rate per subject
-  const slopes = data.map(row => {
-    const valid = timepointLabels.map((_, j) => ({ t: j, y: row[`tp_${j}`] })).filter(d => d.y != null);
-    if (valid.length < 2) return null;
-    const xm = mean(valid.map(d => d.t));
-    const ym = mean(valid.map(d => d.y));
-    const num = sum(valid.map(d => (d.t - xm) * (d.y - ym)));
-    const den = sum(valid.map(d => (d.t - xm) ** 2));
-    return den > 0 ? num / den : 0;
-  }).filter(s => s != null);
-  const meanSlope = slopes.length > 0 ? mean(slopes) : 0;
-  const varSlope = slopes.length > 1 ? variance(slopes, meanSlope) : 0;
-
-  const logLik = -0.5 * allY.length * Math.log(2 * Math.PI * sigma2) - ssRes / (2 * sigma2);
-  const nParams = 2 + 3; // intercept, slope, tau2_intercept, sigma2, varSlope
-  const aic = -2 * logLik + 2 * nParams;
-  const bic = -2 * logLik + nParams * Math.log(allY.length);
+  const warnings = [];
+  if (axis === "index") warnings.push("No ages recorded: time is the visit number, so unequal intervals between visits are ignored. Enter each session's age (or the timepoints' target ages) for a growth-rate model.");
+  if (!fit.converged) warnings.push("The REML optimiser did not fully converge — treat variance components with caution.");
 
   return {
-    modelType: "ols_pseudo_lmm",
-    fixedEffects: [
-      { term: "Intercept", estimate: beta[0], se: se[0], seOLS: seOLS[0], t: tValsBeta[0], p: pVals[0],
-        ci95: [beta[0] - 1.96 * se[0], beta[0] + 1.96 * se[0]] },
-      { term: "Time (slope)", estimate: beta[1], se: se[1], seOLS: seOLS[1], t: tValsBeta[1], p: pVals[1],
-        ci95: [beta[1] - 1.96 * se[1], beta[1] + 1.96 * se[1]] },
-    ],
-    randomEffects: {
-      subjectVariance: Math.max(0, tau2_intercept),
-      slopeVariance: varSlope,
-      residualVariance: sigma2,
-      icc: clamp(icc, 0, 1),
-    },
-    fit: { logLik, aic, bic, n: allY.length, subjects: n, likelihood: "OLS (not REML)" },
-    meanSlope,
+    modelType: "reml_lmm",
+    fixedEffects: fit.fixedEffects,
+    randomEffects: fit.randomEffects,
+    fit: fit.fit,
+    randomSlope: fit.randomSlope,
+    slopeTest: fit.slopeTest,
+    alternatives: fit.alternatives,
+    timeAxis: axis, timeUnit: unit, timeOrigin: t0,
+    meanSlope: fit.beta[1],
     slopes,
-    limitations: "Pooled OLS with cluster-robust SEs — not a true REML mixed model. Random-intercept variance is estimated post-hoc. Use a proper mixed-model library for definitive inference.",
+    nObservations: obs.length,
+    warnings,
+    limitations: "REML linear mixed model (random intercept; random slope when supported by a likelihood-ratio test). Fixed-effect tests use a conservative df = subjects − 2 (no Kenward–Roger correction).",
   };
 }
 
@@ -416,6 +361,8 @@ function collectSubjectData(sessions, subjects, timepoints, labelIds, calibratio
         const session = sessionId ? sessions.find(s => s.id === sessionId) : null;
         const got = getMeasurementForLabel(session, label, calibration);
         row[`tp_${j}`] = got?.value ?? null;
+        const age = session?.meta?.age;
+        row[`age_${j}`] = age !== undefined && age !== null && age !== "" && isFinite(Number(age)) ? Number(age) : null;
         if (got?.unit) labelUnits[got.unit] = (labelUnits[got.unit] || 0) + 1;
         if (got?.value != null) hasAny = true;
       }
@@ -487,30 +434,38 @@ export function runLongitudinalAll(sessions, config, calibration) {
     }
   }
 
-  // Per-label analysis — only run on labels with sufficient complete data
+  const wantLmm = modelType === "mixed_model" || modelType === "both";
+  // Per-label analysis. RM-ANOVA needs complete cases; the mixed model uses every
+  // subject with at least one observation.
   for (const [label, ld] of Object.entries(byLabel)) {
     const paired = ld.complete;
+    const lmm = wantLmm ? linearMixedModel(ld.rows, timepoints, config.timeAxis || "auto") : null;
     if (paired.length < 3) {
-      results.labels[label] = { skip: true, reason: `Insufficient complete data: ${paired.length}/3 subjects have measurements at all timepoints` };
+      if (lmm) {
+        results.labels[label] = { label, unit: ld.unit || "", rmAnova: null, pairwise: [], lmm, changeScores: [], rawData: ld.rawData, nSubjects: ld.nSubjects, nComplete: ld.nComplete,
+          note: `Only ${paired.length} subjects have complete data — RM-ANOVA skipped; the mixed model uses all ${ld.nSubjects} subjects.` };
+      } else {
+        results.labels[label] = { skip: true, reason: `Insufficient complete data: ${paired.length}/3 subjects have measurements at all timepoints` };
+      }
       continue;
     }
 
-    const rmAnova = repeatedMeasuresANOVA(paired, sphericityCorrection);
-    const pairwise = rmAnova ? pairedPostHoc(paired, Object.keys(paired[0]).filter(k => k.startsWith("tp_")), tpLabels).map(p => ({ ...p, unit: ld.unit || "" })) : [];
-    const lmm = modelType === "mixed_model" || modelType === "both" ? linearMixedModel(paired, tpLabels) : null;
+    const tpOnly = paired.map(row => Object.fromEntries(Object.entries(row).filter(([key]) => key.startsWith("tp_"))));
+    const rmAnova = repeatedMeasuresANOVA(tpOnly, sphericityCorrection);
+    const pairwise = rmAnova ? pairedPostHoc(tpOnly, Object.keys(tpOnly[0]), tpLabels).map(p => ({ ...p, unit: ld.unit || "" })) : [];
 
     // Change scores. The MDC must be the INDIVIDUAL-level MDC (z·√2·SEM where
     // SEM = S_diff, the SD of individual difference scores), not the group-level
     // MDC (z·√2·S_diff/√n). The previous version used sdDiff/√n, which is the SE of
     // the mean difference — conflating group precision with measurement error and
     // flagging almost any mean change as "MDC exceeded".
-    const tpKeys = Object.keys(paired[0]).filter(k => k.startsWith("tp_"));
+    const tpKeys = Object.keys(tpOnly[0]);
     const changeScores = [];
     for (let i = 0; i < tpKeys.length; i++) {
       for (let j = i + 1; j < tpKeys.length; j++) {
         const valsA = paired.map(row => row[tpKeys[i]]);
         const valsB = paired.map(row => row[tpKeys[j]]);
-        const diffs = valsA.map((v, idx) => v - valsB[idx]);
+        const diffs = valsB.map((v, idx) => v - valsA[idx]); // later − earlier
         const mDiff = mean(diffs);
         const sdDiff = stdev(diffs, mDiff);
         const semIndividual = sdDiff; // SEM at the individual level = SD of differences

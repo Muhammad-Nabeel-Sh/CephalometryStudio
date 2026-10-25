@@ -11,6 +11,7 @@ import { SuperimpositionConfig, SuperimpositionResults } from "./Superimposition
 import { AirwayStudyConfig } from "./AirwayStudyPanel.jsx";
 import ResultsDialog from "./ResultsDialog.jsx";
 import StudyGuideModal from "./StudyGuideModal.jsx";
+import { DataPreview, SampleSizeCalculator } from "./StudyTools.jsx";
 
 export default function ResearchPanel({ t, project, onUpdateProject, calibration }) {
   const studies = project?.researchStudies || [];
@@ -118,7 +119,13 @@ export default function ResearchPanel({ t, project, onUpdateProject, calibration
           style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: tab === "list" ? t.surf2 : "transparent", color: t.tx, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
           Studies ({studies.length})
         </button>
+        <button onClick={() => setTab("power")}
+          style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: tab === "power" ? t.surf2 : "transparent", color: t.tx, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+          Sample size
+        </button>
       </div>
+
+      {tab === "power" && <SampleSizeCalculator t={t} />}
 
       {tab === "new" && (
         <div>
@@ -253,6 +260,8 @@ export default function ResearchPanel({ t, project, onUpdateProject, calibration
                         {s.results?.error || "Unknown error"}
                       </div>
                     )}
+
+                    {s.type !== "airway" && <DataPreview study={s} sessions={sessions} calibration={calibration} t={t} />}
 
                     {/* Run button + progress/cancel */}
                     {s.id !== runningId && s.status !== "running" && (

@@ -5,6 +5,7 @@ import PanelGuideModal from "./PanelGuideModal.jsx";
 import { MarkupGearSettings } from "./MarkupGearSettings.jsx";
 import { useSessionStore } from "../state/sessionStore.js";
 import { resolveFacing } from "../lib/measureConventions.js";
+import { aiReviewSummary, confidenceTier, markReviewed } from "../workspace/aiReview.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUPS PANEL
@@ -21,6 +22,12 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
   onLockAll, onUnlockAll, facingSetting, setFacingSetting,
 }) {
   const facing = useSessionStore(s => resolveFacing(s.facing, s.markups));
+  const aiReview = aiReviewSummary(markups);
+  const confirmAiPoints = (ids) => {
+    const st = useSessionStore.getState();
+    st.pushUndo();
+    st.updMarkups(ms => markReviewed(ms, ids));
+  };
   const [collapsed, setCollapsed] = useState({});
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [guideKey, setGuideKey] = useState(null);
@@ -107,6 +114,19 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
           {onAutoTraceDismiss && <button onClick={onAutoTraceDismiss} style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 13, flexShrink: 0 }}>×</button>}
         </div>
       )}
+      {aiReview.pending > 0 && (
+        <div style={{ padding: "6px 10px", background: t.warn + "14", borderBottom: `1px solid ${t.bdr}`, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ flex: 1, fontSize: 11, color: t.tx2, lineHeight: 1.4 }}>
+            <b style={{ color: t.warn }}>{aiReview.pending}</b> AI landmark{aiReview.pending === 1 ? "" : "s"} not yet reviewed
+            {aiReview.pendingLow > 0 ? <> (<b style={{ color: t.err }}>{aiReview.pendingLow} low-confidence</b>)</> : null}.
+            Drag a point to correct it, or confirm the ones that are right.
+          </span>
+          <button onClick={() => confirmAiPoints(null)} title="Confirm every remaining AI landmark as correct"
+            style={{ padding: "3px 8px", fontSize: 11, borderRadius: 4, border: `1px solid ${t.warn}`, background: "transparent", color: t.warn, cursor: "pointer", flexShrink: 0 }}>
+            Confirm all
+          </button>
+        </div>
+      )}
       {autoTraceQuality && autoTraceQuality.level !== "high" && (
         <div style={{ padding: "8px 10px", background: autoTraceQuality.level === "low" ? t.err + "14" : t.warn + "14", borderBottom: `1px solid ${t.bdr}`, display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 11, color: autoTraceQuality.level === "low" ? t.err : t.warn, fontWeight: 700 }}>
@@ -181,6 +201,20 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
                         {m.type === "text" && m.text && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>"{m.text.slice(0, 15)}{m.text.length > 15 ? "…" : ""}"</span>}
                         {m.type === "arrow" && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>→</span>}
                         {isLocked && <span style={{ fontSize: 9, color: t.warn, marginLeft: 4 }}>[locked]</span>}
+                        {m.type === "point" && m.aiPlaced === true && (() => {
+                          const tier = confidenceTier(m.aiConfidence);
+                          const pending = m.aiReviewed === false;
+                          const col = !pending ? t.ok : tier === "high" ? t.ok : tier === "medium" ? t.warn : t.err;
+                          const pct = typeof m.aiConfidence === "number" ? ` ${Math.round(m.aiConfidence * 100)}%` : "";
+                          return (
+                            <span title={pending ? "AI-placed, not yet reviewed — click to confirm" : m.aiAdjusted ? "AI-placed, adjusted by you" : "AI-placed, confirmed"}
+                              role={pending ? "button" : undefined}
+                              onClick={pending ? (e => { e.stopPropagation(); confirmAiPoints([m.id]); }) : undefined}
+                              style={{ fontSize: 10, marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px ${pending ? "dashed" : "solid"} ${col}`, color: col, cursor: pending ? "pointer" : "default" }}>
+                              AI{pct}{pending ? "" : m.aiAdjusted ? " ✎" : " ✓"}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {ms && !isHidden && <div style={{ fontSize: 12, color: t.acc, fontFamily: "'DM Mono',monospace" }}>{ms}</div>}
                       {relNorms.length > 0 && !isHidden && ms && <NormBadges norms={relNorms} meas={meas} calibration={calibration} t={t} />}

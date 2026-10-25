@@ -3,20 +3,34 @@ import { checkReliabilityTimeSeparation } from "./validation.js";
 import { dominantUnit, isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
-function fCritical(p, df1, df2) {
-  if (df1 <= 0 || df2 <= 0) return 1;
-  let lo = 0.01, hi = 1000, mid;
-  for (let it = 0; it < 60; it++) {
-    mid = (lo + hi) / 2;
-    const cdf = fCDF(mid, df1, df2);
-    if (cdf < p) lo = mid; else hi = mid;
-    if (Math.abs(cdf - p) < 1e-8) break;
+// Quantile of the F distribution (bisection with an expanding bracket, so large
+// quantiles at small df and fractional Satterthwaite df are both handled).
+export function fQuantile(p, df1, df2) {
+  if (!(df1 > 0) || !(df2 > 0)) return NaN;
+  let lo = 0, hi = 1;
+  while (fCDF(hi, df1, df2) < p && hi < 1e9) { lo = hi; hi *= 2; }
+  for (let it = 0; it < 200; it++) {
+    const mid = (lo + hi) / 2;
+    if (fCDF(mid, df1, df2) < p) lo = mid; else hi = mid;
+    if (hi - lo < 1e-12 * Math.max(1, hi)) break;
   }
-  return mid;
+  return (lo + hi) / 2;
+}
+
+export function tQuantile(p, df) {
+  if (!(df > 0)) return NaN;
+  let lo = 0, hi = 1;
+  while (tDistributeCDF(hi, df) < p && hi < 1e9) { lo = hi; hi *= 2; }
+  for (let it = 0; it < 200; it++) {
+    const mid = (lo + hi) / 2;
+    if (tDistributeCDF(mid, df) < p) lo = mid; else hi = mid;
+    if (hi - lo < 1e-12 * Math.max(1, hi)) break;
+  }
+  return (lo + hi) / 2;
 }
 
 function fPval(F, df1, df2) {
-  if (F <= 0 || df1 <= 0 || df2 <= 0) return 1;
+  if (!(F > 0) || df1 <= 0 || df2 <= 0) return 1;
   const p = 1 - fCDF(F, df1, df2);
   return p >= 1 ? 1 : p < 0 ? 0 : p;
 }
@@ -34,205 +48,144 @@ function simpleRegression(x, y) {
   const slope = sxx !== 0 ? sxy / sxx : 0;
   const intercept = my - slope * mx;
   const r = Math.sqrt(sxx * syy) !== 0 ? sxy / Math.sqrt(sxx * syy) : 0;
-  // Use the t-distribution (n-2 df) for the slope p-value, not a normal CDF with an
-  // ad-hoc correction factor. The previous `2*(1 - stdNormalCdf(|t|*(1 - 0.5/(n-2))))`
-  // was neither a valid t-test nor a valid z-test.
   const sse = syy - slope * sxy;
-  const seSlope = sxx > 0 ? Math.sqrt(sse / (n - 2) / sxx) : 0;
+  const seSlope = sxx > 0 ? Math.sqrt(Math.max(sse, 0) / (n - 2) / sxx) : 0;
   const t = seSlope > 0 ? slope / seSlope : 0;
-  const pValue = n > 2 ? 2 * (1 - tDistributeCDF(Math.abs(t), n - 2)) : 1;
+  const pValue = n > 2 && seSlope > 0 ? 2 * (1 - tDistributeCDF(Math.abs(t), n - 2)) : 1;
   return { slope, intercept, r, pValue, t, seSlope };
 }
 
-// ─── ICC (Shrout & Fleiss / McGraw & Wong) ──────────────────────────────
-function iccShroutFleiss(data, k, type) {
-  const subjects = [...new Set(data.map(d => d.subject))];
-  const raters = [...new Set(data.map(d => d.rater))];
-  const n = subjects.length;
-  if (n < 2) return null;
+// ─── ICC (Shrout & Fleiss 1979 / McGraw & Wong 1996) ──────────────────────
+// Naming follows Koo & Li (2016): model, type and definition are reported with
+// every estimate. Confidence intervals are the exact F-based intervals for the
+// one-way and consistency forms and the Satterthwaite interval for the
+// two-way random, absolute-agreement form (as in R psych::ICC).
+export const ICC_MODELS = {
+  icc1:  { label: "ICC(1,1)", description: "One-way random effects, absolute agreement, single measurement" },
+  icc1k: { label: "ICC(1,k)", description: "One-way random effects, absolute agreement, mean of k measurements" },
+  icc2:  { label: "ICC(2,1)", description: "Two-way random effects, absolute agreement, single measurement" },
+  icc2k: { label: "ICC(2,k)", description: "Two-way random effects, absolute agreement, mean of k measurements" },
+  icc3:  { label: "ICC(3,1)", description: "Two-way mixed effects, consistency, single measurement" },
+  icc3k: { label: "ICC(3,k)", description: "Two-way mixed effects, consistency, mean of k measurements" },
+};
 
-  const matrix = subjects.map(s =>
-    raters.map(r => {
-      const entry = data.find(d => d.subject === s && d.rater === r);
-      return entry ? entry.value : null;
-    })
-  );
+// `matrix`: n subjects × k raters/occasions, complete cases only.
+export function iccFromMatrix(matrix, type = "icc2", alpha = 0.05) {
+  const n = matrix.length;
+  const k = n > 0 ? matrix[0].length : 0;
+  if (n < 2 || k < 2) return null;
+  const all = matrix.flat();
+  const grand = all.reduce((a, b) => a + b, 0) / all.length;
+  const rowMeans = matrix.map(r => r.reduce((a, b) => a + b, 0) / k);
+  const colMeans = Array.from({ length: k }, (_, j) => matrix.reduce((a, r) => a + r[j], 0) / n);
+  const SST = all.reduce((a, v) => a + (v - grand) ** 2, 0);
+  const SSR = k * rowMeans.reduce((a, m) => a + (m - grand) ** 2, 0);
+  const SSC = n * colMeans.reduce((a, m) => a + (m - grand) ** 2, 0);
+  const SSE = Math.max(SST - SSR - SSC, 0);
+  const MSR = SSR / (n - 1);
+  const MSC = SSC / (k - 1);
+  const MSE = SSE / ((n - 1) * (k - 1));
+  const MSW = (SST - SSR) / (n * (k - 1));
+  const q = 1 - alpha / 2;
 
-  const allVals = matrix.flat().filter(v => v != null);
-  const grandMean = allVals.reduce((a, b) => a + b, 0) / allVals.length;
-
-  const rowMeans = matrix.map(row => {
-    const v = row.filter(x => x != null);
-    return v.reduce((a, b) => a + b, 0) / v.length;
-  });
-  const colMeans = raters.map((_, j) => {
-    const col = matrix.map(row => row[j]).filter(v => v != null);
-    return col.reduce((a, b) => a + b, 0) / col.length;
-  });
-
-  // Count actual non-missing observations per row/column for unbalanced-data adjustment
-  const rowCounts = matrix.map(row => row.filter(x => x != null).length);
-  const colCounts = raters.map((_, j) => matrix.map(row => row[j]).filter(v => v != null).length);
-  const anyMissing = rowCounts.some(c => c < k) || colCounts.some(c => c < n);
-
-  const kActual = type.endsWith("k") ? k : 1;
-
-  let SSR = 0, SSC = 0, SSE = 0;
-  for (let i = 0; i < n; i++) {
-    const ni = anyMissing ? rowCounts[i] : k;
-    SSR += ni * (rowMeans[i] - grandMean) ** 2;
-    for (let j = 0; j < k; j++) {
-      const v = matrix[i][j];
-      if (v == null) continue;
-      const e = v - rowMeans[i] - colMeans[j] + grandMean;
-      SSE += e * e;
+  let icc, lo, hi, F, df1 = n - 1, df2;
+  if (type === "icc1" || type === "icc1k") {
+    df2 = n * (k - 1);
+    F = MSW > 0 ? MSR / MSW : Infinity;
+    const FL = F / fQuantile(q, df1, df2), FU = F * fQuantile(q, df2, df1);
+    if (type === "icc1") {
+      icc = (MSR - MSW) / (MSR + (k - 1) * MSW);
+      lo = (FL - 1) / (FL + k - 1); hi = (FU - 1) / (FU + k - 1);
+    } else {
+      icc = (MSR - MSW) / MSR;
+      lo = 1 - 1 / FL; hi = 1 - 1 / FU;
     }
-  }
-  for (let j = 0; j < k; j++) {
-    const nj = anyMissing ? colCounts[j] : n;
-    SSC += nj * (colMeans[j] - grandMean) ** 2;
-  }
-
-  const dfS = n - 1, dfR = k - 1, dfE = (n - 1) * (k - 1);
-  const MSR = SSR / dfS;
-  const MSC = SSC / dfR;
-  const MSE = dfE > 0 ? SSE / dfE : 0;
-
-  let icc;
-  if (type.startsWith("icc1")) {
-    const MSW = (SSE + SSC) / (n * (k - 1));
-    icc = MSW !== 0 ? (MSR - MSW) / (MSR + (kActual - 1) * MSW) : 0;
-  } else if (type.startsWith("icc2")) {
-    icc = MSE > 0
-      ? (MSR - MSE) / (MSR + (kActual - 1) * MSE + kActual * Math.max(0, MSC - MSE) / n)
-      : 0;
+  } else if (type === "icc3" || type === "icc3k") {
+    df2 = (n - 1) * (k - 1);
+    F = MSE > 0 ? MSR / MSE : Infinity;
+    const FL = F / fQuantile(q, df1, df2), FU = F * fQuantile(q, df2, df1);
+    if (type === "icc3") {
+      icc = (MSR - MSE) / (MSR + (k - 1) * MSE);
+      lo = (FL - 1) / (FL + k - 1); hi = (FU - 1) / (FU + k - 1);
+    } else {
+      icc = (MSR - MSE) / MSR;
+      lo = 1 - 1 / FL; hi = 1 - 1 / FU;
+    }
   } else {
-    icc = MSR !== 0 ? (MSR - MSE) / (MSR + (kActual - 1) * MSE) : 0;
-  }
-  icc = Math.max(-1, Math.min(1, icc));
-
-  const F = MSE > 0 ? MSR / MSE : 0;
-  const fcU = fCritical(0.975, dfS, dfE);
-  const fcL = fCritical(0.975, dfE, dfS);
-  const Fl = F > 0 ? F / fcU : 0;
-  const Fu = F * fcL;
-  const ciLow = Math.max(-1, (Fl - 1) / (Fl + kActual - 1));
-  const ciHigh = Math.min(1, (Fu - 1) / (Fu + kActual - 1));
-
-  const pValue = fPval(F, dfS, dfE);
-
-  return { icc, ci95: [ciLow, ciHigh], F, df1: dfS, df2: dfE, pValue, n, k, model: type };
-}
-
-// ─── Bland-Altman ─────────────────────────────────────────────────────────
-// For 3+ occasions, the previous version silently dropped all but the first two
-// readings per case (the `if (paired[key].length < 2) paired[key].push(s.value)` guard
-// capped at 2). We now pair ALL combinations of readings per case, preserving all data.
-function runBlandAltman(samples) {
-  // Group all readings per case (was capped at 2 — dropped 3rd+ occasions silently)
-  const byCase = {};
-  for (const s of samples) {
-    if (!byCase[s.caseId]) byCase[s.caseId] = [];
-    byCase[s.caseId].push(s.value);
-  }
-  // Generate ALL pairs from each case's readings
-  const pairs = [];
-  for (const vals of Object.values(byCase)) {
-    for (let i = 0; i < vals.length; i++) {
-      for (let j = i + 1; j < vals.length; j++) {
-        pairs.push([vals[i], vals[j]]);
-      }
+    type = type === "icc2k" ? "icc2k" : "icc2";
+    df2 = (n - 1) * (k - 1);
+    F = MSE > 0 ? MSR / MSE : Infinity;
+    const r2 = (MSR - MSE) / (MSR + (k - 1) * MSE + (k * (MSC - MSE)) / n);
+    // Satterthwaite df for the absolute-agreement interval (McGraw & Wong 1996, case 2A).
+    const Fj = MSE > 0 ? MSC / MSE : 0;
+    const a = k * r2 * Fj + n * (1 + (k - 1) * r2) - k * r2;
+    const v = ((k - 1) * (n - 1) * a * a) / ((n - 1) * (k * r2 * Fj) ** 2 + (n * (1 + (k - 1) * r2) - k * r2) ** 2);
+    const FU = fQuantile(q, n - 1, v), FL = fQuantile(q, v, n - 1);
+    const L = (n * (MSR - FU * MSE)) / (FU * (k * MSC + (k * n - k - n) * MSE) + n * MSR);
+    const U = (n * (FL * MSR - MSE)) / (k * MSC + (k * n - k - n) * MSE + n * FL * MSR);
+    if (type === "icc2") { icc = r2; lo = L; hi = U; }
+    else {
+      icc = (MSR - MSE) / (MSR + (MSC - MSE) / n);
+      lo = (L * k) / (1 + L * (k - 1)); hi = (U * k) / (1 + U * (k - 1));
     }
   }
-  if (pairs.length < 2) return {};
-
-  const means = pairs.map(p => (p[0] + p[1]) / 2);
-  const diffs = pairs.map(p => p[0] - p[1]);
-  const n = diffs.length;
-
-  const meanDiff = diffs.reduce((a, b) => a + b, 0) / n;
-  const sdDiff = Math.sqrt(diffs.reduce((s, d) => s + (d - meanDiff) ** 2, 0) / (n - 1));
-  const df = n - 1;
-  let tCrit = 1.96;
-  if (df > 0) {
-    const target = 0.975;
-    let lo = 1.5, hi = 5.0;
-    for (let it = 0; it < 50; it++) {
-      const mid = (lo + hi) / 2;
-      const p = tDistributeCDF(mid, df);
-      if (p < target) lo = mid; else hi = mid;
-    }
-    tCrit = (lo + hi) / 2;
-  }
-  // Exact small-n LoA: use t_{n-1} instead of z=1.96, and √(1+1/n) for the
-  // prediction-interval correction (Carkeet 2015). Converges to d̄±1.96·sd for large n.
-  const loaFactor = tCrit * Math.sqrt(1 + 1 / n);
-  const loaUpper = meanDiff + loaFactor * sdDiff;
-  const loaLower = meanDiff - loaFactor * sdDiff;
-  // Exact SE for the LoA boundary: Var(L) = sd²/n + k²·sd²/(2(n-1))
-  // instead of the large-sample approximation sd·√(3/n).
-  const seLoA = sdDiff * Math.sqrt(1 / n + tCrit ** 2 / (2 * (n - 1)));
-  const loaUpperCi = [loaUpper - tCrit * seLoA, loaUpper + tCrit * seLoA];
-  const loaLowerCi = [loaLower - tCrit * seLoA, loaLower + tCrit * seLoA];
-
-  const reg = simpleRegression(means, diffs);
-
-  // For 3+ occasions the all-pairs construction creates correlated differences.
-  // Use a variance-inflation factor based on the mean number of pairs per case
-  // so the bias CI SE accounts for the non-independence.
-  const nCases = Object.keys(byCase).length;
-  const avgPairsPerCase = nCases > 0 ? n / nCases : 1;
-  const vif = Math.sqrt(avgPairsPerCase); // VIF = sqrt of design effect
-  const biasSE = sdDiff / Math.sqrt(n) * vif;
-
+  const clampIcc = v => (isFinite(v) ? Math.max(-1, Math.min(1, v)) : null);
   return {
-    meanDiff, sdDiff, n,
-    loaUpper, loaLower,
-    loaUpperCi, loaLowerCi,
-    meanDiffCi: [meanDiff - tCrit * biasSE, meanDiff + tCrit * biasSE],
-    proportionalBias: { detected: reg.pValue < 0.05, slope: reg.slope, r: reg.r, pValue: reg.pValue, t: reg.t },
-    points: means.map((m, i) => ({ mean: m, diff: diffs[i], outlier: Math.abs(diffs[i] - meanDiff) > 2 * sdDiff })),
-    nPairs: n,
-    nCases: Object.keys(byCase).length,
+    icc: clampIcc(icc), ci95: [clampIcc(lo), clampIcc(hi)],
+    F: isFinite(F) ? F : null, df1, df2, pValue: isFinite(F) ? fPval(F, df1, df2) : 0,
+    n, k, model: type, modelLabel: ICC_MODELS[type].label, modelDescription: ICC_MODELS[type].description,
+    ms: { MSR, MSC, MSE, MSW },
   };
 }
 
-// ─── Dahlberg / SEM / MDC ─────────────────────────────────────────────────
-// Use ALL pairs from 3+ occasions (was capped at 2 readings per case).
-// NOTE: dahlberg ≠ SEM for 3+ occasions. dahlberg = √(Σd²/(2n)) which is the
-// RMS pairwise error / √2. The true SEM = σ_total × √(1 − ICC). Both are
-// returned; sem is overwritten with the ICC-based value in the calling scope.
-function runDahlbergSEM(samples) {
-  const byCase = {};
-  for (const s of samples) {
-    if (!byCase[s.caseId]) byCase[s.caseId] = [];
-    byCase[s.caseId].push(s.value);
+// ─── Bland-Altman (Bland & Altman 1986/1999) ──────────────────────────────
+// d = b − a (second minus first: occasion 2 − occasion 1, rater 2 − rater 1,
+// test − reference). Limits of agreement are the classic d̄ ± 1.96·SD with exact
+// t-based CIs; the small-sample prediction interval is reported alongside.
+export function blandAltman(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 2) return null;
+  const diffs = [], means = [];
+  for (let i = 0; i < n; i++) { diffs.push(b[i] - a[i]); means.push((a[i] + b[i]) / 2); }
+  const meanDiff = diffs.reduce((x, y) => x + y, 0) / n;
+  const sdDiff = Math.sqrt(diffs.reduce((s, d) => s + (d - meanDiff) ** 2, 0) / (n - 1));
+  const tCrit = tQuantile(0.975, n - 1);
+  const loaUpper = meanDiff + 1.96 * sdDiff;
+  const loaLower = meanDiff - 1.96 * sdDiff;
+  const seLoA = sdDiff * Math.sqrt(1 / n + (1.96 ** 2) / (2 * (n - 1)));
+  const biasSE = sdDiff / Math.sqrt(n);
+  const pi = tCrit * sdDiff * Math.sqrt(1 + 1 / n);
+  const reg = simpleRegression(means, diffs);
+  return {
+    meanDiff, sdDiff, n,
+    loaUpper, loaLower,
+    loaUpperCi: [loaUpper - tCrit * seLoA, loaUpper + tCrit * seLoA],
+    loaLowerCi: [loaLower - tCrit * seLoA, loaLower + tCrit * seLoA],
+    meanDiffCi: [meanDiff - tCrit * biasSE, meanDiff + tCrit * biasSE],
+    predictionInterval: [meanDiff - pi, meanDiff + pi],
+    proportionalBias: { detected: reg.pValue < 0.05, slope: reg.slope, r: reg.r, pValue: reg.pValue, t: reg.t },
+    points: means.map((m, i) => ({ mean: m, diff: diffs[i], outlier: Math.abs(diffs[i] - meanDiff) > 1.96 * sdDiff })),
+    nPairs: n,
+  };
+}
+
+// Dahlberg's error generalised to k ≥ 2 measurements: √MSW (within-subject SD),
+// which equals √(Σd²/2n) for two measurements.
+function methodError(matrix, icc) {
+  const n = matrix.length, k = matrix[0].length;
+  const all = matrix.flat();
+  const grandMean = all.reduce((a, b) => a + b, 0) / all.length;
+  const totalSD = Math.sqrt(all.reduce((a, v) => a + (v - grandMean) ** 2, 0) / (all.length - 1));
+  let ssw = 0;
+  for (const row of matrix) {
+    const m = row.reduce((a, b) => a + b, 0) / k;
+    for (const v of row) ssw += (v - m) ** 2;
   }
-  let sumSqDiff = 0, count = 0;
-  const allVals = [];
-  for (const vals of Object.values(byCase)) {
-    for (let i = 0; i < vals.length; i++) {
-      for (let j = i + 1; j < vals.length; j++) {
-        const d = vals[i] - vals[j];
-        sumSqDiff += d * d;
-        count++;
-        allVals.push(vals[i], vals[j]);
-      }
-    }
-  }
-  if (count < 2) return {};
-
-  const dahlberg = Math.sqrt(sumSqDiff / (2 * count));
-  const grandMean = allVals.reduce((a, b) => a + b, 0) / allVals.length;
-  const totalSD = Math.sqrt(allVals.reduce((s, v) => s + (v - grandMean) ** 2, 0) / Math.max(allVals.length - 1, 1));
-
-  // cv and mdc computed from naive dahlberg here; calling code replaces them
-  // with ICC-based values when iccResult is available.
-  const cv = grandMean !== 0 ? (dahlberg / grandMean) * 100 : 0;
-  const sem = dahlberg;  // placeholder — overwritten by calling scope when ICC known
-  const mdc = 1.96 * Math.sqrt(2) * sem;
-
-  return { dahlberg, sem, cv, mdc, totalSD, grandMean, n: count, nCases: Object.keys(byCase).length };
+  const dahlberg = Math.sqrt(ssw / (n * (k - 1)));
+  const sem = icc != null ? totalSD * Math.sqrt(Math.max(0, 1 - icc)) : dahlberg;
+  // CV% is meaningless for measures centred near zero (ANB, Wits, E-line).
+  const cv = Math.abs(grandMean) > 2 * totalSD ? (sem / Math.abs(grandMean)) * 100 : null;
+  return { dahlberg, sem, mdc: 1.96 * Math.sqrt(2) * sem, cv, totalSD, grandMean, nCases: n };
 }
 
 // ─── Landmark coordinate error mapping ────────────────────────────────────
@@ -380,58 +333,80 @@ export function runReliabilityAll(sessions, config, calibration) {
   const details = [];
   const labelList = Object.keys(byLabel).sort();
 
+  const iccType = ICC_MODELS[config.iccModel] ? config.iccModel : "icc2";
+  const isIntra = config.design === "intra";
+  const isMethod = config.design === "method_comparison";
+  const opOrder = (operators || []).map(o => (typeof o === "string" ? o : o.id));
+  const refOps = new Set((operators || []).filter(o => o?.role === "reference").map(o => o.id));
+  const multiOperatorIntra = isIntra && new Set(mRows.map(r => r.operatorId)).size > 1;
+
   for (const label of labelList) {
     const samples = byLabel[label];
 
-    // ICC data — intra-operator uses occasion as rater
-    const iccData = samples.map(s => ({
-      subject: s.caseId,
-      rater: config.design === "intra" ? `occ${s.occasion}` : s.operatorId,
-      value: s.value,
-    }));
-    const uniqueSubjects = [...new Set(iccData.map(d => d.subject))];
-    const uniqueRaters = [...new Set(iccData.map(d => d.rater))];
-    const k = uniqueRaters.length;
+    // Unit of analysis × rater/occasion matrix. Intra-rater: the occasions are the
+    // "raters" and each case × operator is a unit; inter-rater / method
+    // comparison: operators (methods) are the raters.
+    const cell = {};
+    for (const r of samples) {
+      const unitKey = isIntra ? `${r.caseId}|${r.operatorId}` : r.caseId;
+      const raterKey = isIntra ? `occ${r.occasion}` : r.operatorId;
+      ((cell[unitKey] ||= {})[raterKey] ||= []).push(r.value);
+    }
+    let raters = [...new Set(samples.map(r => (isIntra ? `occ${r.occasion}` : r.operatorId)))];
+    raters.sort((a, b) => {
+      if (isIntra) return Number(a.slice(3)) - Number(b.slice(3));
+      if (isMethod && refOps.has(a) !== refOps.has(b)) return refOps.has(a) ? -1 : 1;
+      const ia = opOrder.indexOf(a), ib = opOrder.indexOf(b);
+      return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+    });
+    const units = Object.keys(cell);
+    const complete = units.filter(u => raters.every(rk => cell[u][rk]?.length));
+    const k = raters.length;
 
-    if (uniqueSubjects.length < 2 || k < 2) {
-      details.push({ label, n: samples.length, skip: true, reason: `Need ≥2 cases and ≥2 raters/occasions (have ${uniqueSubjects.length} cases, ${k} raters)` });
+    if (complete.length < 2 || k < 2) {
+      details.push({ label, n: samples.length, skip: true, reason: `Need ≥2 cases measured by every rater/occasion and ≥2 raters/occasions (have ${complete.length} complete cases, ${k} raters)` });
       continue;
     }
 
-    const iccType = config.iccModel || "icc2";
-    const iccResult = iccShroutFleiss(iccData, k, iccType);
-    const baResult = runBlandAltman(samples);
-    const dsResult = runDahlbergSEM(samples);
+    const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const matrix = complete.map(u => raters.map(rk => avg(cell[u][rk])));
+    const iccResult = iccFromMatrix(matrix, iccType);
 
-    // Correct SEM/MDC/CV using variance-components (σ_total × √(1−ICC)) instead
-    // of the naive dahlberg-equality which is only valid for 2 occasions.
-    let semCorrected = dsResult?.sem ?? null;
-    let mdcCorrected = dsResult?.mdc ?? null;
-    let cvCorrected = dsResult?.cv ?? null;
-    if (iccResult?.icc != null && dsResult?.totalSD != null) {
-      semCorrected = dsResult.totalSD * Math.sqrt(Math.max(0, 1 - iccResult.icc));
-      mdcCorrected = 1.96 * Math.sqrt(2) * semCorrected;
-      cvCorrected = dsResult.grandMean !== 0 ? (semCorrected / dsResult.grandMean) * 100 : 0;
+    // Bland-Altman for every ordered pair; the first pair is the headline result.
+    const pairs = [];
+    for (let a = 0; a < k; a++) {
+      for (let b = a + 1; b < k; b++) {
+        const ba = blandAltman(matrix.map(r => r[a]), matrix.map(r => r[b]));
+        if (ba) pairs.push({ comparison: `${raters[b]} − ${raters[a]}`, ...ba });
+      }
     }
+    const me = methodError(matrix, iccResult?.icc ?? null);
+    const nExcluded = units.length - complete.length;
 
     details.push({
       label,
-      n: samples.length,
       unit: dominantUnit(samples),
       icc: iccResult?.icc ?? null,
       ci95: iccResult?.ci95 || [null, null],
-      F: iccResult?.F || null,
-      df1: iccResult?.df1 || null,
-      df2: iccResult?.df2 || null,
-      pValue: iccResult?.pValue || null,
-      nSubjects: uniqueSubjects.length,
+      F: iccResult?.F ?? null,
+      df1: iccResult?.df1 ?? null,
+      df2: iccResult?.df2 ?? null,
+      pValue: iccResult?.pValue ?? null,
+      iccModel: iccResult?.model, iccModelLabel: iccResult?.modelLabel, iccModelDescription: iccResult?.modelDescription,
+      nSubjects: complete.length,
+      nExcluded,
       nRaters: k,
-      ...baResult,
-      ...dsResult,
-      sem: semCorrected,
-      mdc: mdcCorrected,
-      cv: cvCorrected,
+      raters,
+      ...(pairs[0] || {}),
+      baPairs: pairs,
+      nCases: complete.length,
+      ...me,
+      n: samples.length,
     });
+  }
+
+  if (multiOperatorIntra) {
+    details.forEach(d => { if (!d.skip) d.note = "Intra-rater units are case × operator; run one study per operator to report each rater separately."; });
   }
 
   // Landmark error map (now calibrated to mm)
@@ -441,7 +416,9 @@ export function runReliabilityAll(sessions, config, calibration) {
   // Minimum-sample-size warnings
   const warnings = [];
   const nCases = cases?.length || 0;
-  const nRaters = [...new Set(mRows.map(r => config.design === "intra" ? `occ${r.occasion}` : r.operatorId))].length;
+  const nRaters = [...new Set(mRows.map(r => isIntra ? `occ${r.occasion}` : r.operatorId))].length;
+  const excluded = details.filter(d => d.nExcluded > 0);
+  if (excluded.length) warnings.push(`Incomplete cases were excluded (listwise) from ${excluded.length} measurement(s): every case must be measured by every rater/occasion for ICC and Bland-Altman.`);
   if (nCases < 10) warnings.push(`Only ${nCases} cases — ICC estimates with < 10 subjects have wide confidence intervals and should be interpreted as preliminary.`);
   if (nRaters < 2) warnings.push("Need ≥ 2 raters/occasions for reliability analysis.");
   if (nCases >= 2 && nCases < 30) warnings.push(`ICC CI with ${nCases} subjects is wide — consider ≥ 30 subjects for a precise ICC estimate (Walter et al. 1998).`);

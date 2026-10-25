@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **627 tests (Vitest)**
+- **No TypeScript**, **681 tests (Vitest)**
 
 ---
 
@@ -133,7 +133,10 @@ src/
 │   ├── resultsExport.js        Results export
 │   ├── airway.js               Airway measurements + norms
 │   ├── descriptive.js          Descriptive statistics
-│   ├── reliability.js          ICC, Bland-Altman, Dahlberg
+│   ├── reliability.js          ICC (6 forms, psych-verified), Bland-Altman, Dahlberg
+│   ├── mixedModel.js           REML linear mixed model (random intercept/slope)
+│   ├── sampleSize.js           A-priori sample size
+│   ├── dataPreview.js          Study data matrix + tidy CSV
 │   ├── comparative.js          t-tests, ANOVA, MANOVA
 │   ├── correlation.js          Correlation + regression
 │   ├── longitudinal.js         RM-ANOVA, LMM
@@ -179,7 +182,7 @@ src/
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (627 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (681 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -496,7 +499,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 627 tests pass (33 test files, 0 failures)
+- `npm test` — 681 tests pass (39 test files, 0 failures)
 
 
 

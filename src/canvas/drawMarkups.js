@@ -144,6 +144,19 @@ function drawPoint(ctx, m, sp, isSel, t, zoom, pan, showAnnotations, annotationS
     ctx.fill();
   }
   
+  // Unreviewed AI landmark: dashed ring coloured by detector confidence.
+  if(m.aiPlaced === true && m.aiReviewed === false){
+    const tier = typeof m.aiConfidence === "number" ? (m.aiConfidence >= 0.7 ? "high" : m.aiConfidence >= 0.4 ? "medium" : "low") : "unknown";
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = tier === "high" ? (t.ok || "#4ade80") : tier === "medium" ? (t.warn || "#fbbf24") : (t.err || "#f87171");
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * 2.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.beginPath();
   ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
   ctx.fillStyle = m.color || t.acc;

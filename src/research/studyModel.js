@@ -75,7 +75,8 @@ export function mkStudy(type, opts = {}) {
   if (type === "superimposition") {
     base.config.baseSessionId = opts.config?.baseSessionId || "";
     base.config.compareSessionId = opts.config?.compareSessionId || "";
-    base.config.method = opts.config?.method || "procrustes";
+    base.config.method = opts.config?.method || "registration";
+    base.config.registration = opts.config?.registration || "SN_S";
     base.config.planePoint1 = opts.config?.planePoint1 || "";
     base.config.planePoint2 = opts.config?.planePoint2 || "";
   }

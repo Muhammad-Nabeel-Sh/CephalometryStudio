@@ -1,5 +1,6 @@
 import { dist, vpts, computeMeasurements } from "../lib/utils.js";
 import { resolveFacing } from "../lib/measureConventions.js";
+import { provenanceOf } from "./aiReview.js";
 
 export function finalizeCalibRuler(ruler, mm, markups, { pushUndo, updSession, dispatch }) {
   let rp = ruler;
@@ -29,15 +30,16 @@ export function finalizeCalibManual(ppmValue, pushUndo, updSession, dispatch) {
 }
 
 export function exportCSV(markups, calibration, formatAngle, projectName, facing) {
-  const rows = [["ID", "Type", "Label", "Definition", "Points_px", "Measurement", "Value", "Unit"]];
+  const rows = [["ID", "Type", "Label", "Definition", "Points_px", "Measurement", "Value", "Unit", "Source"]];
   const ctx = { facing: facing || resolveFacing("auto", markups) };
   markups.forEach(m => {
     const meas = computeMeasurements(m, calibration, ctx);
     const ps = vpts(m).map(p => `(${p.x.toFixed(1)},${p.y.toFixed(1)})`).join(";");
-    if (!Object.keys(meas).length) rows.push([m.id, m.type, m.label || "", m.definition || "", ps, "", "", ""]);
+    const src = provenanceOf(m);
+    if (!Object.keys(meas).length) rows.push([m.id, m.type, m.label || "", m.definition || "", ps, "", "", "", src]);
     else Object.entries(meas).forEach(([k, v]) => {
       if (k.startsWith("_")) return;
-      rows.push([m.id, m.type, m.label || "", m.definition || "", ps, k, v.toFixed(2), k === "angle" ? formatAngle(v) : (k === "x" || k === "y" || meas._unit !== "mm") ? "px" : "mm"]);
+      rows.push([m.id, m.type, m.label || "", m.definition || "", ps, k, v.toFixed(2), k === "angle" ? formatAngle(v) : (k === "x" || k === "y" || meas._unit !== "mm") ? "px" : "mm", src]);
     });
   });
   const a = document.createElement("a");
