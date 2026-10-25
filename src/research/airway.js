@@ -688,11 +688,15 @@ export function computeAirwayMeasurements(markups, calibration, sex, age) {
         const nSource = norm ? norm.source : def.normSource;
 
         // Skip z-score when not calibrated (pixel values vs mm norms are meaningless)
-        const zScore = (value !== null && calDone && nSD > 0)
+        // or when the reference is an estimate rather than a published norm.
+        const unvalidated = /^estimated/i.test(nSource || "");
+        const zScore = (value !== null && calDone && nSD > 0 && !unvalidated)
           ? (value - nMean) / nSD
           : null;
         const interpretation =
-          value !== null && calDone
+          value !== null && calDone && unvalidated
+            ? "No validated norm — reference value shown for context only"
+            : value !== null && calDone
             ? getInterpretation(zScore)
             : value !== null
               ? "Calibration required for z-score"

@@ -10,12 +10,12 @@
 // n_i × n_i system, so unbalanced data and missing visits are handled exactly —
 // unlike RM-ANOVA, subjects with incomplete follow-up are kept.
 //
-// Inference: Var(β̂) = σ̂²(Σ XᵢᵀHᵢ⁻¹Xᵢ)⁻¹ with a conservative between-subject
-// df = m − 2 (m subjects) for the t-tests. No Kenward–Roger / Satterthwaite
-// correction — reported as such.
+// Inference: Var(β̂) = σ̂²(Σ XᵢᵀHᵢ⁻¹Xᵢ)⁻¹ with Satterthwaite degrees of freedom
+// (numerical derivatives of the REML deviance, as in lmerTest).
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { tDistributeCDF, chi2CDF } from "../lib/utils.js";
+import { tQuantile } from "./statsCore.js";
 
 // Solve A x = b for symmetric positive-definite A via Cholesky; also returns log|A|.
 function cholesky(A) {
@@ -94,47 +94,58 @@ function groupObs(obs) {
   return [...by.values()];
 }
 
-// Profiled REML deviance for a relative covariance factor L (q × q, lower).
-function remlDeviance(groups, Lrel, q) {
-  const p = 2;
+// Fixed-effects design row of an observation: `o.x` when supplied (covariates,
+// quadratic term), else [1, t].
+const xRow = o => o.x || [1, o.t];
+
+// REML pieces for a relative covariance factor L (q × q, lower): profiled
+// deviance plus the terms needed to evaluate it at any σ² (Satterthwaite df).
+function remlCore(groups, Lrel, q) {
+  const p = xRow(groups[0][0]).length;
   let N = 0, logDetH = 0;
-  const XtHX = [[0, 0], [0, 0]], XtHy = [0, 0];
+  const XtHX = Array.from({ length: p }, () => Array(p).fill(0)), XtHy = Array(p).fill(0);
+  const G = Lrel.map(r => Lrel.map((_, j) => r.reduce((s, v, k) => s + v * Lrel[j][k], 0)));
   const cache = [];
   for (const g of groups) {
     const ni = g.length;
     N += ni;
     const Z = g.map(o => (q === 1 ? [1] : [1, o.t]));
-    const G = Lrel.map((r) => Lrel.map((_, j) => r.reduce((s, v, k) => s + v * Lrel[j][k], 0)));
     const H = Array.from({ length: ni }, (_, a) => Array.from({ length: ni }, (_, b) => {
       let s = a === b ? 1 : 0;
       for (let u = 0; u < q; u++) for (let v = 0; v < q; v++) s += Z[a][u] * G[u][v] * Z[b][v];
       return s;
     }));
     const Lh = cholesky(H);
-    if (!Lh) return { dev: Infinity };
+    if (!Lh) return null;
     logDetH += logDetChol(Lh);
-    const X = g.map(o => [1, o.t]);
-    const HiX = [cholSolve(Lh, X.map(r => r[0])), cholSolve(Lh, X.map(r => r[1]))];
+    const X = g.map(xRow);
+    const HiX = Array.from({ length: p }, (_, c) => cholSolve(Lh, X.map(r => r[c])));
     const Hiy = cholSolve(Lh, g.map(o => o.y));
-    for (let r = 0; r < 2; r++) {
-      for (let c = 0; c < 2; c++) XtHX[r][c] += X.reduce((s, row, a) => s + row[r] * HiX[c][a], 0);
+    for (let r = 0; r < p; r++) {
+      for (let c = 0; c < p; c++) XtHX[r][c] += X.reduce((s, row, a) => s + row[r] * HiX[c][a], 0);
       XtHy[r] += X.reduce((s, row, a) => s + row[r] * Hiy[a], 0);
     }
-    cache.push({ g, Lh, X, Hiy, HiX });
+    cache.push({ g, X, Hiy, HiX });
   }
   const Lx = cholesky(XtHX);
-  if (!Lx || N <= p) return { dev: Infinity };
+  if (!Lx || N <= p) return null;
   const beta = cholSolve(Lx, XtHy);
   let rss = 0;
-  for (const { g, Hiy, HiX } of cache) {
-    // rᵀH⁻¹r = yᵀH⁻¹y − 2βᵀXᵀH⁻¹y + βᵀXᵀH⁻¹Xβ, accumulated per subject.
-    const y = g.map(o => o.y);
-    const Hir = Hiy.map((v, a) => v - beta[0] * HiX[0][a] - beta[1] * HiX[1][a]);
-    rss += y.reduce((s, v, a) => s + (v - beta[0] - beta[1] * g[a].t) * Hir[a], 0);
+  for (const { g, X, Hiy, HiX } of cache) {
+    // rᵀH⁻¹r with r = y − Xβ, accumulated per subject.
+    const Hir = Hiy.map((v, a) => v - beta.reduce((s, b, c) => s + b * HiX[c][a], 0));
+    rss += g.reduce((s, o, a) => s + (o.y - X[a].reduce((t, xv, c) => t + xv * beta[c], 0)) * Hir[a], 0);
   }
-  const sigma2 = rss / (N - p);
-  const dev = (N - p) * Math.log(2 * Math.PI * sigma2) + logDetH + logDetChol(Lx) + (N - p);
-  return { dev, beta, sigma2, XtHX, N };
+  return { beta, rss, N, p, logDetH, logDetXtHX: logDetChol(Lx), XtHX };
+}
+
+// Profiled REML deviance (σ² at its optimum).
+function remlDeviance(groups, Lrel, q) {
+  const c = remlCore(groups, Lrel, q);
+  if (!c) return { dev: Infinity };
+  const sigma2 = c.rss / (c.N - c.p);
+  const dev = (c.N - c.p) * Math.log(2 * Math.PI * sigma2) + c.logDetH + c.logDetXtHX + (c.N - c.p);
+  return { dev, beta: c.beta, sigma2, XtHX: c.XtHX, N: c.N, p: c.p };
 }
 
 function relFactor(theta, q) {
@@ -142,8 +153,54 @@ function relFactor(theta, q) {
   return [[Math.exp(theta[0]), 0], [theta[1], Math.exp(theta[2])]];
 }
 
-// obs: [{ subject, t, y }]. Returns null when the model cannot be estimated.
-export function fitLMM(obs, { randomSlope = false, alpha = 0.05 } = {}) {
+// Satterthwaite df for each fixed effect (as lmerTest): φ(ψ) = Var(β̂ⱼ) as a
+// function of the variance parameters ψ = (log σ², θ); df = 2φ² / (∇φᵀ·Cov(ψ)·∇φ),
+// with Cov(ψ) = 2·H⁻¹ from the Hessian of the (unprofiled) REML deviance.
+function satterthwaiteDf(groups, q, theta, sigma2) {
+  const psi0 = [Math.log(sigma2), ...theta];
+  const fullDev = psi => {
+    const c = remlCore(groups, relFactor(psi.slice(1), q), q);
+    if (!c) return NaN;
+    const s2 = Math.exp(psi[0]);
+    return (c.N - c.p) * Math.log(2 * Math.PI * s2) + c.logDetH + c.logDetXtHX + c.rss / s2;
+  };
+  const varBeta = psi => {
+    const c = remlCore(groups, relFactor(psi.slice(1), q), q);
+    const inv = c && invertSPD(c.XtHX);
+    return inv ? inv.map((r, i) => r[i] * Math.exp(psi[0])) : null;
+  };
+  const d = psi0.length, h = 1e-3;
+  const shift = (psi, i, di) => psi.map((v, k) => (k === i ? v + di : v));
+  const Hm = Array.from({ length: d }, () => Array(d).fill(0));
+  const f0 = fullDev(psi0);
+  for (let a = 0; a < d; a++) {
+    for (let b = a; b < d; b++) {
+      const v = a === b
+        ? (fullDev(shift(psi0, a, h)) - 2 * f0 + fullDev(shift(psi0, a, -h))) / (h * h)
+        : (fullDev(shift(shift(psi0, a, h), b, h)) - fullDev(shift(shift(psi0, a, h), b, -h))
+          - fullDev(shift(shift(psi0, a, -h), b, h)) + fullDev(shift(shift(psi0, a, -h), b, -h))) / (4 * h * h);
+      Hm[a][b] = Hm[b][a] = v;
+    }
+  }
+  const Hinv = invertSPD(Hm);
+  const v0 = varBeta(psi0);
+  if (!Hinv || !v0) return null;
+  const cov = Hinv.map(r => r.map(x => 2 * x));
+  const grads = Array.from({ length: d }, (_, a) => {
+    const up = varBeta(shift(psi0, a, h)), dn = varBeta(shift(psi0, a, -h));
+    return up && dn ? up.map((u, j) => (u - dn[j]) / (2 * h)) : null;
+  });
+  if (grads.some(g => !g)) return null;
+  return v0.map((phi, j) => {
+    let q2 = 0;
+    for (let a = 0; a < d; a++) for (let b = 0; b < d; b++) q2 += grads[a][j] * cov[a][b] * grads[b][j];
+    return q2 > 0 ? (2 * phi * phi) / q2 : NaN;
+  });
+}
+
+// obs: [{ subject, t, y, x? }] — `x` is the fixed-effects row (default [1, t]);
+// `termNames` labels its columns. Returns null when the model cannot be estimated.
+export function fitLMM(obs, { randomSlope = false, alpha = 0.05, termNames } = {}) {
   const groups = groupObs(obs);
   const m = groups.length;
   const N = groups.reduce((s, g) => s + g.length, 0);
@@ -151,6 +208,8 @@ export function fitLMM(obs, { randomSlope = false, alpha = 0.05 } = {}) {
   const distinctT = new Set(groups.flatMap(g => g.map(o => o.t))).size;
   if (m < 3 || N < 4 || distinctT < 2) return null;
   if (randomSlope && groups.filter(g => new Set(g.map(o => o.t)).size >= 2).length < 3) return null;
+  const p = xRow(groups[0][0]).length;
+  if (N <= p + 1) return null;
 
   // Start: random-intercept SD ≈ residual SD, small slope SD; log scale keeps L PD.
   const start = q === 1 ? [0] : [0, 0, Math.log(0.1)];
@@ -168,12 +227,15 @@ export function fitLMM(obs, { randomSlope = false, alpha = 0.05 } = {}) {
   const covBeta = invertSPD(fit.XtHX)?.map(r => r.map(v => v * sigma2));
   if (!covBeta) return null;
   const G = L.map((r) => L.map((_, j) => sigma2 * r.reduce((s, v, k) => s + v * L[j][k], 0)));
-  const df = Math.max(1, m - 2);
-  const tCrit = (() => { let lo = 0, hi = 50; for (let i = 0; i < 100; i++) { const mid = (lo + hi) / 2; if (tDistributeCDF(mid, df) < 1 - alpha / 2) lo = mid; else hi = mid; } return (lo + hi) / 2; })();
-  const fixedEffects = ["Intercept", "Time (slope)"].map((term, i) => {
+  // Satterthwaite df; falls back to the conservative between-subject df.
+  const satt = satterthwaiteDf(groups, q, opt.x, sigma2);
+  const names = termNames || ["Intercept", "Time (slope)"];
+  const fixedEffects = beta.map((b, i) => {
     const se = Math.sqrt(Math.max(covBeta[i][i], 0));
-    const t = se > 0 ? beta[i] / se : 0;
-    return { term, estimate: beta[i], se, t, df, p: se > 0 ? 2 * (1 - tDistributeCDF(Math.abs(t), df)) : 1, ci95: [beta[i] - tCrit * se, beta[i] + tCrit * se] };
+    const dfi = satt && isFinite(satt[i]) ? Math.min(Math.max(satt[i], 1), N - p) : Math.max(1, m - 2);
+    const tCrit = tQuantile(1 - alpha / 2, dfi);
+    const t = se > 0 ? b / se : 0;
+    return { term: names[i] || `β${i}`, estimate: b, se, t, df: dfi, p: se > 0 ? 2 * (1 - tDistributeCDF(Math.abs(t), dfi)) : 1, ci95: [b - tCrit * se, b + tCrit * se] };
   });
   const nVarPars = q === 1 ? 2 : 4; // G entries + σ²
   const logLik = -fit.dev / 2;
@@ -186,7 +248,8 @@ export function fitLMM(obs, { randomSlope = false, alpha = 0.05 } = {}) {
       residualVariance: sigma2,
       icc: G[0][0] / (G[0][0] + sigma2),
     },
-    fit: { logLik, aic: -2 * logLik + 2 * (2 + nVarPars), bic: -2 * logLik + (2 + nVarPars) * Math.log(N), n: N, subjects: m, likelihood: "REML" },
+    fit: { logLik, aic: -2 * logLik + 2 * (p + nVarPars), bic: -2 * logLik + (p + nVarPars) * Math.log(N), n: N, subjects: m, likelihood: "REML" },
+    dfMethod: satt ? "Satterthwaite" : "between-subject (m − 2)",
     randomSlope: q === 2,
     converged: opt.converged,
   };

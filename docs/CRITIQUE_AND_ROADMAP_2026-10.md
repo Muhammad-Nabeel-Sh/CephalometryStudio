@@ -8,6 +8,8 @@
 > **Update (Phase 0 done, uncommitted):** C1–C6 are fixed — `primaryMeasure()`, a patient-facing frame with signed geometry (Wits, E-line, convexity, ANB, AB-plane), and corrected McNamara/Ricketts/Downs/Jarabak definitions. A mean-skull plausibility scan also found and fixed reversed reference order in Steiner Occlusal-SN and U1-NA°, Downs occlusal plane, Björk ML-NSL/U1-NSL, Tweed FMIA, and Bimler/Lautrou interincisal. Norms are withheld for Kim ODI/APDI/CF and Björk U1-ML until they are properly sourced. See `CHANGELOG.md` → *Unreleased*. Still open from §2: the C7 synthesis layer and the SD audit (most SDs are still round numbers).
 >
 > **Update (Phase 1, uncommitted):** S1–S5 done (ICC forms/CIs, Bland-Altman pairing, REML mixed model on age, Welch/Games-Howell policy with subject pairing, stable-structure registration). Also fixed two bugs not in this review: `statsCore.normalCdf` computed Φ(x√2) and the studentized-range CDF was wrong, both making p-values too small. Added sample-size calculator and data preview. AI: A4/A5 done (review state, confidence display, no production demo fallback). Deliberately deferred while the model work continues: A1–A3 (worker/WebGPU, COOP/COEP, removing the hypothesis search), R-script export, and the norm-population audit.
+>
+> **Update (C/S close-out, uncommitted):** remaining C1–C7 and S1–S6 gaps closed — see `CHANGELOG.md`. Also fixed: Shapiro-Wilk (now AS R94, R-exact) and the normal-quantile tail sign. Still requires sourced data: population norm sets, published SDs for Steiner/Tweed, Kim ODI/APDI, Björk U1-ML.
 
 ---
 

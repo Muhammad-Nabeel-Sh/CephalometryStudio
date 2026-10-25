@@ -184,9 +184,9 @@ describe("projectedDistance", () => {
 describe("computeMeasurements", () => {
   const cal = { done: true, pxPerMm: 2 };
 
-  it("returns x,y for a point", () => {
+  it("returns x,y for a point in the calibrated unit", () => {
     const m = { type: "point", points: [{ x: 10, y: 20 }] };
-    expect(computeMeasurements(m, cal)).toEqual({ x: 10, y: 20, _unit: "mm" });
+    expect(computeMeasurements(m, cal)).toEqual({ x: 5, y: 10, _unit: "mm" });
   });
 
   it("returns length for a line", () => {

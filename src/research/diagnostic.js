@@ -1,24 +1,9 @@
 import { collectMeasurements, pivotMeasurements } from "./collect.js";
 import { chi2CDF } from "../lib/utils.js";
-import { normalCdf as normalCDF, dot, matVecMul, matMul, matInverse, transposeMatrix, addIntercept } from "./statsCore.js";
+import { normalCdf as normalCDF, zQuantile, bonferroniAdjust, dot, matVecMul, matMul, matInverse, transposeMatrix, addIntercept } from "./statsCore.js";
+
+const zCritical = alpha => zQuantile(1 - alpha / 2);
 // ─── Math helpers ────────────────────────────────────────────────────────────
-function zCritical(alpha) {
-  const p = 1 - alpha / 2;
-  let lo = 0.0, hi = 5.0, mid;
-  for (let it = 0; it < 60; it++) {
-    mid = (lo + hi) / 2;
-    const c = normalCDF(mid);
-    if (c < p) lo = mid; else hi = mid;
-    if (Math.abs(c - p) < 1e-12) break;
-  }
-  return (lo + hi) / 2;
-}
-
-function bonferroniAdjust(pValues) {
-  const m = pValues.length;
-  return pValues.map(p => ({ original: p, adjusted: Math.min(p * m, 1), significant: Math.min(p * m, 1) < 0.05 }));
-}
-
 function sigmoid(z) {
   return 1 / (1 + Math.exp(-Math.max(Math.min(z, 700), -700)));
 }

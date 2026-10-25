@@ -716,7 +716,7 @@ function ICCView({ details, t }) {
         </thead>
         <tbody>
           {valid.map(r => {
-            const intLabel = iccInterpretation(r.icc);
+            const intLabel = r.iccRating ? `${r.iccRating} (95% CI)` : iccInterpretation(r.icc);
             const intColor = iccColor(r.icc);
             return (
               <tr key={r.label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>

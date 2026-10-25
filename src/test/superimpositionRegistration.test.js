@@ -65,3 +65,29 @@ describe("S-N registration at S", () => {
     expect(res.error).toMatch(/Ba, N, PT and Gn/);
   });
 });
+
+describe("S5 additions", () => {
+  it("symphysis best-fit registers the chin region with no residual for rigid motion", () => {
+    const P = averageCeph();
+    const base = pointsToMarkups(P);
+    // T2: whole mandible rotated 4° and shifted, maxilla unchanged.
+    const th = (4 * Math.PI) / 180, Go = P.Go;
+    const T2 = { ...P };
+    for (const k of ["B", "Pog", "Gn", "Me", "Ii", "Iia"]) {
+      const p = P[k], dx = p.x - Go.x, dy = p.y - Go.y;
+      T2[k] = { x: Go.x + dx * Math.cos(th) - dy * Math.sin(th) + 5, y: Go.y + dx * Math.sin(th) + dy * Math.cos(th) + 3 };
+    }
+    const r = runSuperimposition(base, pointsToMarkups(T2), { method: "registration", registration: "mandible_symphysis" });
+    expect(r.error).toBeUndefined();
+    for (const k of ["B", "Pog", "Gn", "Me"]) {
+      const d = r.displacements.find(x => x.label === k);
+      expect(Math.hypot(d.dx, d.dy)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("uses the landmark-specific error for app labels (S → Sella's value)", () => {
+    const { base, compare } = grownPair();
+    const r = runSuperimposition(base, compare, { method: "registration", registration: "SN_S" });
+    expect(r.displacements.find(d => d.label === "S").typicalErrorMm).toBe(0.6);
+  });
+});

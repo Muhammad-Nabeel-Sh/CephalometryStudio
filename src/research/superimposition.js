@@ -4,8 +4,9 @@
 // multi-timepoint longitudinal analysis, and group-level research.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { vpts, primaryMeasure, tDistributeCDF } from "../lib/utils.js";
+import { vpts, primaryMeasure } from "../lib/utils.js";
 import { resolveFacing } from "../lib/measureConventions.js";
+import { tQuantile as tCritical } from "./statsCore.js";
 
 // ─── Structural reference planes ─────────────────────────────────────────────
 
@@ -40,8 +41,24 @@ export const REGISTRATIONS = [
   { id: "SN_S", label: "Anterior cranial base: S-N registered at S", origin: "Sella", other: "Nasion" },
   { id: "BaN_CC", label: "Ricketts: Ba-N registered at CC (Ba-N ∩ Pt-Gn)", origin: "CC", other: "Nasion" },
   { id: "palatal_ANS", label: "Maxilla: palatal plane registered at ANS", origin: "ANS", other: "PNS" },
+  { id: "mandible_symphysis", label: "Mandible: symphysis best-fit (B, Pog, Gn, Me, PM)", fit: ["B", "Pog", "Gn", "Me", "PM"] },
   { id: "mandible_Me", label: "Mandible: Go-Me registered at Me (approximation of structural superimposition)", origin: "Me", other: "Go" },
 ];
+
+// Best-fit registrations (rotation + translation over a local landmark set):
+// the symphysis is the most stable mandibular region available as point
+// landmarks; true Björk structural superimposition (inner symphysis cortex,
+// mandibular canal, developing molar germs) needs traced contours.
+export function fitRegistrationPairs(srcMarkups, dstMarkups, regId) {
+  const reg = REGISTRATIONS.find(r => r.id === regId);
+  if (!reg?.fit) return null;
+  const src = [], dst = [];
+  for (const name of reg.fit) {
+    const a = findLandmark(srcMarkups, name), b = findLandmark(dstMarkups, name);
+    if (a && b) { src.push(a); dst.push(b); }
+  }
+  return src.length >= 3 ? { src, dst } : null;
+}
 
 function lineIntersection(p1, p2, p3, p4) {
   const d = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
@@ -95,7 +112,11 @@ export const SOFT_TISSUE_LANDMARKS = [
 ];
 
 // ─── Typical measurement error (mm) for cephalometric landmarks ──────────────
-// Based on published inter/intra-rater reliability studies
+// Approximate landmark identification errors in the range reported by
+// reliability studies (e.g. Baumrind & Frantz 1971; Trpkova et al. 1997). They
+// are generic defaults, not calibrated to this operator or device — for a
+// study, measure your own error (Reliability module) and interpret the
+// "significant change" flags as indicative only.
 
 export const TYPICAL_ERROR_MM = {
   _default: 0.5,
@@ -358,7 +379,8 @@ export function computeDisplacementsWithError(matched, transform, pxPerMm) {
   const displacements = computeDisplacements(matched, transform, pxPerMm);
   const mm = pxPerMm > 0;
   return displacements.map(d => {
-    const errMm = TYPICAL_ERROR_MM[d.label] || TYPICAL_ERROR_MM._default;
+    const canon = Object.keys(LANDMARK_ALIASES).find(k => LANDMARK_ALIASES[k].includes(d.label));
+    const errMm = TYPICAL_ERROR_MM[d.label] ?? (canon ? TYPICAL_ERROR_MM[canon] : undefined) ?? TYPICAL_ERROR_MM._default;
     const errPx = mm ? errMm * pxPerMm : errMm;
     const propagatedErr = Math.sqrt(errPx ** 2 + errPx ** 2) * (mm ? 1 / pxPerMm : 1);
     const sigRatio = propagatedErr > 0 ? d.lenMm / propagatedErr : Infinity;
@@ -800,7 +822,13 @@ export function runSuperimposition(baseMarkups, compareMarkups, config) {
   let transform;
   let alignmentLabel;
 
-  if (method === "registration") {
+  if (method === "registration" && REGISTRATIONS.find(r => r.id === registration)?.fit) {
+    const reg = REGISTRATIONS.find(r => r.id === registration);
+    const pairs = fitRegistrationPairs(compNorm, baseNorm, reg.id);
+    if (!pairs) return { error: `"${reg.label}" needs at least 3 of ${reg.fit.join(", ")} in both sessions` };
+    transform = procrustesAlign(pairs.src, pairs.dst, { allowScale: false });
+    alignmentLabel = `${reg.label} — ${pairs.src.length} landmarks`;
+  } else if (method === "registration") {
     const reg = REGISTRATIONS.find(r => r.id === registration) || REGISTRATIONS[0];
     const srcPlane = registrationPoints(compNorm, reg.id);
     const dstPlane = registrationPoints(baseNorm, reg.id);
@@ -1034,20 +1062,6 @@ export function computeGroupSuperimposition(caseResults) {
 }
 
 // ─── t-critical helper (invert tDistributeCDF) ───────────────────────────────
-function tCritical(p, df) {
-  if (df <= 0) return 1.96;
-  if (df > 1000) return p >= 0.995 ? 2.576 : p >= 0.975 ? 1.96 : p >= 0.95 ? 1.645 : 0;
-  const target = p;
-  let lo = 0.0, hi = 8.0, mid;
-  for (let it = 0; it < 60; it++) {
-    mid = (lo + hi) / 2;
-    const cdf = tDistributeCDF(mid, df);
-    if (cdf < target) lo = mid; else hi = mid;
-    if (Math.abs(cdf - target) < 1e-10) break;
-  }
-  return (lo + hi) / 2;
-}
-
 // ─── Study-level runner (called by engine.js) ────────────────────────────────
 
 export function runSuperimpositionAll(sessions, config, calibration) {

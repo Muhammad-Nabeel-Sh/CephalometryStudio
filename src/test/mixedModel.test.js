@@ -38,9 +38,10 @@ describe("REML random-intercept model — balanced data equals the ANOVA closed 
     expect(r.randomEffects.subjectVariance).toBeCloseTo(tau, 3);
     expect(r.fit.likelihood).toBe("REML");
   });
-  it("slope SE = √(σ²/(n·Σ(t−t̄)²)) and df = subjects − 2", () => {
+  it("slope SE = √(σ²/(n·Σ(t−t̄)²)); Satterthwaite df = within-subject df n(k−1)−1", () => {
     expect(r.fixedEffects[1].se).toBeCloseTo(Math.sqrt(s2 / (n * Stt)), 5);
-    expect(r.fixedEffects[1].df).toBe(n - 2);
+    expect(r.dfMethod).toBe("Satterthwaite");
+    expect(r.fixedEffects[1].df).toBeCloseTo(n * (k - 1) - 1, 2);
   });
 });
 
@@ -116,5 +117,42 @@ describe("runLongitudinalAll — mixed model integration", () => {
     const r = runLongitudinalAll(sessions, { subjects, timepoints: [{ id: "T0" }, { id: "T1" }], labelIds: ["L"], modelType: "mixed_model" });
     expect(r.labels.L.lmm.timeAxis).toBe("index");
     expect(r.labels.L.lmm.warnings.join(" ")).toMatch(/No ages recorded/);
+  });
+});
+
+describe("mixed model — quadratic growth and covariates", () => {
+  // 8 boys + 8 girls, ages 8–16; girls grow 1.0/yr, boys 2.0/yr, both decelerating.
+  function study(cfg) {
+    const { g } = rng(21);
+    const sessions = [], subjects = [];
+    const ages = [8, 10, 12, 14, 16];
+    for (let i = 0; i < 16; i++) {
+      const sex = i < 8 ? "female" : "male";
+      const rate = sex === "male" ? 2 : 1, b0 = g() * 2, rec = {};
+      ages.forEach((age, j) => {
+        const a = age - 8;
+        const v = 100 + b0 + rate * a - 0.05 * a * a + g() * 0.3;
+        const id = `s${i}_${j}`;
+        sessions.push(makeSession(id, [lineMarkup("Co-Gn", v)], { meta: { age: String(age), sex } }));
+        rec[`T${j}`] = id;
+      });
+      subjects.push({ id: `P${i}`, label: `P${i}`, records: rec });
+    }
+    return runLongitudinalAll(sessions, { subjects, timepoints: ages.map((a, j) => ({ id: `T${j}`, label: `${a}y` })), labelIds: ["Co-Gn"], modelType: "mixed_model", ...cfg }).labels["Co-Gn"].lmm;
+  }
+
+  it("estimates the curvature term", () => {
+    const m = study({ growthCurve: "quadratic" });
+    const quad = m.fixedEffects.find(f => /Time²/.test(f.term));
+    expect(quad.estimate).toBeCloseTo(-0.05, 1);
+    expect(m.growthCurve).toBe("quadratic");
+  });
+
+  it("detects the sex difference in growth rate (Time × sex)", () => {
+    const m = study({ covariate: "sex" });
+    expect(m.covariate.levels).toEqual(["female", "male"]);
+    const inter = m.fixedEffects.find(f => /Time × sex male/.test(f.term));
+    expect(inter.estimate).toBeGreaterThan(0.7);
+    expect(inter.p).toBeLessThan(0.001);
   });
 });

@@ -5,6 +5,7 @@
 import { uid, dist, primaryMeasure } from "../lib/utils.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 import { PREDEFINED } from "../data/constants.js";
+import { isApproximateSd } from "../data/norms.js";
 
 // Value a computed measurement (ratio/sum/difference/percentage) reads from a
 // referenced markup: its primary measurement, never a raw coordinate.
@@ -16,6 +17,13 @@ export function getMeasValue(m, calibration, ctx) {
     return dist(m.points[0], m.points[1]) / ppm;
   }
   return 0;
+}
+
+// "°" when every referenced measurement is an angle, else the length unit.
+export function combinedUnit(matched, calibration, ctx) {
+  const units = matched.map(m => primaryMeasure(m, calibration, ctx)?.unit).filter(Boolean);
+  if (units.length && units.every(u => u === "°")) return "°";
+  return calibration?.done ? "mm" : "px";
 }
 
 function resolveLabel(rl, placedByLabel, placedByTemplateLabel) {
@@ -93,16 +101,79 @@ export function autoCreateMeasurements(markups, templateName, calibration, facin
     } else {
       computedValue = matched.reduce((s, m) => s + getMeasValue(m, calibration, ctx), 0);
     }
+    const valueUnit = combinedUnit(matched, calibration, ctx);
     result.push({
       id: uid(), type: meas.type, points: [],
       label: meas.l, definition: meas.def || "",
       color: meas.color || "#888",
       visible: true, locked: true, autoCreated: true,
-      refLabels: resolvedRefLabels, refTemplateIds: resolvedRefTemplateIds, computedValue, norm: meas.norm,
+      refLabels: resolvedRefLabels, refTemplateIds: resolvedRefTemplateIds, computedValue, valueUnit, norm: meas.norm,
       templateId: `${templateName}::${meas.l}`,
     });
   }
   return result;
+}
+
+// ─── Definition migration for saved projects ─────────────────────────────────
+// Auto-created measurements copy their template's reference landmarks when they
+// are created. When a definition is corrected (reference order, landmarks, norm),
+// saved projects would keep the old one. On load, every auto-created markup is
+// re-synced to its current definition (matched by templateId "Analysis::Label")
+// when all of the new reference landmarks are placed. Measurements whose
+// definition was removed or changed type are left untouched.
+function findMeasurementDef(templateId) {
+  const sep = typeof templateId === "string" ? templateId.indexOf("::") : -1;
+  if (sep < 0) return null;
+  const analysisName = templateId.slice(0, sep), label = templateId.slice(sep + 2);
+  for (const list of Object.values(PREDEFINED)) {
+    if (!Array.isArray(list)) continue;
+    const a = list.find(x => x.name === analysisName);
+    const def = a?.measurements?.find(mm => mm.l === label);
+    if (def) return def;
+  }
+  return null;
+}
+
+const sameList = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
+const POINT_TYPES = new Set(["line", "angle3", "angle4", "perp", "projDist", "polygon"]);
+
+export function migrateMeasurementDefinitions(markups) {
+  if (!Array.isArray(markups) || !markups.some(m => m.autoCreated && m.templateId)) return markups;
+  const { byLabel, byTemplateLabel } = buildLookups(markups.filter(m => m.type === "point" && m.placed !== false));
+  let changed = false;
+  const out = markups.map(m => {
+    if (!m.autoCreated || !m.templateId || !POINT_TYPES.has(m.type)) return m;
+    const def = findMeasurementDef(m.templateId);
+    if (!def || def.type !== m.type) return m;
+    const sameRefs = sameList(def.pts, m.refLabels);
+    const sameNorm = (def.norm?.mean ?? null) === (m.norm?.mean ?? null) && (def.norm?.sd ?? null) === (m.norm?.sd ?? null);
+    if (sameRefs && sameNorm && (def.def || "") === (m.definition || "")) return m;
+    const next = { ...m, norm: def.norm, definition: def.def || m.definition };
+    if (!sameRefs) {
+      const matched = def.pts.map(rl => resolveLabel(rl, byLabel, byTemplateLabel));
+      if (matched.some(x => !x || !x.points?.[0])) return m; // new landmarks not placed: keep as is
+      next.points = matched.map(x => x.points[0]);
+      next.refLabels = matched.map(x => x.templateLabel || x.label);
+      next.refTemplateIds = matched.map(x => x.templateId || null);
+    }
+    changed = true;
+    return next;
+  });
+  return changed ? out : markups;
+}
+
+// Keep a session's norm list in step with migrated definitions (by label).
+export function migrateNorms(norms, markups) {
+  if (!Array.isArray(norms) || !norms.length) return norms;
+  const byLabel = new Map((markups || []).filter(m => m.autoCreated && m.norm).map(m => [m.label, m.norm]));
+  let changed = false;
+  const out = norms.map(n => {
+    const cur = byLabel.get(n.markupLabel);
+    if (!cur || (cur.mean === n.mean && cur.sd === n.sd)) return n;
+    changed = true;
+    return { ...n, mean: cur.mean, sd: cur.sd };
+  });
+  return changed ? out : norms;
 }
 
 // ─── Decoupled analysis application ──────────────────────────────────────────
@@ -193,7 +264,8 @@ export function deriveNorms(measurements, templateName) {
     if (!m.norm) continue;
     const measureType = NORM_MEASURE_TYPE[m.type] || "distance";
     if (out.some(n => n.markupLabel === m.label && n.measureType === measureType)) continue;
-    out.push({ id: uid(), markupLabel: m.label, measureType, mean: m.norm.mean, sd: m.norm.sd, source: templateName });
+    out.push({ id: uid(), markupLabel: m.label, measureType, mean: m.norm.mean, sd: m.norm.sd, source: templateName,
+      ...(isApproximateSd(templateName, m.label, m.norm.sd) ? { sdApproximate: true } : {}) });
   }
   return out;
 }

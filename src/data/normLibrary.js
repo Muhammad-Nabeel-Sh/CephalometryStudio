@@ -27,7 +27,7 @@ function _uid() { _counter++; return "np_" + _counter.toString(36) + Math.random
 export function addPreset(preset) {
   const errors = validatePreset(preset);
   if (errors.length > 0) return { ok: false, error: errors.join("; ") };
-  const p = { id: _uid(), name: preset.name.trim(), source: (preset.source || "").trim(), population: (preset.population || "").trim(), ageRange: (preset.ageRange || "").trim(), sex: (preset.sex || "").trim(), stratification: (preset.stratification || "").trim(), norms: preset.norms.map(n => ({ label: n.label.trim(), mean: Number(n.mean), sd: Number(n.sd), type: VALID_TYPES.includes(n.type) ? n.type : "angle" })) };
+  const p = { id: _uid(), name: preset.name.trim(), source: (preset.source || "").trim(), population: (preset.population || "").trim(), ageRange: (preset.ageRange || "").trim(), sex: (preset.sex || "").trim(), stratification: (preset.stratification || "").trim(), citation: (preset.citation || "").trim(), doi: (preset.doi || "").trim(), sampleSize: Number.isFinite(Number(preset.sampleSize)) && preset.sampleSize !== "" ? Number(preset.sampleSize) : null, norms: preset.norms.map(n => ({ label: n.label.trim(), mean: Number(n.mean), sd: Number(n.sd), type: VALID_TYPES.includes(n.type) ? n.type : "angle" })) };
   return { ok: true, preset: p };
 }
 

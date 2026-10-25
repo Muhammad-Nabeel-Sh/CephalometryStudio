@@ -1,5 +1,5 @@
 import { uid } from "../lib/utils.js";
-import { getMeasValue } from "./template.js";
+import { getMeasValue, combinedUnit } from "./template.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 
 function buildLookups(markups) {
@@ -43,7 +43,8 @@ export function refreshAutoMeasurements(markups, calibration, facingSetting) {
       } else {
         nv = matched.reduce((s, x) => s + getMeasValue(x, calibration, ctx), 0);
       }
-      if (m.computedValue !== nv) return { ...m, computedValue: nv };
+      const vu = m.type === "sum" || m.type === "difference" ? combinedUnit(matched, calibration, ctx) : m.valueUnit;
+      if (m.computedValue !== nv || m.valueUnit !== vu) return { ...m, computedValue: nv, valueUnit: vu };
       return m;
     }
     const matched = m.refLabels.map((rl, i) => resolveRef(rl, m.refTemplateIds?.[i], { byLabel: placed, byTemplateLabel: placedTL, byTemplateId: placedTID }));

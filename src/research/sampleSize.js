@@ -13,17 +13,8 @@
 //     half-width of each limit ≈ 1.96·√(3/n)·SD equals the requested fraction of SD.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { normalCdf } from "./statsCore.js";
-
-export function zQuantile(p) {
-  if (!(p > 0 && p < 1)) return NaN;
-  let lo = -40, hi = 40;
-  for (let i = 0; i < 200; i++) {
-    const mid = (lo + hi) / 2;
-    if (normalCdf(mid) < p) lo = mid; else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
+import { zQuantile } from "../lib/distributions.js";
+export { zQuantile };
 
 const valid = (...xs) => xs.every(x => typeof x === "number" && isFinite(x));
 

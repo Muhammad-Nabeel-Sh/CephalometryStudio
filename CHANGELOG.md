@@ -1,5 +1,54 @@
 # Changelog
 
+## [Unreleased] - Closing the C1–C7 / S1–S6 review items
+
+> Re-run studies once more: Shapiro-Wilk p-values were wrong (normality checks, the legacy
+> test route and reference-interval method), and several angle definitions were reversed.
+
+### Fixed - Statistics
+- **Shapiro-Wilk** replaced with Royston's AS R94 (as R `shapiro.test`); the old version used
+  Shapiro-Francia weights and a large-n p-value formula (Shapiro & Wilk's own skewed example
+  scored p ≈ 0.998). The normal-quantile helper had the wrong tail sign.
+- Paired 3+ condition RM-ANOVA (Comparative) now has Mauchly's test + Greenhouse-Geisser df.
+- Reference-interval limit SE uses 2(n−1).
+- One normal CDF (`lib/distributions.js`); t/F/z quantiles and Bonferroni/Holm live in statsCore.
+
+### Added - Statistics
+- Comparative: Dunn's test (Holm) after Kruskal-Wallis, pairwise Wilcoxon (Holm) after Friedman,
+  paired designs matched by patient ID when every case has one.
+- Reliability: per-operator intra-rater results, Koo & Li rating from the 95% CI,
+  Bland & Altman (2007) method for methods measured with replicates.
+- Mixed model: Satterthwaite df (as lmerTest), quadratic growth term, sex/group covariate with its
+  time interaction.
+- Superimposition: mandibular symphysis best-fit registration; landmark-error model looked up by
+  app labels (S/N…) instead of always falling back to the default.
+- End-to-end golden tests against R (`sleep`, `PlantGrowth`, `cars`; Shapiro-Wilk).
+
+### Fixed - Measurements and norms
+- Reversed angle definitions: Cagliari/Chieti/McGann occlusal plane–SN. Legan & Burstone vertical
+  facial ratio is a length ratio (was an angle). "Facial convexity" is consistently 180° − interior
+  angle (signed) across Legan, Arnett, Lateral Photo, Epker and COGS.
+- Norms withheld (not the published measure): Delaire craniofacial angle, airway MAS duplicate and
+  the non-Fujioka adenoid/nasopharynx ratio. "Estimated" airway norms no longer produce z-scores.
+- `x`/`y` are reported in mm when calibrated; sums of angles (Björk) are labelled °.
+- Hand-drawn perpendicular distances can be switched to signed in Properties.
+- Saved projects are migrated to corrected definitions on open (when the landmarks exist).
+- Norm presets carry citations; Steiner/Tweed (and Steiner-copied SNA/SNB/ANB ±2°) are flagged
+  "SD approx." in the interpretation. Custom norm presets keep citation/DOI/sample size.
+- Research McNamara norms use the analysis labels (Co-A, Co-Gn, MMD, ANS-Me) and McNamara 1984
+  adult values; child strata marked approximate.
+
+### Added - Interpretation
+- Diagnostic summary (skeletal class with jaw attribution, vertical pattern, dentoalveolar
+  compensation) and a "measures disagree" note (e.g. ANB vs Wits, with SN-FH context).
+
+### Not done (needs sourced data)
+- Population-specific (non-Caucasian) norm sets and published SDs for Steiner/Tweed; Kim ODI/APDI
+  composites; Björk U1-ML norm.
+
+### Tests
+- 710 tests (42 files), lint clean, build OK.
+
 ## [Unreleased] - Phase 1: statistical methodology and AI review
 
 > Re-run Reliability, Comparative, Longitudinal and Diagnostic studies: several p-values and

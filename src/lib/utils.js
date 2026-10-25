@@ -4,6 +4,7 @@
 
 import { create, all } from "mathjs";
 import { SILHOUETTES } from "../data/silhouettes.js";
+import { normalCdf as normalCDF } from "./distributions.js";
 import {
   angle3Convention, angle4Convention, isSignedPerp, orderForVertex, resolveFacing,
   signedAngle3, convexityAngle, abPlaneAngle, signedPerpDist, signedProjection,
@@ -105,7 +106,8 @@ export function computeMeasurements(m, cal, ctx) {
   const ppm = calDone ? (cal.pxPerMm || 1) : 1;
   const facing = ctx?.facing === "left" ? "left" : "right";
   const meas = {}, vp = vpts(m);
-  if (vp.length > 0) { meas.x = vp[0].x; meas.y = vp[0].y; }
+  // First point's position, in the same unit as every other value (mm when calibrated).
+  if (vp.length > 0) { meas.x = vp[0].x / ppm; meas.y = vp[0].y / ppm; }
   if ((m.type === "line" || m.type === "parallel") && vp.length >= 2 && m.mode !== "infinite") {
     meas.length = dist(vp[0], vp[1]) / ppm;
   }
@@ -227,6 +229,8 @@ export function primaryMeasure(m, cal, ctx) {
   if (key === "angle") unit = "°";
   else if (m.type === "ratio") unit = "";
   else if (m.type === "percentage") unit = "%";
+  // Sums/differences inherit the unit of what they combine (° for Björk's sum).
+  else if ((m.type === "sum" || m.type === "difference") && m.valueUnit === "°") unit = "°";
   else if (AREA_KEYS.has(key)) unit = meas._unit === "mm" ? "mm²" : "px²";
   else unit = meas._unit === "mm" ? "mm" : "px";
   return { key, value, unit };
@@ -663,6 +667,44 @@ export const standardError = (arr, icc) => {
 
 export const minimalDetectableChange = (sem, confidence = 1.96) => confidence * sem * Math.sqrt(2);
 
+// Shapiro-Wilk W and p-value — Royston (1995) algorithm AS R94, the method
+// used by R's shapiro.test (coefficients, small-sample n ≤ 11 and large-sample
+// normalising transformations). The previous version used Shapiro-Francia
+// weights with a single large-n p-value formula, which grossly overstated p for
+// small samples (Shapiro & Wilk's own skewed example scored p ≈ 0.998).
+const SW_C1 = [0, 0.221157, -0.147981, -2.07119, 4.434685, -2.706056];
+const SW_C2 = [0, 0.042981, -0.293762, -1.752461, 5.682633, -3.582633];
+const SW_C3 = [0.544, -0.39978, 0.025054, -6.714e-4];
+const SW_C4 = [1.3822, -0.77857, 0.062767, -0.0020322];
+const SW_C5 = [-1.5861, -0.31082, -0.083751, 0.0038915];
+const SW_C6 = [-0.4803, -0.082676, 0.0030302];
+const poly = (c, x) => c.reduceRight((acc, ci) => acc * x + ci, 0);
+
+function shapiroCoefficients(n) {
+  const n2 = Math.floor(n / 2);
+  if (n === 3) return [Math.SQRT1_2];
+  const an25 = n + 0.25;
+  const m = Array.from({ length: n2 }, (_, i) => normalQuantile((i + 1 - 0.375) / an25)); // negative (lower half)
+  const summ2 = 2 * m.reduce((sum, v) => sum + v * v, 0);
+  const ssumm2 = Math.sqrt(summ2);
+  const rsn = 1 / Math.sqrt(n);
+  const a1 = poly(SW_C1, rsn) - m[0] / ssumm2;
+  const a = Array(n2);
+  a[0] = a1;
+  let i1, fac;
+  if (n > 5) {
+    i1 = 2;
+    const a2 = -m[1] / ssumm2 + poly(SW_C2, rsn);
+    fac = Math.sqrt((summ2 - 2 * m[0] ** 2 - 2 * m[1] ** 2) / (1 - 2 * a1 ** 2 - 2 * a2 ** 2));
+    a[1] = a2;
+  } else {
+    i1 = 1;
+    fac = Math.sqrt((summ2 - 2 * m[0] ** 2) / (1 - 2 * a1 ** 2));
+  }
+  for (let i = i1; i < n2; i++) a[i] = -m[i] / fac;
+  return a;
+}
+
 export function shapiroWilk(arr) {
   const n = arr.length;
   if (n < 3 || n > 5000) return null;
@@ -671,26 +713,11 @@ export function shapiroWilk(arr) {
   const ss = sorted.reduce((s, x) => s + (x - m) ** 2, 0);
   if (ss === 0) return { W: 1, pValue: 1, normal: true };
   const coeffs = shapiroCoefficients(n);
-  if (!coeffs) return null;
   let b = 0;
-  for (let i = 0; i < Math.floor(n / 2); i++) {
-    b += coeffs[i] * (sorted[n - 1 - i] - sorted[i]);
-  }
-  const W = (b ** 2) / ss;
+  for (let i = 0; i < coeffs.length; i++) b += coeffs[i] * (sorted[n - 1 - i] - sorted[i]);
+  const W = Math.min(1, (b ** 2) / ss);
   const pValue = shapiroPValue(W, n);
   return { W, pValue, normal: pValue > 0.05 };
-}
-
-function shapiroCoefficients(n) {
-  if (n < 3) return null;
-  // Expected normal order statistics (Blom scores)
-  const m = Array.from({ length: n }, (_, i) => normalQuantile((i + 1 - 0.375) / (n + 0.25)));
-  // Shapiro-Francia: a_i = m_i / sqrt(∑ m_j²)
-  // This is asymptotically equivalent to SW (Royston 1992)
-  // and gives a valid, well-behaved test for all n
-  const ss = m.reduce((s, x) => s + x * x, 0);
-  const normed = m.map(x => x / Math.sqrt(ss));
-  return normed.slice(0, Math.floor(n / 2));
 }
 
 function normalQuantile(p) {
@@ -702,13 +729,13 @@ function normalQuantile(p) {
   const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
   const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
   const pLow = 0.02425;
-  // For tail: q = min(p, 1-p) → tail approx returns |x|, sign applied after
-  // For central: r = p-0.5 → x already correctly signed
+  // Tails (Acklam): the rational form evaluated at q = min(p, 1 − p) is the
+  // LOWER-tail quantile (negative); mirror it for the upper tail.
   const q = p < pLow ? p : 1 - p;
   if (q < pLow) {
     const r = Math.sqrt(-2 * Math.log(q));
     const x = (((((c[0]*r+c[1])*r+c[2])*r+c[3])*r+c[4])*r+c[5]) / ((((d[0]*r+d[1])*r+d[2])*r+d[3])*r+1);
-    return p < 0.5 ? -x : x;
+    return p < 0.5 ? x : -x;
   }
   const r = p - 0.5;
   const r2 = r * r;
@@ -717,21 +744,25 @@ function normalQuantile(p) {
 
 function shapiroPValue(W, n) {
   if (W >= 1) return 1;
-  if (W <= 0) return 0;
-  if (n <= 3) return W > 0.5 ? 0.5 : 0.1;
-  const mu = -1.2725 + 1.0521 * Math.log(n);
-  const sigma = 1.0308 - 0.26758 / Math.sqrt(n);
-  const z = (Math.log(1 - W) - mu) / sigma;
-  return 1 - normalCDF(z);
-}
-
-function normalCDF(x) {
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x) / Math.sqrt(2);
-  const t = 1 / (1 + p * x);
-  const y = 1 - (((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t) * Math.exp(-x*x);
-  return 0.5 * (1 + sign * y);
+  if (n === 3) {
+    const p = (6 / Math.PI) * (Math.asin(Math.sqrt(W)) - Math.PI / 3);
+    return Math.max(0, Math.min(1, p));
+  }
+  const w1 = Math.log(1 - W);
+  let y, mu, sigma;
+  if (n <= 11) {
+    const gamma = poly([-2.273, 0.459], n);
+    if (w1 >= gamma) return 1e-99;
+    y = -Math.log(gamma - w1);
+    mu = poly(SW_C3, n);
+    sigma = Math.exp(poly(SW_C4, n));
+  } else {
+    const xx = Math.log(n);
+    y = w1;
+    mu = poly(SW_C5, xx);
+    sigma = Math.exp(poly(SW_C6, xx));
+  }
+  return 1 - normalCDF((y - mu) / sigma);
 }
 
 export function oneWayAnova(...groups) {

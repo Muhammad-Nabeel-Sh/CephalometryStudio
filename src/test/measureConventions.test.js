@@ -191,3 +191,29 @@ describe("interpretation uses the signed conventions", () => {
     expect(interp("AB plane angle", "angle", 3, -4.6, 3.7)).toMatch(/Class III/);
   });
 });
+
+describe("every normed lateral definition in the CSV (alternative landmark names mapped)", () => {
+  // Analyses spell landmarks differently (s, Isi, Pogonion, "Point B", GN…).
+  const ALIAS = { s: "S", Isi: "Is", Isa: "Ia", Iii: "Ii", Pogonion: "Pog", "Point B": "B", PG: "Pog", GN: "Gn", M: "Me", Orbitale: "Or", "Pg'": "Pog'", Li: "LL", Ls: "UL" };
+  it("evaluates within 4 SD of its norm on the mean skull", () => {
+    const P = averageCeph();
+    const cal = { done: true, pxPerMm: Math.hypot(P.N.x - P.S.x, P.N.y - P.S.y) / 71 };
+    const outliers = [];
+    let checked = 0;
+    for (const a of PREDEFINED.lateral) {
+      for (const d of a.measurements || []) {
+        if (!d.norm || !["angle3", "angle4", "perp", "projDist", "line"].includes(d.type)) continue;
+        const refs = d.pts.map(r => ALIAS[r] ?? r);
+        const pts = refs.map(r => P[r]);
+        if (pts.some(p => !p)) continue;
+        const pm = primaryMeasure({ type: d.type, label: d.l, measure: d.l, points: pts, refLabels: refs }, cal, R);
+        if (!pm) continue;
+        checked++;
+        const z = (pm.value - d.norm.mean) / d.norm.sd;
+        if (Math.abs(z) > 4) outliers.push(`${a.name} › ${d.l}: ${pm.value.toFixed(1)} vs ${d.norm.mean}±${d.norm.sd}`);
+      }
+    }
+    expect(checked).toBeGreaterThan(80);
+    expect(outliers).toEqual([]);
+  });
+});

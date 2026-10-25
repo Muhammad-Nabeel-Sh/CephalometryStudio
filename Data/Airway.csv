@@ -34,9 +34,9 @@ Airway Analysis,Distance,LP width,Width of the lower pharynx at the C3-C4 level.
 Airway Analysis,Distance,McUP,Minimum cross-sectional width of the upper pharynx (retropalatal).,"SP,Ad3",10,3
 Airway Analysis,Distance,McLP,Minimum cross-sectional width of the lower pharynx (retroglossal).,"Eb,PAS_lowest",11,4
 Airway Analysis,Distance,SPAS,Superior posterior airway space - PAS at the level of the soft palate tip.,"SP,PAS_lowest",10,3
-Airway Analysis,Distance,MAS,Middle airway space - at the mid-oropharyngeal level.,"Vallecula,Ad4",15,4
+Airway Analysis,Distance,MAS,"Middle airway space. Norm withheld: these landmarks (Vallecula-Ad4) duplicate Vallecula-Ad4, which carries a different norm.","Vallecula,Ad4",,
 Airway Analysis,Distance,IAS,Inferior airway space - at the hypopharyngeal level.,"Eb,Ad4",12,4
 Airway Analysis,Distance,Vertical Airway Length,Vertical distance from PNS to the base of epiglottis (Eb).,"PNS,Eb",70,10
 Airway Analysis,Distance,Eb-PNS,Oblique airway length from the base of epiglottis to PNS.,"Eb,PNS",65,10
 Airway Analysis,Angle,Angle of Nasopharynx,Angle formed by the nasopharyngeal airway walls (PNS-Ad1-Ad2).,"PNS,Ad1,Ad2",140,10
-Airway Analysis,Ratio,Adenoid/Nasopharynx Ratio,Ratio of adenoid thickness (Ad1-Ad2 projected) to nasopharyngeal depth (PNS-Ad1).,"PNS-Ad1,PNS-Ad2",0.5,0.15
+Airway Analysis,Ratio,Adenoid/Nasopharynx Ratio,"PNS-Ad1 ÷ PNS-Ad2. Norm withheld: this is not the Fujioka adenoid-nasopharynx (A/N) ratio, whose 0.5 norm does not apply.","PNS-Ad1,PNS-Ad2",,

@@ -1,33 +1,8 @@
-import { chi2CDF, tDistributeCDF } from "../lib/utils.js";
+import { chi2CDF } from "../lib/utils.js";
+import { normalCdf as stdNormalCdf, tQuantile as tCritical } from "./statsCore.js";
 import { dominantUnit, isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
-function stdNormalCdf(x) {
-  if (x < -8) return 0;
-  if (x > 8) return 1;
-  const a = 0.3193815, b = -0.3565638, c = 1.7814779, d = -1.8212559, e = 1.3302744;
-  const phi = 0.39894228 * Math.exp(-x * x / 2);
-  let t = 1 / (1 + 0.2316419 * Math.abs(x));
-  t = phi * t * (a + t * (b + t * (c + t * (d + t * e))));
-  return x > 0 ? 1 - t : t;
-}
-
-function tCritical(p, df) {
-  if (df <= 0) return 1.96;
-  // For df > 1000 use z approximation
-  if (df > 1000) return p >= 0.995 ? 2.576 : p >= 0.975 ? 1.96 : p >= 0.95 ? 1.645 : 0;
-  // For df <= 1000, invert tDistributeCDF by bisection (exact)
-  const target = p;
-  let lo = 0.0, hi = 8.0, mid;
-  for (let it = 0; it < 60; it++) {
-    mid = (lo + hi) / 2;
-    const cdf = tDistributeCDF(mid, df);
-    if (cdf < target) lo = mid; else hi = mid;
-    if (Math.abs(cdf - target) < 1e-10) break;
-  }
-  return (lo + hi) / 2;
-}
-
 // ─── Descriptive statistics for a single group of values ─────────────────
 function descriptiveStats(values) {
   const n = values.length;
@@ -94,7 +69,7 @@ function referenceInterval(values, coverage = 0.95) {
 
   // CI for limits (Reed method approximation). The previous version used tCritical(0.95)
   // which gives a 90% two-sided CI mislabeled as "95%". Use t(0.975) for a proper 95% CI.
-  const seLimit = stats.sd * Math.sqrt(1 / n + z * z / (2 * n));
+  const seLimit = stats.sd * Math.sqrt(1 / n + (z * z) / (2 * (n - 1)));
   const tC = tCritical(0.975, n - 1);
   const lowerCi = [lower - tC * seLimit, lower + tC * seLimit];
   const upperCi = [upper - tC * seLimit, upper + tC * seLimit];
@@ -201,27 +176,26 @@ export const RESEARCH_NORMS = [
   {
     id: "mcnamara",
     label: "McNamara",
+    // Keys match the McNamara Analysis measurement labels so z-scores are computed.
     values: {
-      "Maxillary Depth": { mean: 90, sd: 3 },
-      "Facial Depth": { mean: 88, sd: 3 },
-      "ANB": { mean: 2, sd: 2 },
-      "Lower facial height": { mean: 47, sd: 4 },
+      "Facial axis": { mean: 90, sd: 3.5 },
+      "Nasolabial angle": { mean: 102, sd: 8 },
     },
     strata: [
-      { group: "Child (9y) — male",   ageMin: 7,  ageMax: 10, sex: "male",   values: { "Effective Mandibular Length (Co-Gn)": { mean: 117, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 90, sd: 4 } } },
-      { group: "Child (9y) — female", ageMin: 7,  ageMax: 10, sex: "female", values: { "Effective Mandibular Length (Co-Gn)": { mean: 115, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 88, sd: 4 } } },
-      { group: "Adolescent (12y) — male",   ageMin: 11, ageMax: 13, sex: "male",   values: { "Effective Mandibular Length (Co-Gn)": { mean: 125, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 94, sd: 4 } } },
-      { group: "Adolescent (12y) — female", ageMin: 11, ageMax: 13, sex: "female", values: { "Effective Mandibular Length (Co-Gn)": { mean: 120, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 92, sd: 4 } } },
-      { group: "Adolescent (15y) — male",   ageMin: 14, ageMax: 17, sex: "male",   values: { "Effective Mandibular Length (Co-Gn)": { mean: 132, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 97, sd: 4 } } },
-      { group: "Adolescent (15y) — female", ageMin: 14, ageMax: 17, sex: "female", values: { "Effective Mandibular Length (Co-Gn)": { mean: 125, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 94, sd: 4 } } },
-      { group: "Adult (≥18y) — male",   ageMin: 18, ageMax: 120, sex: "male",   values: { "Effective Mandibular Length (Co-Gn)": { mean: 138, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 99, sd: 4 } } },
-      { group: "Adult (≥18y) — female", ageMin: 18, ageMax: 120, sex: "female", values: { "Effective Mandibular Length (Co-Gn)": { mean: 128, sd: 6 }, "Effective Maxillary Length (Co-A)": { mean: 95, sd: 4 } } },
+      { group: "Child (9y) — male",   ageMin: 7,  ageMax: 10, sex: "male",   approximate: true, values: { "Co-Gn": { mean: 117, sd: 6 }, "Co-A": { mean: 90, sd: 4 }, "MMD": { mean: 27, sd: 4 }, "A to N-perp": { mean: 0, sd: 2 } } },
+      { group: "Child (9y) — female", ageMin: 7,  ageMax: 10, sex: "female", approximate: true, values: { "Co-Gn": { mean: 115, sd: 6 }, "Co-A": { mean: 88, sd: 4 }, "MMD": { mean: 27, sd: 4 }, "A to N-perp": { mean: 0, sd: 2 } } },
+      { group: "Adolescent (12y) — male",   ageMin: 11, ageMax: 13, sex: "male",   approximate: true, values: { "Co-Gn": { mean: 125, sd: 6 }, "Co-A": { mean: 94, sd: 4 }, "MMD": { mean: 31, sd: 4 } } },
+      { group: "Adolescent (12y) — female", ageMin: 11, ageMax: 13, sex: "female", approximate: true, values: { "Co-Gn": { mean: 120, sd: 6 }, "Co-A": { mean: 92, sd: 4 }, "MMD": { mean: 28, sd: 4 } } },
+      { group: "Adolescent (15y) — male",   ageMin: 14, ageMax: 17, sex: "male",   approximate: true, values: { "Co-Gn": { mean: 132, sd: 6 }, "Co-A": { mean: 97, sd: 4 }, "MMD": { mean: 35, sd: 4 } } },
+      { group: "Adolescent (15y) — female", ageMin: 14, ageMax: 17, sex: "female", approximate: true, values: { "Co-Gn": { mean: 125, sd: 6 }, "Co-A": { mean: 94, sd: 4 }, "MMD": { mean: 31, sd: 4 } } },
+      { group: "Adult (≥18y) — male",   ageMin: 18, ageMax: 120, sex: "male",   values: { "Co-Gn": { mean: 134.3, sd: 6.8 }, "Co-A": { mean: 99.8, sd: 6.0 }, "MMD": { mean: 34.5, sd: 4 }, "ANS-Me": { mean: 74.6, sd: 5.0 }, "A to N-perp": { mean: 1, sd: 2 } } },
+      { group: "Adult (≥18y) — female", ageMin: 18, ageMax: 120, sex: "female", values: { "Co-Gn": { mean: 120.2, sd: 5.3 }, "Co-A": { mean: 91.0, sd: 4.3 }, "MMD": { mean: 29.2, sd: 3.5 }, "ANS-Me": { mean: 66.7, sd: 4.1 }, "A to N-perp": { mean: 1, sd: 2 } } },
     ],
-    source: "McNamara JA. A method of cephalometric evaluation. Am J Orthod. 1984;86(6):449-469. Linear age/sex-stratified values reproduced from McNamara & Brudon, Orthodontic and Orthopedic Cephalometry.",
+    source: "McNamara JA. A method of cephalometric evaluation. Am J Orthod. 1984;86(6):449-469 (adult values). Child/adolescent effective lengths approximate (McNamara & Brudon) — verify against the source table before publication.",
     population: "Caucasian (North American)",
     ageRange: "Stratified (7y through adult)",
     sex: "Stratified (male / female)",
-    stratification: "Maxillary Depth, Facial Depth, and ANB are age-stable angular measurements shared across strata. Lower facial height is also age-stable. Linear effective-length measurements (Co-Gn, Co-A) are stratified by age and sex. Means are approximate and vary slightly by source (±1-2 mm); verify against a population-matched reference before clinical use.",
+    stratification: "Effective lengths (Co-A, Co-Gn), their difference (MMD) and lower face height are age- and sex-stratified; facial axis and nasolabial angle are age-stable. Child/adolescent strata are approximate.",
   },
 ];
 

@@ -137,6 +137,7 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
                   <div style={{ fontSize: 9, color: t.tx3, marginTop: 4 }}>
                     Patient: {d.measureType === "angle" && formatAngle ? formatAngle(d.value) : d.value.toFixed(2)} &nbsp;|&nbsp; Norm: {d.mean.toFixed(1)} ± {d.sd.toFixed(1)}
                     {d.normSource && <> &nbsp;—&nbsp; {d.normSource}</>}
+                    {d.sdApproximate && <span title="The source published no SD for this norm; the SD is a conventional approximation, so the deviation grade is indicative." style={{ marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px solid ${t.warn}`, color: t.warn }}>SD approx.</span>}
                   </div>
                 </div>
               );

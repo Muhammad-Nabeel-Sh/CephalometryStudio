@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **681 tests (Vitest)**
+- **No TypeScript**, **710 tests (Vitest)**
 
 ---
 
@@ -81,6 +81,7 @@ src/
 │   ├── interpretation.js       Clinical interpretation engine
 │   ├── landmarkModel.js        Model preprocessing + heatmap/regression decode
 │   ├── measureConventions.js   Patient-facing frame + signed cephalometric geometry
+│   ├── distributions.js        Normal CDF / quantile (single source)
 │   └── logger.js               Logging utility
 │
 ├── model/                      Data models
@@ -182,7 +183,7 @@ src/
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (681 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (710 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -499,7 +500,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 681 tests pass (39 test files, 0 failures)
+- `npm test` — 710 tests pass (42 test files, 0 failures)
 
 
 

@@ -1,5 +1,7 @@
 import { mean, stdev, variance, shapiroWilk, oneWayAnova, tTestPaired, tDistributeCDF, fCDF, chi2CDF } from "../lib/utils.js";
-import { normalCdf, matMul, matInverse, benjaminiHochberg, ptukey, qtukey } from "./statsCore.js";
+import { normalCdf, matMul, matInverse, benjaminiHochberg, ptukey, qtukey, bonferroniAdjust, holmAdjust } from "./statsCore.js";
+export { holmAdjust };
+import { repeatedMeasuresANOVA as rmAnovaSphericity } from "./longitudinal.js";
 import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
@@ -244,10 +246,22 @@ function friedmanTest(groups, labels) {
 }
 
 // ─── Repeated measures ANOVA ─────────────────────────────────────────────
-function repeatedMeasuresANOVA(groups) {
+// Repeated-measures ANOVA with Mauchly's test and Greenhouse-Geisser-corrected df
+// (the shared Longitudinal implementation); the fields the panel reads are kept.
+function repeatedMeasuresANOVA(groups, correction = "greenhouse-geisser") {
   const n = groups[0].length;
   const k = groups.length;
   if (groups.some(g => g.length !== n) || n < 3 || k < 2) return null;
+  const rows = Array.from({ length: n }, (_, i) => Object.fromEntries(groups.map((g, j) => [`tp_${j}`, g[i]])));
+  const r = rmAnovaSphericity(rows, correction);
+  if (r) {
+    return {
+      F: r.F, dfCond: r.dfTimeCorrected, dfErr: r.dfErrorCorrected, pValue: r.pValue, significant: r.pValue < 0.05,
+      ssCond: r.ssTime, ssErr: r.ssError, ssSubj: r.ssSubj, partialEtaSq: r.partialEtaSq,
+      conditionMeans: r.tpMeans, grandMean: r.grandMean,
+      sphericity: r.sphericity, epsilon: r.eps, correction: r.correctionUsed,
+    };
+  }
   const subjectMeans = Array.from({ length: n }, (_, i) => mean(groups.map(g => g[i])));
   const grandMean = mean(subjectMeans);
   const conditionMeans = groups.map(g => mean(g));
@@ -447,6 +461,45 @@ export function gamesHowell(groups, labels, alpha = 0.05) {
   return results;
 }
 
+// Dunn's test after Kruskal-Wallis: pairwise mean-rank differences on the pooled
+// ranking with the tie correction, Holm-adjusted (Dunn 1964).
+export function dunnTest(groups, labels, alpha = 0.05) {
+  const all = groups.flat();
+  const N = all.length;
+  const ranks = rankArray(all);
+  const meanRanks = [];
+  let off = 0;
+  for (const g of groups) { meanRanks.push(ranks.slice(off, off + g.length).reduce((a, b) => a + b, 0) / g.length); off += g.length; }
+  const counts = new Map();
+  for (const v of all) counts.set(v, (counts.get(v) || 0) + 1);
+  const ties = [...counts.values()].reduce((a, t) => a + (t ** 3 - t), 0);
+  const base = (N * (N + 1)) / 12 - ties / (12 * (N - 1));
+  const raw = [];
+  for (let i = 0; i < groups.length; i++) {
+    for (let j = i + 1; j < groups.length; j++) {
+      const se = Math.sqrt(base * (1 / groups[i].length + 1 / groups[j].length));
+      const z = se > 0 ? (meanRanks[i] - meanRanks[j]) / se : 0;
+      raw.push({ groupA: labels[i], groupB: labels[j], meanRankDiff: meanRanks[i] - meanRanks[j], z, pValue: 2 * (1 - normalCdf(Math.abs(z))) });
+    }
+  }
+  const adj = holmAdjust(raw.map(r => r.pValue), alpha);
+  return raw.map((r, i) => ({ ...r, stat: r.z, pAdjusted: adj[i].adjusted, significant: adj[i].significant }));
+}
+
+// Pairwise Wilcoxon signed-rank tests after Friedman, Holm-adjusted.
+function pairedWilcoxonPostHoc(groups, labels, alpha = 0.05) {
+  const raw = [];
+  for (let i = 0; i < groups.length; i++) {
+    for (let j = i + 1; j < groups.length; j++) {
+      const w = wilcoxonSignedRank(groups[i], groups[j]);
+      if (!w) continue;
+      raw.push({ groupA: labels[i], groupB: labels[j], meanDiff: mean(groups[i]) - mean(groups[j]), stat: w.W, pValue: w.pValue });
+    }
+  }
+  const adj = holmAdjust(raw.map(r => r.pValue), alpha);
+  return raw.map((r, i) => ({ ...r, pAdjusted: adj[i].adjusted, significant: adj[i].significant }));
+}
+
 // Welch's one-way ANOVA (unequal variances).
 export function welchAnova(groups) {
   const k = groups.length;
@@ -463,30 +516,6 @@ export function welchAnova(groups) {
   const df1 = k - 1, df2 = (k * k - 1) / (3 * lambda);
   const pValue = 1 - fCDF(F, df1, df2);
   return { F, df1, df2, pValue, significant: pValue < 0.05 };
-}
-
-// Holm step-down adjustment (uniformly more powerful than Bonferroni).
-export function holmAdjust(pValues, alpha = 0.05) {
-  const m = pValues.length;
-  const order = pValues.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
-  const adj = Array(m);
-  let running = 0, rejecting = true;
-  order.forEach(({ p, i }, r) => {
-    running = Math.max(running, Math.min(1, (m - r) * p));
-    adj[i] = { index: i, original: p, adjusted: running };
-    if (rejecting && p > alpha / (m - r)) rejecting = false;
-    adj[i].significant = rejecting;
-  });
-  return adj;
-}
-
-function bonferroniAdjust(pValues, alpha = 0.05) {
-  const m = pValues.length;
-  return pValues.map((p, i) => ({
-    index: i, original: p,
-    adjusted: Math.min(p * m, 1),
-    significant: p * m < alpha,
-  }));
 }
 
 // Approximate F from Wilks' lambda. Guard against NaN when the sphericity-ish
@@ -848,16 +877,38 @@ export function runComparativeAll(sessions, config, calibration) {
   const totalN = groupSizes.reduce((a, b) => a + b, 0);
   if (totalN < 30 && groups.length >= 3) results.warnings.push(`Total N = ${totalN} across ${groups.length} groups — post-hoc tests (Tukey HSD) have low power at this sample size.`);
 
+  // Paired designs: match subjects by patient ID when every case in every group
+  // has a unique one (session.subjectId or meta.patientId).
+  let pairingIds = [];
+  if (design === "paired") {
+    const lists = groups.map(g => (g.caseIds || []).map(id => {
+      const s = sessions.find(x => x.id === id);
+      return s ? (s.subjectId || s.meta?.patientId || "") : "";
+    }));
+    const usable = lists.every(l => l.length > 0 && l.every(Boolean) && new Set(l).size === l.length);
+    if (usable) pairingIds = lists;
+    results.pairedBy = usable ? "patient ID" : "position in each group's case list";
+  }
+
   // Per-label test results
   for (const label of allLabels) {
     const labelData = {};
     let droppedPairs = 0;
     if (design === "paired") {
-      // Keep only subjects measured in every condition (listwise), pairing by position.
-      const cols = groupLabels.map(gl => byGroup[gl]?.aligned?.[label] || []);
+      // Keep only subjects measured in every condition (listwise). Subjects are
+      // matched by patient ID when every case has a unique one, else by position.
+      const colsByPos = groupLabels.map(gl => byGroup[gl]?.aligned?.[label] || []);
+      const byId = pairingIds.length === groupLabels.length;
+      let cols;
+      if (byId) {
+        const common = pairingIds[0].filter(id => pairingIds.every(list => list.includes(id)));
+        cols = groupLabels.map((gl, gi) => common.map(id => colsByPos[gi][pairingIds[gi].indexOf(id)] ?? null));
+      } else {
+        cols = colsByPos;
+      }
       const len = Math.min(...cols.map(c => c.length));
       const keep = Array.from({ length: len }, (_, i) => i).filter(i => cols.every(c => c[i] != null));
-      droppedPairs = Math.max(...cols.map(c => c.filter(v => v != null).length)) - keep.length;
+      droppedPairs = Math.max(...colsByPos.map(c => c.filter(v => v != null).length)) - keep.length;
       groupLabels.forEach((gl, gi) => { labelData[gl] = keep.map(i => cols[gi][i]); });
     } else {
       for (const gLabel of groupLabels) labelData[gLabel] = byGroup[gLabel]?.byLabel[label] || [];
@@ -891,15 +942,26 @@ export function runComparativeAll(sessions, config, calibration) {
       const isIndependentANOVA = lr.testName === "One-way ANOVA";
       const isWelchANOVA = lr.testName === "Welch's ANOVA";
       const isRepeatedANOVA = lr.testName === "Repeated measures ANOVA";
-      if (!isIndependentANOVA && !isWelchANOVA && !isRepeatedANOVA) continue;
+      const isKW = lr.testName === "Kruskal-Wallis";
+      const isFriedman = lr.testName === "Friedman test";
+      if (!isIndependentANOVA && !isWelchANOVA && !isRepeatedANOVA && !isKW && !isFriedman) continue;
 
       const gVals = groupLabels.map(gl => lr.rawData?.[gl]?.values || []);
+      results.postHocMethods = results.postHocMethods || {};
 
-      if (isWelchANOVA) {
+      if (isKW) {
+        results.postHoc[label] = dunnTest(gVals, groupLabels, alpha || 0.05);
+        results.postHocMethods[label] = { name: "Dunn's test (Holm-adjusted)", stat: "z" };
+      } else if (isFriedman) {
+        results.postHoc[label] = pairedWilcoxonPostHoc(gVals, groupLabels, alpha || 0.05);
+        results.postHocMethods[label] = { name: "Pairwise Wilcoxon signed-rank (Holm-adjusted)", stat: "W" };
+      } else if (isWelchANOVA) {
+        results.postHocMethods[label] = { name: "Games-Howell", stat: "q" };
         results.postHoc[label] = gamesHowell(gVals, groupLabels, alpha || 0.05);
         results.postHocMethod = "Games-Howell";
       } else if (isIndependentANOVA) {
         results.postHoc[label] = tukeysHSD(gVals, groupLabels, lr.result.msWithin, lr.result.dfWithin, alpha || 0.05);
+        results.postHocMethods[label] = { name: "Tukey HSD", stat: "q" };
         results.postHocMethod = results.postHocMethod || "Tukey HSD";
       } else if (isRepeatedANOVA) {
         // Bonferroni-corrected paired t-tests for repeated measures

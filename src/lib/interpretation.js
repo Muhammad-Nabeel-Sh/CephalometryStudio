@@ -1,4 +1,5 @@
 import { normDeviation } from "./utils.js";
+import { isApproximateSd } from "../data/norms.js";
 
 export const RULES = {
   // ═══════════════════════════════════════════
@@ -1637,7 +1638,118 @@ export const RULES = {
   },
 };
 
+// ─── Diagnostic synthesis ───────────────────────────────────────────────────
+// Combines individual deviations into the statements a clinician makes: the
+// sagittal class and which jaw drives it, the vertical pattern, dental
+// compensation, and where measures disagree. `sign` orients each indicator so
+// that + means Class II (sagittal) or more vertical/high-angle (vertical).
+const SAGITTAL_INDICATORS = [
+  { labels: ["ANB", "A-N-B"], sign: 1 },
+  { labels: ["Wits", "A-B distance"], sign: 1 },
+  { labels: ["AB plane angle", "AB plane"], sign: -1 },
+  { labels: ["Convexity"], sign: 1, types: ["distance"] },
+];
+const MAXILLA_INDICATORS = [{ labels: ["SNA", "S-N-A"], sign: 1 }, { labels: ["A to N-perp"], sign: 1 }, { labels: ["Maxillary depth", "Maxillary Depth"], sign: 1 }];
+const MANDIBLE_INDICATORS = [{ labels: ["SNB", "S-N-B"], sign: 1 }, { labels: ["Pog to N-perp"], sign: 1 }, { labels: ["Facial depth", "Facial angle"], sign: 1 }];
+const VERTICAL_INDICATORS = [
+  { labels: ["FMA", "Mandibular plane angle", "Mandibular plane"], sign: 1 },
+  { labels: ["SN-GoMe", "SN-GoGn", "SN-MP", "GoGn-SN", "ML-NSL"], sign: 1 },
+  { labels: ["Y-axis"], sign: 1 },
+  { labels: ["Lower facial height"], sign: 1 },
+  { labels: ["Facial axis"], sign: -1 },
+  { labels: ["Jarabak ratio"], sign: -1 },
+];
+const UPPER_INCISOR = ["U1-NA (°)", "U1-NA", "U1-SN", "U1-NSL", "U1-APog"];
+const LOWER_INCISOR = ["IMPA", "L1-MP", "L1-NB (°)", "L1-NB", "L1-APog"];
+
+function pick(deviations, ind) {
+  for (const l of ind.labels) {
+    const d = deviations.find(x => x.label === l && (!ind.types || ind.types.includes(x.measureType)));
+    if (d && isFinite(d.zScore)) return { label: d.label, z: ind.sign * d.zScore };
+  }
+  return null;
+}
+const firstOf = (deviations, labels) => deviations.find(d => labels.includes(d.label) && isFinite(d.zScore)) || null;
+
+export function synthesizeDiagnosis(deviations) {
+  const sag = SAGITTAL_INDICATORS.map(i => pick(deviations, i)).filter(Boolean);
+  const vert = VERTICAL_INDICATORS.map(i => pick(deviations, i)).filter(Boolean);
+  if (!sag.length && !vert.length) return null;
+  const statements = [], disagreements = [];
+
+  // Sagittal: majority of indicators beyond ±1 SD.
+  let skeletalClass = null;
+  if (sag.length) {
+    const ii = sag.filter(x => x.z > 1), iii = sag.filter(x => x.z < -1);
+    skeletalClass = ii.length > iii.length ? "II" : iii.length > ii.length ? "III" : "I";
+    if (ii.length && iii.length) disagreements.push(`Sagittal indicators conflict: ${ii.map(x => x.label).join(", ")} suggest Class II while ${iii.map(x => x.label).join(", ")} suggest Class III.`);
+    const anb = sag.find(x => ["ANB", "A-N-B"].includes(x.label)), wits = sag.find(x => ["Wits", "A-B distance"].includes(x.label));
+    if (anb && wits && Math.abs(anb.z - wits.z) > 1.5 && (Math.abs(anb.z) > 1 || Math.abs(wits.z) > 1)) {
+      const sn = firstOf(deviations, ["SN-FH"]);
+      disagreements.push(`ANB (${anb.z >= 0 ? "+" : ""}${anb.z.toFixed(1)} SD) and Wits (${wits.z >= 0 ? "+" : ""}${wits.z.toFixed(1)} SD) disagree. ANB depends on the position of nasion and the SN plane, Wits on the occlusal plane${sn ? ` — SN-FH is ${sn.zScore >= 0 ? "+" : ""}${sn.zScore.toFixed(1)} SD here` : ""}. Weigh the measure whose reference is more reliable for this patient.`);
+    }
+    let detail = "";
+    if (skeletalClass !== "I") {
+      const mx = MAXILLA_INDICATORS.map(i => pick(deviations, i)).filter(Boolean);
+      const md = MANDIBLE_INDICATORS.map(i => pick(deviations, i)).filter(Boolean);
+      const maxZ = mx.length ? mx.reduce((a, x) => a + x.z, 0) / mx.length : null;
+      const manZ = md.length ? md.reduce((a, x) => a + x.z, 0) / md.length : null;
+      const causes = [];
+      if (skeletalClass === "II") {
+        if (manZ != null && manZ < -1) causes.push("mandibular retrusion");
+        if (maxZ != null && maxZ > 1) causes.push("maxillary protrusion");
+      } else {
+        if (manZ != null && manZ > 1) causes.push("mandibular protrusion");
+        if (maxZ != null && maxZ < -1) causes.push("maxillary retrusion");
+      }
+      detail = causes.length
+        ? ` due to ${causes.join(" and ")}`
+        : (maxZ != null || manZ != null) ? " — each jaw is within range on its own; the discrepancy is in their relationship" : "";
+      if (mx.length && md.length && Math.sign(mx[0].z) !== Math.sign(mx[mx.length - 1].z) && Math.abs(mx[0].z - mx[mx.length - 1].z) > 2) {
+        disagreements.push(`Maxillary position differs between ${mx[0].label} and ${mx[mx.length - 1].label} — check the inclination of the SN plane.`);
+      }
+    }
+    statements.push(`Skeletal Class ${skeletalClass}${detail}.`);
+  }
+
+  // Vertical: mean oriented z.
+  if (vert.length) {
+    const vz = vert.reduce((a, x) => a + x.z, 0) / vert.length;
+    statements.push(vz > 1 ? "Hyperdivergent (high-angle, vertical) pattern." : vz < -1 ? "Hypodivergent (low-angle, horizontal) pattern." : "Normodivergent vertical pattern.");
+    const hi = vert.filter(x => x.z > 1.5), lo = vert.filter(x => x.z < -1.5);
+    if (hi.length && lo.length) disagreements.push(`Vertical indicators conflict: ${hi.map(x => x.label).join(", ")} vs ${lo.map(x => x.label).join(", ")}.`);
+  }
+
+  // Dentoalveolar compensation.
+  const u = firstOf(deviations, UPPER_INCISOR), l = firstOf(deviations, LOWER_INCISOR);
+  if (skeletalClass === "II" && ((l && l.zScore > 1) || (u && u.zScore < -1))) {
+    statements.push(`Dentoalveolar compensation: ${[l && l.zScore > 1 ? "lower incisors proclined" : null, u && u.zScore < -1 ? "upper incisors retroclined" : null].filter(Boolean).join(", ")} — masks part of the skeletal discrepancy.`);
+  } else if (skeletalClass === "III" && ((l && l.zScore < -1) || (u && u.zScore > 1))) {
+    statements.push(`Dentoalveolar compensation: ${[u && u.zScore > 1 ? "upper incisors proclined" : null, l && l.zScore < -1 ? "lower incisors retroclined" : null].filter(Boolean).join(", ")} — masks part of the skeletal discrepancy.`);
+  }
+
+  return { skeletalClass, statements, disagreements };
+}
+
 const PATTERN_RECOGNIZERS = [
+  {
+    id: "diagnostic-summary",
+    label: "Diagnostic Summary",
+    analyze: (deviations) => {
+      const d = synthesizeDiagnosis(deviations);
+      if (!d) return null;
+      return { severity: d.skeletalClass && d.skeletalClass !== "I" ? "moderate" : "mild", summary: d.statements.join(" "), detail: "Synthesised from the sagittal, vertical and incisor measurements above; confirm clinically.", diagnosis: d };
+    },
+  },
+  {
+    id: "measure-disagreement",
+    label: "Measures Disagree",
+    analyze: (deviations) => {
+      const d = synthesizeDiagnosis(deviations);
+      if (!d || !d.disagreements.length) return null;
+      return { severity: "mild", summary: "Some measurements point in different directions", detail: d.disagreements.join(" ") };
+    },
+  },
   {
     id: "skeletal-class",
     label: "Skeletal Class",
@@ -1668,8 +1780,8 @@ const PATTERN_RECOGNIZERS = [
     id: "incisor-compensation",
     label: "Incisor Compensation",
     analyze: (deviations) => {
-      const upper = deviations.find(d => d.label === "U1-SN" || d.label === "U1-NA");
-      const lower = deviations.find(d => d.label === "L1-MP" || d.label === "IMPA" || d.label === "L1-NB");
+      const upper = firstOf(deviations, UPPER_INCISOR);
+      const lower = firstOf(deviations, LOWER_INCISOR);
       if (!upper || !lower) return null;
       if (upper.zScore > 1 && lower.zScore > 1) return { severity: "moderate", summary: "Bimaxillary protrusion", detail: "Both maxillary and mandibular incisors are proclined — common in bimaxillary dentoalveolar protrusion." };
       if (upper.zScore > 1 && lower.zScore < -1) return { severity: "moderate", summary: "Compensated Class II Division 2 pattern", detail: "Maxillary incisors are proclined while mandibular incisors are retroclined — compensatory mechanism." };
@@ -1758,6 +1870,7 @@ export function generateInterpretation(allMeas, norms, calibration) {
         description: rule?.description || "",
         interpretation: sdInterpretationText(dev.sdUnits, rule?.label || m.label, interpretFn, value, norm.mean),
         normSource: norm.source,
+        sdApproximate: norm.sdApproximate === true || isApproximateSd(norm.source, m.label, norm.sd),
       });
     }
   }

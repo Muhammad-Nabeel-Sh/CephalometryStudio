@@ -1,34 +1,12 @@
 import { tDistributeCDF, fCDF } from "../lib/utils.js";
+import { fQuantile, tQuantile } from "./statsCore.js";
+export { fQuantile, tQuantile };
 import { checkReliabilityTimeSeparation } from "./validation.js";
 import { dominantUnit, isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 
 // ─── Statistical helpers ──────────────────────────────────────────────────
 // Quantile of the F distribution (bisection with an expanding bracket, so large
 // quantiles at small df and fractional Satterthwaite df are both handled).
-export function fQuantile(p, df1, df2) {
-  if (!(df1 > 0) || !(df2 > 0)) return NaN;
-  let lo = 0, hi = 1;
-  while (fCDF(hi, df1, df2) < p && hi < 1e9) { lo = hi; hi *= 2; }
-  for (let it = 0; it < 200; it++) {
-    const mid = (lo + hi) / 2;
-    if (fCDF(mid, df1, df2) < p) lo = mid; else hi = mid;
-    if (hi - lo < 1e-12 * Math.max(1, hi)) break;
-  }
-  return (lo + hi) / 2;
-}
-
-export function tQuantile(p, df) {
-  if (!(df > 0)) return NaN;
-  let lo = 0, hi = 1;
-  while (tDistributeCDF(hi, df) < p && hi < 1e9) { lo = hi; hi *= 2; }
-  for (let it = 0; it < 200; it++) {
-    const mid = (lo + hi) / 2;
-    if (tDistributeCDF(mid, df) < p) lo = mid; else hi = mid;
-    if (hi - lo < 1e-12 * Math.max(1, hi)) break;
-  }
-  return (lo + hi) / 2;
-}
-
 function fPval(F, df1, df2) {
   if (!(F > 0) || df1 <= 0 || df2 <= 0) return 1;
   const p = 1 - fCDF(F, df1, df2);
@@ -165,6 +143,48 @@ export function blandAltman(a, b) {
     predictionInterval: [meanDiff - pi, meanDiff + pi],
     proportionalBias: { detected: reg.pValue < 0.05, slope: reg.slope, r: reg.r, pValue: reg.pValue, t: reg.t },
     points: means.map((m, i) => ({ mean: m, diff: diffs[i], outlier: Math.abs(diffs[i] - meanDiff) > 1.96 * sdDiff })),
+    nPairs: n,
+  };
+}
+
+// Koo & Li (2016): poor < 0.5 ≤ moderate < 0.75 ≤ good < 0.9 ≤ excellent. The
+// rating is read from the 95% CI, e.g. "moderate–good" when it spans both.
+export function kooLiRating(lo, hi) {
+  const cat = v => (v == null ? null : v < 0.5 ? "poor" : v < 0.75 ? "moderate" : v < 0.9 ? "good" : "excellent");
+  const a = cat(lo), b = cat(hi);
+  if (!a || !b) return null;
+  return a === b ? a : `${a}–${b}`;
+}
+
+// Bland & Altman (2007) for methods measured with replicates on each subject
+// (true value constant): bias from subject means, and the SD of a single
+// difference corrected for the within-subject replicate variance:
+//   s² = s²(d̄ᵢ) + (1 − 1/m_xh)·s²_xw + (1 − 1/m_yh)·s²_yw   (m_h: harmonic mean of replicates)
+export function blandAltmanReplicates(xs, ys) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2) return null;
+  const meanOf = a => a.reduce((p, q) => p + q, 0) / a.length;
+  const within = lists => {
+    let ss = 0, df = 0;
+    for (const l of lists) { const m = meanOf(l); ss += l.reduce((a, v) => a + (v - m) ** 2, 0); df += l.length - 1; }
+    return df > 0 ? ss / df : 0;
+  };
+  const harmonic = lists => lists.length / lists.reduce((a, l) => a + 1 / l.length, 0);
+  const d = xs.map((x, i) => meanOf(ys[i]) - meanOf(x));
+  const means = xs.map((x, i) => (meanOf(ys[i]) + meanOf(x)) / 2);
+  const meanDiff = meanOf(d);
+  const varDbar = d.reduce((a, v) => a + (v - meanDiff) ** 2, 0) / (n - 1);
+  const sdDiff = Math.sqrt(varDbar + (1 - 1 / harmonic(xs)) * within(xs) + (1 - 1 / harmonic(ys)) * within(ys));
+  const tCrit = tQuantile(0.975, n - 1);
+  const biasSE = Math.sqrt(varDbar / n);
+  return {
+    method: "Bland & Altman 2007 (replicates)",
+    meanDiff, sdDiff, n,
+    loaUpper: meanDiff + 1.96 * sdDiff, loaLower: meanDiff - 1.96 * sdDiff,
+    loaUpperCi: [null, null], loaLowerCi: [null, null],
+    meanDiffCi: [meanDiff - tCrit * biasSE, meanDiff + tCrit * biasSE],
+    proportionalBias: (() => { const r = simpleRegression(means, d); return { detected: r.pValue < 0.05, slope: r.slope, r: r.r, pValue: r.pValue, t: r.t }; })(),
+    points: means.map((m, i) => ({ mean: m, diff: d[i], outlier: Math.abs(d[i] - meanDiff) > 1.96 * sdDiff })),
     nPairs: n,
   };
 }
@@ -340,19 +360,19 @@ export function runReliabilityAll(sessions, config, calibration) {
   const refOps = new Set((operators || []).filter(o => o?.role === "reference").map(o => o.id));
   const multiOperatorIntra = isIntra && new Set(mRows.map(r => r.operatorId)).size > 1;
 
-  for (const label of labelList) {
-    const samples = byLabel[label];
+  const opName = id => (operators || []).find(o => (typeof o === "string" ? o : o.id) === id)?.name || id;
 
-    // Unit of analysis × rater/occasion matrix. Intra-rater: the occasions are the
-    // "raters" and each case × operator is a unit; inter-rater / method
+  const analyze = (label, samples, displayLabel, extra = {}) => {
+    // Unit of analysis × rater/occasion matrix. Intra-rater: occasions are the
+    // "raters" and cases the units (per operator); inter-rater / method
     // comparison: operators (methods) are the raters.
     const cell = {};
     for (const r of samples) {
-      const unitKey = isIntra ? `${r.caseId}|${r.operatorId}` : r.caseId;
+      const unitKey = r.caseId;
       const raterKey = isIntra ? `occ${r.occasion}` : r.operatorId;
       ((cell[unitKey] ||= {})[raterKey] ||= []).push(r.value);
     }
-    let raters = [...new Set(samples.map(r => (isIntra ? `occ${r.occasion}` : r.operatorId)))];
+    const raters = [...new Set(samples.map(r => (isIntra ? `occ${r.occasion}` : r.operatorId)))];
     raters.sort((a, b) => {
       if (isIntra) return Number(a.slice(3)) - Number(b.slice(3));
       if (isMethod && refOps.has(a) !== refOps.has(b)) return refOps.has(a) ? -1 : 1;
@@ -364,37 +384,43 @@ export function runReliabilityAll(sessions, config, calibration) {
     const k = raters.length;
 
     if (complete.length < 2 || k < 2) {
-      details.push({ label, n: samples.length, skip: true, reason: `Need ≥2 cases measured by every rater/occasion and ≥2 raters/occasions (have ${complete.length} complete cases, ${k} raters)` });
-      continue;
+      details.push({ label: displayLabel, measure: label, ...extra, n: samples.length, skip: true, reason: `Need ≥2 cases measured by every rater/occasion and ≥2 raters/occasions (have ${complete.length} complete cases, ${k} raters)` });
+      return;
     }
 
     const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
     const matrix = complete.map(u => raters.map(rk => avg(cell[u][rk])));
     const iccResult = iccFromMatrix(matrix, iccType);
+    const hasReplicates = !isIntra && complete.some(u => raters.some(rk => cell[u][rk].length > 1));
 
     // Bland-Altman for every ordered pair; the first pair is the headline result.
+    // Methods measured repeatedly use the Bland & Altman (2007) replicate method.
     const pairs = [];
     for (let a = 0; a < k; a++) {
       for (let b = a + 1; b < k; b++) {
-        const ba = blandAltman(matrix.map(r => r[a]), matrix.map(r => r[b]));
-        if (ba) pairs.push({ comparison: `${raters[b]} − ${raters[a]}`, ...ba });
+        const ba = hasReplicates
+          ? blandAltmanReplicates(complete.map(u => cell[u][raters[a]]), complete.map(u => cell[u][raters[b]]))
+          : blandAltman(matrix.map(r => r[a]), matrix.map(r => r[b]));
+        if (ba) pairs.push({ comparison: `${isIntra ? raters[b] : opName(raters[b])} − ${isIntra ? raters[a] : opName(raters[a])}`, ...ba });
       }
     }
     const me = methodError(matrix, iccResult?.icc ?? null);
-    const nExcluded = units.length - complete.length;
 
     details.push({
-      label,
+      label: displayLabel,
+      measure: label,
+      ...extra,
       unit: dominantUnit(samples),
       icc: iccResult?.icc ?? null,
       ci95: iccResult?.ci95 || [null, null],
+      iccRating: kooLiRating(iccResult?.ci95?.[0], iccResult?.ci95?.[1]),
       F: iccResult?.F ?? null,
       df1: iccResult?.df1 ?? null,
       df2: iccResult?.df2 ?? null,
       pValue: iccResult?.pValue ?? null,
       iccModel: iccResult?.model, iccModelLabel: iccResult?.modelLabel, iccModelDescription: iccResult?.modelDescription,
       nSubjects: complete.length,
-      nExcluded,
+      nExcluded: units.length - complete.length,
       nRaters: k,
       raters,
       ...(pairs[0] || {}),
@@ -403,10 +429,17 @@ export function runReliabilityAll(sessions, config, calibration) {
       ...me,
       n: samples.length,
     });
-  }
+  };
 
-  if (multiOperatorIntra) {
-    details.forEach(d => { if (!d.skip) d.note = "Intra-rater units are case × operator; run one study per operator to report each rater separately."; });
+  for (const label of labelList) {
+    const samples = byLabel[label];
+    if (multiOperatorIntra) {
+      // Intra-rater reliability is a property of each rater: report every operator separately.
+      const ops = [...new Set(samples.map(r => r.operatorId))].sort((a, b) => opOrder.indexOf(a) - opOrder.indexOf(b));
+      for (const op of ops) analyze(label, samples.filter(r => r.operatorId === op), `${label} · ${opName(op)}`, { operator: op });
+    } else {
+      analyze(label, samples, label);
+    }
   }
 
   // Landmark error map (now calibrated to mm)

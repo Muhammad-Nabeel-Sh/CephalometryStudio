@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalCdf, ptukey, qtukey } from "../research/statsCore.js";
-import { runComparativeAll, welchAnova, gamesHowell, holmAdjust } from "../research/comparative.js";
+import { runComparativeAll, welchAnova, gamesHowell, holmAdjust, dunnTest } from "../research/comparative.js";
 import { makeSession, lineMarkup } from "./helpers/cephFixtures.js";
 
 describe("normal CDF (statsCore)", () => {
@@ -101,5 +101,61 @@ describe("runComparativeAll — test policy and pairing", () => {
     const b = [66, 69, 64, 70, 67].map((v, i) => makeSession(`b${i}`, [lineMarkup("L", v), lineMarkup("M", v * 2 + 1)]));
     const r = runComparativeAll([...a, ...b], { design: "independent", groups: groupsOf(a, b), labelIds: [], mcCorrection: "holm" });
     expect(r.labels.L.mcCorrected.adjusted).toBeGreaterThanOrEqual(r.labels.L.result.pValue);
+  });
+});
+
+describe("S4 additions", () => {
+  it("paired 3+ conditions report Mauchly's test and the Greenhouse-Geisser ε", () => {
+    const mk = (p, vals) => vals.map((v, i) => makeSession(`${p}${i}`, [lineMarkup("L", v)]));
+    const a = mk("x", [10, 12, 11, 14, 13, 12]), b = mk("y", [12, 15, 12, 18, 14, 15]), c = mk("z", [15, 16, 14, 21, 17, 19]);
+    const r = runComparativeAll([...a, ...b, ...c], {
+      design: "paired", labelIds: ["L"], mcCorrection: "none",
+      groups: [{ label: "T1", caseIds: a.map(s => s.id) }, { label: "T2", caseIds: b.map(s => s.id) }, { label: "T3", caseIds: c.map(s => s.id) }],
+    }).labels.L;
+    expect(r.testName).toBe("Repeated measures ANOVA");
+    expect(r.result.sphericity).toBeTruthy();
+    expect(r.result.epsilon).toBeGreaterThan(0.5);
+    expect(r.result.epsilon).toBeLessThanOrEqual(1);
+    expect(r.result.dfCond).toBeCloseTo(2 * r.result.epsilon, 10);
+  });
+
+  it("Dunn's z equals (R̄i − R̄j)/√(N(N+1)/12·(1/ni + 1/nj)) without ties", () => {
+    const g = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+    const r = dunnTest(g, ["A", "B", "C"]);
+    const ac = r.find(x => x.groupA === "A" && x.groupB === "C");
+    const expected = (2.5 - 10.5) / Math.sqrt((12 * 13 / 12) * (1 / 4 + 1 / 4));
+    expect(ac.z).toBeCloseTo(expected, 10);
+    expect(ac.pAdjusted).toBeGreaterThanOrEqual(ac.pValue);
+  });
+
+  it("Kruskal-Wallis is followed by Dunn's test", () => {
+    const mk = (p, vals) => vals.map((v, i) => makeSession(`${p}${i}`, [lineMarkup("L", v)]));
+    const a = mk("a", [1, 2, 3, 4, 5]), b = mk("b", [6, 7, 8, 9, 10]), c = mk("c", [11, 12, 13, 14, 15]);
+    const r = runComparativeAll([...a, ...b, ...c], {
+      design: "independent", labelIds: ["L"], mcCorrection: "none", testPolicy: "nonparametric",
+      groups: [{ label: "A", caseIds: a.map(s => s.id) }, { label: "B", caseIds: b.map(s => s.id) }, { label: "C", caseIds: c.map(s => s.id) }],
+    });
+    expect(r.postHocMethods.L.name).toMatch(/Dunn/);
+    expect(r.postHoc.L).toHaveLength(3);
+  });
+
+  it("pairs by patient ID when every case has one, regardless of list order", () => {
+    const ids = ["P1", "P2", "P3", "P4", "P5"];
+    const before = [50, 52, 54, 56, 58], after = [51, 53.5, 55.2, 56.8, 59.4];
+    const t0 = ids.map((id, i) => makeSession(`b${i}`, [lineMarkup("L", before[i])], { meta: { patientId: id } }));
+    // T1 list deliberately shuffled.
+    const order = [3, 0, 4, 1, 2];
+    const t1 = order.map(i => makeSession(`a${i}`, [lineMarkup("L", after[i])], { meta: { patientId: ids[i] } }));
+    const r = runComparativeAll([...t0, ...t1], {
+      design: "paired", labelIds: ["L"], mcCorrection: "none",
+      groups: [{ label: "T0", caseIds: t0.map(s => s.id) }, { label: "T1", caseIds: t1.map(s => s.id) }],
+    });
+    expect(r.pairedBy).toBe("patient ID");
+    const L = r.labels.L;
+    const diffs = after.map((v, i) => v - before[i]);
+    const md = diffs.reduce((a, b) => a + b, 0) / 5;
+    expect(L.rawData.T1.mean - L.rawData.T0.mean).toBeCloseTo(md, 10);
+    const sd = Math.sqrt(diffs.reduce((s, d) => s + (d - md) ** 2, 0) / 4);
+    expect(L.result.t).toBeCloseTo(-md / (sd / Math.sqrt(5)), 8); // exact only if paired by ID
   });
 });

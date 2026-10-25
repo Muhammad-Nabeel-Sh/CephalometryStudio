@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { refreshAutoMeasurements } from "../workspace/markupHelpers.js";
 import { markMovedAiPoints } from "../workspace/aiReview.js";
+import { migrateMeasurementDefinitions, migrateNorms } from "../workspace/template.js";
 
 const EMPTY_CALIB = { done: false, pxPerMm: 1 };
 const EMPTY_PROC = { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 128, edgeEnhance: 0 };
@@ -27,10 +28,12 @@ export const useSessionStore = create((set, get) => ({
   undoVersion: 0,
 
   loadFromSession(session) {
+    // Saved projects pick up corrected measurement definitions on open.
+    const markups = migrateMeasurementDefinitions(session?.markups || []);
     set({
-      markups: session?.markups || [],
+      markups,
       calibration: session?.calibration || EMPTY_CALIB,
-      norms: session?.norms || [],
+      norms: migrateNorms(session?.norms || [], markups),
       formulas: session?.formulas || [],
       processing: session?.processing || EMPTY_PROC,
       sessionImage: session?.images || [],

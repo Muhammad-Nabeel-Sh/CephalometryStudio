@@ -3,22 +3,60 @@
 // Centralizes functions that were previously copy-pasted across files.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ─── Normal CDF (standard normal distribution function) ────────────────────
-// Φ(x) = ½·erfc(−x/√2). The previous version evaluated erf(x) instead of
-// erf(x/√2), i.e. Φ(x·√2): Φ(1.96) came out 0.997 instead of 0.975, which made
-// large-sample Mann-Whitney/Wilcoxon and logistic p-values too small and DeLong
-// AUC intervals too narrow (z₀.₀₂₅ ≈ 1.39). erfc uses the Chebyshev fit of
-// Numerical Recipes (fractional error < 1.2e-7 everywhere, including the tails).
-export function erfc(x) {
-  const z = Math.abs(x);
-  const t = 1 / (1 + 0.5 * z);
-  const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 +
-    t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
-  return x >= 0 ? r : 2 - r;
+import { tDistributeCDF, fCDF } from "../lib/utils.js";
+import { normalCdf } from "../lib/distributions.js";
+
+// ─── Normal distribution ───────────────────────────────────────────────────
+// Φ(x) = ½·erfc(−x/√2) (lib/distributions.js). The previous version here
+// evaluated Φ(x·√2): Φ(1.96) came out 0.997, making large-sample Mann-Whitney/
+// Wilcoxon and logistic p-values too small and DeLong intervals too narrow.
+export { erfc, normalCdf, zQuantile } from "../lib/distributions.js";
+
+// ─── Quantiles of t and F (bisection with an expanding bracket) ────────────
+function invert(cdf, p) {
+  let lo = 0, hi = 1;
+  while (cdf(hi) < p && hi < 1e9) { lo = hi; hi *= 2; }
+  for (let it = 0; it < 200; it++) {
+    const mid = (lo + hi) / 2;
+    if (cdf(mid) < p) lo = mid; else hi = mid;
+    if (hi - lo < 1e-12 * Math.max(1, hi)) break;
+  }
+  return (lo + hi) / 2;
 }
 
-export function normalCdf(x) {
-  return 0.5 * erfc(-x / Math.SQRT2);
+export function tQuantile(p, df) {
+  if (!(df > 0)) return NaN;
+  if (p < 0.5) return -tQuantile(1 - p, df);
+  return invert(x => tDistributeCDF(x, df), p);
+}
+
+export function fQuantile(p, df1, df2) {
+  if (!(df1 > 0) || !(df2 > 0)) return NaN;
+  return invert(x => fCDF(x, df1, df2), p);
+}
+
+// ─── Multiple-comparison adjustments ───────────────────────────────────────
+export function bonferroniAdjust(pValues, alpha = 0.05) {
+  const m = pValues.length;
+  return pValues.map((p, i) => {
+    const adjusted = Math.min(p * m, 1);
+    return { index: i, original: p, adjusted, significant: adjusted < alpha };
+  });
+}
+
+// Holm step-down (uniformly more powerful than Bonferroni).
+export function holmAdjust(pValues, alpha = 0.05) {
+  const m = pValues.length;
+  const order = pValues.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
+  const adj = Array(m);
+  let running = 0, rejecting = true;
+  order.forEach(({ p, i }, r) => {
+    running = Math.max(running, Math.min(1, (m - r) * p));
+    adj[i] = { index: i, original: p, adjusted: running };
+    if (rejecting && p > alpha / (m - r)) rejecting = false;
+    adj[i].significant = rejecting;
+  });
+  return adj;
 }
 
 // ─── Studentized range distribution (Tukey HSD, Games-Howell) ───────────────

@@ -123,3 +123,66 @@ describe("runReliabilityAll — design handling", () => {
     expect(d.cv).toBeNull();
   });
 });
+
+describe("S1/S2 additions", () => {
+  it("Koo & Li rating is read from the CI", async () => {
+    const { kooLiRating } = await import("../research/reliability.js");
+    expect(kooLiRating(0.62, 0.88)).toBe("moderate–good");
+    expect(kooLiRating(0.91, 0.97)).toBe("excellent");
+  });
+
+  it("replicate Bland-Altman reduces to the classic SD when replicates agree", async () => {
+    const { blandAltmanReplicates } = await import("../research/reliability.js");
+    const xs = [[10, 10], [12, 12], [14, 14], [16, 16]];
+    const ys = [[10.5, 10.5], [12.1, 12.1], [14.9, 14.9], [16.2, 16.2]];
+    const r = blandAltmanReplicates(xs, ys);
+    const d = [0.5, 0.1, 0.9, 0.2], m = d.reduce((a, b) => a + b) / 4;
+    const sd = Math.sqrt(d.reduce((a, v) => a + (v - m) ** 2, 0) / 3);
+    expect(r.meanDiff).toBeCloseTo(m, 10);
+    expect(r.sdDiff).toBeCloseTo(sd, 10);
+  });
+
+  it("replicate Bland-Altman adds the within-subject variance: s² = s²(d̄) + ½s²xw + ½s²yw", async () => {
+    const { blandAltmanReplicates } = await import("../research/reliability.js");
+    const xs = [[10, 11], [12, 13], [14, 15], [16, 17]];   // s²xw = 0.5
+    const ys = [[11, 11], [13, 13], [15, 15], [17.5, 17.5]]; // s²yw = 0
+    const r = blandAltmanReplicates(xs, ys);
+    const d = [0.5, 0.5, 0.5, 1], m = 0.625;
+    const varD = d.reduce((a, v) => a + (v - m) ** 2, 0) / 3;
+    expect(r.sdDiff).toBeCloseTo(Math.sqrt(varD + 0.5 * 0.5), 10);
+  });
+
+  it("method comparison with replicates uses the 2007 method", () => {
+    const sessions = [], cases = [];
+    for (let c = 0; c < 5; c++) {
+      const cs = { id: `C${c}`, name: `C${c}`, sessions: [] };
+      [["Expert", 1, 80 + c], ["Expert", 2, 80.4 + c], ["AI", 1, 79 + c], ["AI", 2, 79.3 + c]].forEach(([op, occ, v]) => {
+        const id = `${op}${c}_${occ}`;
+        sessions.push(makeSession(id, [lineMarkup("Co-A", v)]));
+        cs.sessions.push({ sessionId: id, operatorId: op, occasion: occ });
+      });
+      cases.push(cs);
+    }
+    const operators = [{ id: "Expert", name: "Expert", role: "reference" }, { id: "AI", name: "AI", role: "test" }];
+    const d = runReliabilityAll(sessions, { labelIds: [], cases, operators, design: "method_comparison" }).details[0];
+    expect(d.method).toMatch(/2007/);
+    expect(d.comparison).toBe("AI − Expert");
+    expect(d.meanDiff).toBeCloseTo(-1.05, 10);
+  });
+
+  it("intra-rater studies with several operators report each operator separately", () => {
+    const sessions = [], cases = [];
+    for (let c = 0; c < 4; c++) {
+      const cs = { id: `C${c}`, name: `C${c}`, sessions: [] };
+      for (const op of ["A", "B"]) for (const occ of [1, 2]) {
+        const id = `${op}${c}_${occ}`;
+        sessions.push(makeSession(id, [lineMarkup("S-N", 65 + c * 2 + (op === "B" ? 0.3 * occ : 0.1 * occ))]));
+        cs.sessions.push({ sessionId: id, operatorId: op, occasion: occ });
+      }
+      cases.push(cs);
+    }
+    const r = runReliabilityAll(sessions, { labelIds: [], cases, operators: [{ id: "A", name: "Rater A" }, { id: "B", name: "Rater B" }], design: "intra" });
+    expect(r.details.map(d => d.label)).toEqual(["S-N · Rater A", "S-N · Rater B"]);
+    expect(r.details[1].meanDiff).toBeCloseTo(0.3, 10);
+  });
+});

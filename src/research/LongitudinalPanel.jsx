@@ -258,6 +258,21 @@ export function LongitudinalConfig({
                 <option value="index">Visit number</option>
               </select>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <span>Growth curve:</span>
+              <select value={config.growthCurve || "linear"} onChange={(e) => update({ growthCurve: e.target.value })}
+                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+                <option value="linear">Linear</option>
+                <option value="quadratic">Quadratic (needs ≥ 3 visits)</option>
+              </select>
+              <span>Compare by:</span>
+              <select value={config.covariate || "none"} onChange={(e) => update({ covariate: e.target.value })}
+                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+                <option value="none">—</option>
+                <option value="sex">Sex</option>
+                <option value="group">Group</option>
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -1385,7 +1400,7 @@ function MixedModelView({ results, t }) {
         }}
       >
         <b style={{ color: t.acc }}>REML linear mixed model.</b> Fixed-effect
-        tests use a conservative df = subjects − 2 (no Kenward–Roger correction).
+        tests use Satterthwaite degrees of freedom (as R lmerTest).
         The slope is the mean growth rate per unit of the time axis shown below.
       </div>
       {labels.map(([label, lr]) => {
@@ -1438,7 +1453,7 @@ function MixedModelView({ results, t }) {
               >
                 <thead>
                   <tr style={{ background: t.surf2 }}>
-                    {["Term", "Estimate", "SE", "t", "p-value", "95% CI"].map(
+                    {["Term", "Estimate", "SE", "t", "df", "p-value", "95% CI"].map(
                       (h) => (
                         <th
                           key={h}
@@ -1480,6 +1495,9 @@ function MixedModelView({ results, t }) {
                       </td>
                       <td style={{ padding: "4px 6px", color: t.tx2 }}>
                         {fe.t?.toFixed(3) || "—"}
+                      </td>
+                      <td style={{ padding: "4px 6px", color: t.tx2 }}>
+                        {fe.df != null ? fe.df.toFixed(1) : "—"}
                       </td>
                       <td
                         style={{

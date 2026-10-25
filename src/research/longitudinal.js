@@ -137,7 +137,7 @@ function huynhFeldt(ggEps, n, k) {
 }
 
 // ─── Repeated measures ANOVA with sphericity correction ───────────────────
-function repeatedMeasuresANOVA(data, correction) {
+export function repeatedMeasuresANOVA(data, correction) {
   const timepointKeys = Object.keys(data[0] || {}).filter(k => k.startsWith("tp_"));
   const k = timepointKeys.length;
   const n = data.length;
@@ -264,26 +264,50 @@ export function chooseTimeAxis(rows, timepoints, requested = "auto") {
   return { axis, timeOf, unit: axis === "index" ? "visit" : "year" };
 }
 
-function linearMixedModel(rows, timepoints, requestedAxis) {
+// opts.growthCurve: "linear" | "quadratic"; opts.covariate: "none" | "sex" | "group"
+// (a between-subject factor, entered with its interaction with time so groups can
+// differ in level and in growth rate).
+function linearMixedModel(rows, timepoints, requestedAxis, opts = {}) {
   const k = timepoints.length;
   if (rows.length < 3 || k < 2) return null;
   const { axis, timeOf, unit } = chooseTimeAxis(rows, timepoints, requestedAxis);
+  const warnings = [];
+  const quadratic = opts.growthCurve === "quadratic";
+  const covKey = opts.covariate === "sex" ? "_sex" : opts.covariate === "group" ? "_group" : null;
+  let levels = [];
+  if (covKey) {
+    levels = [...new Set(rows.map(r => r[covKey]).filter(Boolean))].sort();
+    if (levels.length < 2) { warnings.push(`Covariate "${opts.covariate}" has fewer than two levels in these subjects — ignored.`); levels = []; }
+  }
   const raw = [];
+  let droppedNoCov = 0;
   rows.forEach((row, i) => {
+    if (levels.length && !row[covKey]) { droppedNoCov++; return; }
     for (let j = 0; j < k; j++) {
       const y = row[`tp_${j}`];
       if (y == null || !isFinite(y)) continue;
-      raw.push({ subject: i, t: timeOf(row, j), y });
+      raw.push({ subject: i, t: timeOf(row, j), y, level: levels.length ? row[covKey] : null });
     }
   });
+  if (droppedNoCov) warnings.push(`${droppedNoCov} subject(s) without a ${opts.covariate} value were excluded.`);
   if (raw.length < 4) return null;
   // Intercept = expected value at the earliest time point.
   const t0 = Math.min(...raw.map(o => o.t));
-  const obs = raw.map(o => ({ ...o, t: o.t - t0 }));
-  const fit = fitGrowthModel(obs);
+  const dummies = levels.slice(1);
+  const obs = raw.map(o => {
+    const t = o.t - t0;
+    const d = dummies.map(l => (o.level === l ? 1 : 0));
+    return { subject: o.subject, t, y: o.y, x: [1, t, ...(quadratic ? [t * t] : []), ...d, ...d.map(v => v * t)] };
+  });
+  const termNames = [
+    axis === "index" ? "Intercept (first visit)" : `Intercept (at ${axis === "age" ? "age" : "target age"} ${+t0.toFixed(2)})`,
+    `Time (slope per ${unit}${quadratic ? ", at start" : ""})`,
+    ...(quadratic ? [`Time² (curvature per ${unit}²)`] : []),
+    ...dummies.map(l => `${opts.covariate}: ${l} vs ${levels[0]}`),
+    ...dummies.map(l => `Time × ${opts.covariate} ${l}`),
+  ];
+  const fit = fitGrowthModel(obs, { termNames });
   if (!fit) return null;
-  fit.fixedEffects[0].term = axis === "index" ? "Intercept (first visit)" : `Intercept (at ${axis === "age" ? "age" : "target age"} ${+t0.toFixed(2)})`;
-  fit.fixedEffects[1].term = `Time (slope per ${unit})`;
 
   // Per-subject OLS slopes (descriptive; shown in trajectory charts).
   const slopes = rows.map((row, i) => {
@@ -294,7 +318,6 @@ function linearMixedModel(rows, timepoints, requestedAxis) {
     return den > 0 ? sum(pts.map(p => (p.t - xm) * (p.y - ym))) / den : null;
   }).filter(v => v != null);
 
-  const warnings = [];
   if (axis === "index") warnings.push("No ages recorded: time is the visit number, so unequal intervals between visits are ignored. Enter each session's age (or the timepoints' target ages) for a growth-rate model.");
   if (!fit.converged) warnings.push("The REML optimiser did not fully converge — treat variance components with caution.");
 
@@ -311,7 +334,10 @@ function linearMixedModel(rows, timepoints, requestedAxis) {
     slopes,
     nObservations: obs.length,
     warnings,
-    limitations: "REML linear mixed model (random intercept; random slope when supported by a likelihood-ratio test). Fixed-effect tests use a conservative df = subjects − 2 (no Kenward–Roger correction).",
+    growthCurve: quadratic ? "quadratic" : "linear",
+    covariate: levels.length ? { name: opts.covariate, levels } : null,
+    dfMethod: fit.dfMethod,
+    limitations: `REML linear mixed model (random intercept; random slope when supported by a likelihood-ratio test). Fixed-effect tests use ${fit.dfMethod} degrees of freedom.`,
   };
 }
 
@@ -361,6 +387,7 @@ function collectSubjectData(sessions, subjects, timepoints, labelIds, calibratio
         const session = sessionId ? sessions.find(s => s.id === sessionId) : null;
         const got = getMeasurementForLabel(session, label, calibration);
         row[`tp_${j}`] = got?.value ?? null;
+        if (session && row._sex === undefined) { row._sex = session.meta?.sex || ""; row._group = session.meta?.group || ""; }
         const age = session?.meta?.age;
         row[`age_${j}`] = age !== undefined && age !== null && age !== "" && isFinite(Number(age)) ? Number(age) : null;
         if (got?.unit) labelUnits[got.unit] = (labelUnits[got.unit] || 0) + 1;
@@ -439,7 +466,7 @@ export function runLongitudinalAll(sessions, config, calibration) {
   // subject with at least one observation.
   for (const [label, ld] of Object.entries(byLabel)) {
     const paired = ld.complete;
-    const lmm = wantLmm ? linearMixedModel(ld.rows, timepoints, config.timeAxis || "auto") : null;
+    const lmm = wantLmm ? linearMixedModel(ld.rows, timepoints, config.timeAxis || "auto", { growthCurve: config.growthCurve, covariate: config.covariate }) : null;
     if (paired.length < 3) {
       if (lmm) {
         results.labels[label] = { label, unit: ld.unit || "", rmAnova: null, pairwise: [], lmm, changeScores: [], rawData: ld.rawData, nSubjects: ld.nSubjects, nComplete: ld.nComplete,

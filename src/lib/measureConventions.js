@@ -128,13 +128,14 @@ const ANGLE3_CONVENTIONS = {
   "Convexity": "signed",               // A-N-Pog at N (Basis, Cagliari, Chieti, McGann)
   "Angle of convexity": "convexity",   // Downs N-A-Pog, Harvold
   "Mandibular arc": "supplement",      // Ricketts: 180° − ∠DC-Xi-PM
+  "Facial convexity": "convexity",     // 180° − ∠G-Sn-Pog' (soft tissue) / N-A-Pog (COGS)
 };
 const ANGLE4_CONVENTIONS = {
   "AB plane angle": "abPlane", "AB plane": "abPlane",
 };
 // Landmark that must sit at the vertex for a convention; lets legacy markups
 // saved with the old reference order still compute the right angle.
-const CONVENTION_VERTEX = { "Angle of convexity": ["A", "ANS"], "Mandibular arc": ["Xi"] };
+const CONVENTION_VERTEX = { "Angle of convexity": ["A", "ANS"], "Mandibular arc": ["Xi"], "Facial convexity": ["Sn", "sn", "A"] };
 
 export function measureName(m) {
   return m?.measure || m?.templateLabel || m?.label || "";

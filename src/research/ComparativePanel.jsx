@@ -495,14 +495,19 @@ function PostHocView({ results, t }) {
 
   return (
     <div>
-      {labels.map(label => (
+      {results.pairedBy && <div style={{ fontSize: 10, color: t.tx3, marginBottom: 6 }}>Subjects paired by {results.pairedBy}.</div>}
+      {labels.map(label => {
+        const meth = results.postHocMethods?.[label];
+        const adjusted = isPaired || ph[label].some(c => c.pAdjusted != null);
+        const statName = meth?.stat || (isPaired ? "t" : "q");
+        return (
         <div key={label} style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: t.tx, marginBottom: 4, fontFamily: "'DM Mono',monospace" }}>{label}{results.labels?.[label]?.unit ? ` (${results.labels[label].unit})` : ""}</div>
-          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 4 }}>{isPaired ? "Bonferroni-corrected paired t-tests" : (results.postHocMethod || "Tukey HSD")}</div>
+          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 4 }}>{meth?.name || (isPaired ? "Bonferroni-corrected paired t-tests" : (results.postHocMethod || "Tukey HSD"))}</div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
             <thead>
               <tr style={{ background: t.surf2 }}>
-                {["Group A", "Group B", "Mean Diff", isPaired ? "t" : "q", isPaired ? "p (adj.)" : "p-value", "Significant", isPaired ? "df" : "95% CI"].map(h => (
+                {["Group A", "Group B", meth?.stat === "z" ? "Mean rank diff" : "Mean Diff", statName, adjusted ? "p (adj.)" : "p-value", "Significant", "95% CI / df"].map(h => (
                   <th key={h} style={{ padding: "3px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
                 ))}
               </tr>
@@ -512,9 +517,9 @@ function PostHocView({ results, t }) {
                 <tr key={i} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
                   <td style={{ padding: "4px 6px", color: t.tx }}>{c.groupA}</td>
                   <td style={{ padding: "4px 6px", color: t.tx }}>{c.groupB}</td>
-                  <td style={{ padding: "4px 6px", color: t.tx2 }}>{c.meanDiff?.toFixed(3) || "—"}</td>
-                  <td style={{ padding: "4px 6px", color: t.tx2 }}>{isPaired ? (c.t?.toFixed(3) || "—") : (c.q?.toFixed(3) || "—")}</td>
-                  <td style={{ padding: "4px 6px", color: c.significant ? t.err : t.ok, fontWeight: 700 }}>{isPaired ? fmtP(c.pAdjusted) : fmtP(c.pValue)}</td>
+                  <td style={{ padding: "4px 6px", color: t.tx2 }}>{(c.meanDiff ?? c.meanRankDiff)?.toFixed(3) ?? "—"}</td>
+                  <td style={{ padding: "4px 6px", color: t.tx2 }}>{(c.stat ?? (isPaired ? c.t : c.q))?.toFixed(3) ?? "—"}</td>
+                  <td style={{ padding: "4px 6px", color: c.significant ? t.err : t.ok, fontWeight: 700 }}>{fmtP(c.pAdjusted ?? c.pValue)}</td>
                   <td style={{ padding: "4px 6px" }}>
                     <span style={{
                       padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 700,
@@ -523,14 +528,15 @@ function PostHocView({ results, t }) {
                     }}>{c.significant ? "Yes" : "No"}</span>
                   </td>
                   <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                    {isPaired ? (c.df ?? "—") : (c.ci95 ? `[${c.ci95[0]?.toFixed(3) || "\u2014"}, ${c.ci95[1]?.toFixed(3) || "\u2014"}]` : "—")}
+                    {c.ci95 ? `[${c.ci95[0]?.toFixed(3) ?? "-"}, ${c.ci95[1]?.toFixed(3) ?? "-"}]` : (c.df != null ? (+c.df).toFixed(1) : "-")}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

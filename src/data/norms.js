@@ -6,6 +6,9 @@
 export const DEFAULT_NORMS = {
   Steiner: {
     source: "Steiner, 1953 / Am J Orthod",
+    citation: "Steiner CC. Cephalometrics for you and me. Am J Orthod. 1953;39(10):729-755.",
+    sdApproximate: true,
+    sdNote: "Steiner published mean values only; the SDs here are conventional approximations, so z-scores and severity bands are indicative.",
     population: "Caucasian (North American)",
     ageRange: "Adult",
     sex: "Pooled (male + female)",
@@ -27,6 +30,7 @@ export const DEFAULT_NORMS = {
   },
   Ricketts: {
     source: "Ricketts, 1960 / Am J Orthod",
+    citation: "Ricketts RM. A foundation for cephalometric communication. Am J Orthod. 1960;46(5):330-357.",
     population: "Caucasian (North American)",
     ageRange: "Mixed (growing and adult)",
     sex: "Pooled (male + female)",
@@ -47,6 +51,7 @@ export const DEFAULT_NORMS = {
   },
   Downs: {
     source: "Downs, 1948 / Am J Orthod",
+    citation: "Downs WB. Variations in facial relationships: their significance in treatment and prognosis. Am J Orthod. 1948;34(10):812-840.",
     population: "Caucasian (North American)",
     ageRange: "Adolescent (12-17y)",
     sex: "Pooled (male + female)",
@@ -64,6 +69,7 @@ export const DEFAULT_NORMS = {
   },
   McNamara: {
     source: "McNamara, 1984 / Am J Orthod",
+    citation: "McNamara JA Jr. A method of cephalometric evaluation. Am J Orthod. 1984;86(6):449-469.",
     population: "Caucasian (North American)",
     ageRange: "Mixed (children and adults, not separated)",
     sex: "Pooled (male + female)",
@@ -96,6 +102,9 @@ export const DEFAULT_NORMS = {
   },
   Tweed: {
     source: "Tweed, 1954",
+    citation: "Tweed CH. The Frankfort-mandibular incisor angle (FMIA) in orthodontic diagnosis, treatment planning and prognosis. Angle Orthod. 1954;24(3):121-169.",
+    sdApproximate: true,
+    sdNote: "Tweed gave target ranges, not SDs; the SDs here are approximations.",
     population: "Caucasian (North American)",
     ageRange: "Adult",
     sex: "Pooled (male + female)",
@@ -145,6 +154,17 @@ export const DEFAULT_NORMS = {
     ],
   },
 };
+
+// Norms whose SD was not published by the source (conventional approximations).
+// Steiner and Tweed gave means/ranges only, and many compiled analyses copy
+// Steiner's SNA/SNB/ANB ±2°. These are flagged so z-scores read as indicative.
+const APPROXIMATE_SD_ANALYSES = new Set(["Steiner Analysis", "Tweed Analysis", "General Ceph Analysis"]);
+const STEINER_COPIES = new Set(["SNA", "SNB", "ANB", "S-N-A", "S-N-B", "A-N-B"]);
+
+export function isApproximateSd(analysisName, label, sd) {
+  if (APPROXIMATE_SD_ANALYSES.has(analysisName)) return true;
+  return STEINER_COPIES.has(label) && sd === 2;
+}
 
 export const AIRWAY_NORMS = {
   "R-PAS": { mean: 11.2, sd: 2.4, source: "McNamara 1984", note: "Retropalatal airway, narrowest width between soft palate and posterior pharyngeal wall" },

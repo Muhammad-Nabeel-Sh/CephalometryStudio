@@ -39,7 +39,7 @@ export function exportCSV(markups, calibration, formatAngle, projectName, facing
     if (!Object.keys(meas).length) rows.push([m.id, m.type, m.label || "", m.definition || "", ps, "", "", "", src]);
     else Object.entries(meas).forEach(([k, v]) => {
       if (k.startsWith("_")) return;
-      rows.push([m.id, m.type, m.label || "", m.definition || "", ps, k, v.toFixed(2), k === "angle" ? formatAngle(v) : (k === "x" || k === "y" || meas._unit !== "mm") ? "px" : "mm", src]);
+      rows.push([m.id, m.type, m.label || "", m.definition || "", ps, k, v.toFixed(2), k === "angle" ? formatAngle(v) : (meas._unit === "mm" ? "mm" : "px"), src]);
     });
   });
   const a = document.createElement("a");
