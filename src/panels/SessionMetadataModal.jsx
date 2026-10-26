@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Btn, Tag } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { notify } from "../ui/dialogs.js";
 
 export default function SessionMetadataModal({ project, t, onUpdateProject, onClose }) {
   const sessionList = project?.sessions || [];
@@ -100,7 +101,7 @@ export default function SessionMetadataModal({ project, t, onUpdateProject, onCl
       });
       if (Object.keys(patchMeta).length > 0) updates.push({ id: s.id, meta: patchMeta });
     }
-    if (updates.length === 0) { alert("No filenames matched the pattern."); return; }
+    if (updates.length === 0) { notify("No filenames matched the pattern.", { tone: "warn" }); return; }
     onUpdateProject({
       ...project,
       sessions: sessionList.map(s => {

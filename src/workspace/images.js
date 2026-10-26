@@ -1,10 +1,11 @@
 import { uid } from "../lib/utils.js";
 import { logError } from "../lib/logger.js";
+import { notify } from "../ui/dialogs.js";
 
 export function loadImageFile(file, addToStack, { sessionImages, dispatch, updSession, imgRefs, canvasSize, panRef, zoomRef }) {
   if (!file || !file.type.startsWith("image/")) return;
   if (file.size > 100 * 1024 * 1024) {
-    alert(`"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum image size is 100 MB.`);
+    notify(`"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum image size is 100 MB.`, { tone: "err" });
     return;
   }
   dispatch({ type: "SET", payload: { loadingImages: true } });
@@ -36,14 +37,14 @@ export function loadImageFile(file, addToStack, { sessionImages, dispatch, updSe
     img.onerror = () => {
       dispatch({ type: "SET", payload: { loadingImages: false } });
       logError("Image decode failed:", null);
-      alert(`Could not decode "${file?.name || "image"}". The file may be corrupt or in an unsupported format.`);
+      notify(`Could not decode "${file?.name || "image"}". The file may be corrupt or in an unsupported format.`, { tone: "err" });
     };
     img.src = dataUrl;
   };
   reader.onerror = () => {
     dispatch({ type: "SET", payload: { loadingImages: false } });
     logError("File read failed:", reader.error);
-    alert(`Could not read "${file?.name || "file"}".`);
+    notify(`Could not read "${file?.name || "file"}".`, { tone: "err" });
   };
   reader.readAsDataURL(file);
 }

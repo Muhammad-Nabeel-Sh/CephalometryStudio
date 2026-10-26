@@ -4,6 +4,7 @@ import { logWarn } from "../lib/logger.js";
 import { PREDEFINED } from "../data/constants.js";
 import { Btn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { askConfirm, notify } from "../ui/dialogs.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TEMPLATES PANEL
@@ -119,7 +120,7 @@ export function TemplatesPanel({ t, projection, onLoadTemplate, onImportCepht })
             {editMode ? `Load ${selectedLabels?.size || 0} pts` : "Load"}
           </button>}
           {importedTemplates.some(t => t.name === selectedTemplate.name) && (
-            <button onClick={(e) => { e.stopPropagation(); if (window.confirm(`Delete "${selectedTemplate.name}" from library?`)) deleteImported(selectedTemplate.name); }} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: t.err, fontSize: 14, cursor: "pointer", lineHeight: 1 }}>🗑</button>
+            <button onClick={async (e) => { e.stopPropagation(); if (await askConfirm({ title: `Delete "${selectedTemplate.name}"?`, message: "The template is removed from your library.", confirmLabel: "Delete", danger: true })) deleteImported(selectedTemplate.name); }} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: t.err, fontSize: 14, cursor: "pointer", lineHeight: 1 }}>🗑</button>
           )}
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
@@ -159,7 +160,7 @@ export function TemplatesPanel({ t, projection, onLoadTemplate, onImportCepht })
 
   return (
     <div style={{ padding: 12 }}>
-      <input type="file" ref={cephtInputRef} accept=".cepht" style={{ display: "none" }} onChange={e => { const file = e.target.files?.[0]; if (file && onImportCepht) { const reader = new FileReader(); reader.onload = ev => { try { const data = JSON.parse(ev.target.result); if (data.format === "cepht") { handleImport(data); } else alert("Invalid .cepht file"); } catch { alert("Cannot parse file"); } }; reader.readAsText(file); } e.target.value = ""; }} />
+      <input type="file" ref={cephtInputRef} accept=".cepht" style={{ display: "none" }} onChange={e => { const file = e.target.files?.[0]; if (file && onImportCepht) { const reader = new FileReader(); reader.onload = ev => { try { const data = JSON.parse(ev.target.result); if (data.format === "cepht") { handleImport(data); } else notify("This is not a valid .cepht template file.", { tone: "err" }); } catch { notify("Cannot parse file.", { tone: "err" }); } }; reader.readAsText(file); } e.target.value = ""; }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ fontSize: 11, color: t.tx2, lineHeight: 1.45, flex: 1 }}>
           Browse cephalometric analysis templates. Click a template to view landmarks with definitions. Click <strong>Load</strong> to add points to your workspace.

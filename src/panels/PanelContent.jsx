@@ -10,6 +10,7 @@ function hasPlacedCoords(markups) {
 }
 import { uid } from "../lib/utils.js";
 import { logError } from "../lib/logger.js";
+import { notify } from "../ui/dialogs.js";
 import { MarkupsPanel } from "./MarkupsPanel.jsx";
 import { MeasurementsPanel } from "./MeasurementsPanel.jsx";
 import { FormulasPanel } from "./FormulasPanel.jsx";
@@ -87,7 +88,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
             } catch (e) { logError("Silhouette insert error:", e); }
           }} />}
           {rightPanel === "templates" && <TemplatesPanel t={t} projection={project.projection} onLoadTemplate={loadTemplate} onImportCepht={data => {
-            const err = validateCepht(data); if (err) { alert(err); return; }
+            const err = validateCepht(data); if (err) { notify(err, { tone: "err" }); return; }
             const hasCoords = data.version === "2.0" && hasPlacedCoords(data.markups);
             const newMarkups = data.markups.map(m => {
               const base = { ...m, id: uid(), definition: m.definition || m.def || "", visible: m.visible !== false };

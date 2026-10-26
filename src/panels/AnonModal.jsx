@@ -2,6 +2,7 @@ import { PropRow, Btn } from "../ui/ui.jsx";
 import { anonymizeProject } from "../report/anonymize.js";
 import { useState } from "react";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { askConfirm } from "../ui/dialogs.js";
 
 // Anonymization is now NON-destructive to the audit trail: it clears patient
 // identifiers from project.meta AND every session.meta, pseudonymizes operator
@@ -10,7 +11,7 @@ import PanelGuideModal from "./PanelGuideModal.jsx";
 export default function AnonModal({ t, project, onUpdateProject }) {
   const [guideKey, setGuideKey] = useState(null);
   const anonymize = async () => {
-    if (!window.confirm("Remove all patient identifiers?\n\nPatient name, DOB, age, sex, subject ID and per-session patient IDs will be cleared. Operator IDs will be pseudonymized (Rater-1, Rater-2…). Research group/timepoint labels are kept. An audit-log entry (who/when) is recorded.")) return;
+    if (!(await askConfirm({ title: "Remove all patient identifiers?", message: "Patient name, DOB, age, sex, subject ID and per-session patient IDs will be cleared. Operator IDs will be pseudonymized (Rater-1, Rater-2…). Research group/timepoint labels are kept. An audit-log entry (who/when) is recorded.", confirmLabel: "Remove identifiers", danger: true }))) return;
     const anon = await anonymizeProject(project, { reason: "manual" });
     onUpdateProject(anon);
   };

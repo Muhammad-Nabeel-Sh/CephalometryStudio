@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { mkSession } from "../model/session.js";
 import { addSession, removeSession } from "../model/project.js";
 import { onEnter } from "../lib/utils.js";
+import { askConfirm } from "../ui/dialogs.js";
 
 export default function SessionFilmstrip({ project, t, onUpdateProject, compact }) {
   const sessions = project?.sessions || [];
@@ -17,9 +18,10 @@ export default function SessionFilmstrip({ project, t, onUpdateProject, compact 
     onUpdateProject(addSession(project, session));
   };
 
-  const handleRemove = (id) => {
+  const handleRemove = async (id) => {
     if (sessions.length <= 1) return;
-    if (!window.confirm(`Delete session?`)) return;
+    const name = sessions.find(s => s.id === id)?.name;
+    if (!(await askConfirm({ title: `Delete session${name ? ` “${name}”` : ""}?`, message: "Its image, tracing and measurements are removed from this case.", confirmLabel: "Delete session", danger: true }))) return;
     onUpdateProject(removeSession(project, id));
   };
 

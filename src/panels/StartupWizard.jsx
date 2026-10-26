@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { PREDEFINED } from "../data/constants.js";
 import { Btn, Tag } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { notify } from "../ui/dialogs.js";
 
 const projectionKeyMap={
   "Submentovertex (SMV)":"smv",
@@ -354,8 +355,8 @@ function StepTemplate({ t, projection, onPick }) {
             try {
               const d = JSON.parse(ev.target.result);
               if (d.format === "cepht" || d.markups) onPick("upload", null, d);
-              else alert("Invalid .cepht file");
-            } catch (e) { alert("Cannot parse file: "+e.message); }
+              else notify("This is not a valid .cepht template file.", { tone: "err" });
+            } catch (e) { notify("Cannot parse file: " + e.message, { tone: "err" }); }
           };
           reader.readAsText(file);
           e.target.value = "";

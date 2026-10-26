@@ -7,6 +7,7 @@ import { mkSubject, addSubject, addSession } from "../model/project.js";
 import { parseCsv } from "../model/csv.js";
 import { uid } from "../lib/utils.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { notify } from "../ui/dialogs.js";
 
 const META_KEYS = new Set([
   "patientId", "operatorId", "group", "timepoint", "age", "sex", "trialNumber",
@@ -23,8 +24,8 @@ export default function BatchImportModal({ t, project, onUpdateProject, onClose 
 
   const handleImages = useCallback(async (files) => {
     const valid = Array.from(files).filter(f => {
-      if (!f.type.startsWith("image/")) { alert(`"${f.name}" is not an image file. Skipped.`); return false; }
-      if (f.size > 100 * 1024 * 1024) { alert(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Maximum 100 MB. Skipped.`); return false; }
+      if (!f.type.startsWith("image/")) { notify(`"${f.name}" is not an image file. Skipped.`, { tone: "warn" }); return false; }
+      if (f.size > 100 * 1024 * 1024) { notify(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Maximum 100 MB. Skipped.`, { tone: "warn" }); return false; }
       return true;
     });
     if (valid.length === 0) return;

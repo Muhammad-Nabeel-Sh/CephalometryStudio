@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { vpts } from "../lib/utils.js";
+import { beginLabelLayout, flushLabelLayout } from "./drawMarkups.js";
 import { procrustesAlign } from "../research/superimposition.js";
 
 export function createRedraw(dc) {
@@ -33,6 +34,7 @@ export function createRedraw(dc) {
       showTrackingLines, refLandmark1, refLandmark2, showCalib, pendingRuler,
       showGrid, showAirwayOverlay, showCpAlways, showAnchorAlways,
       snapTolerance, autoHideLabels, annotationBold, showGroupsLegend,
+      labelLayout, labelsActiveOnly, activeAnalysis,
     } = dc;
     const zoom = dc.zoomRef.current;
 
@@ -127,7 +129,10 @@ export function createRedraw(dc) {
     }
 
     // ── Draw all markups ──
-        drawMarkups.forEach(m => dc.drawMarkup(ctx2d, m, zoom, pan, drawCalibration, selectedId, t, false, dc.canvasSize.current, angleMode, showAnnotations, annotationSize, dc.hoveredPtRef.current, { showCpAlways, showAnchorAlways, autoHideLabels, annotationBold, facing }));
+        if (labelLayout) beginLabelLayout(ctx2d);
+        const labelAnalysis = labelsActiveOnly && activeAnalysis && activeAnalysis !== "blank" ? activeAnalysis : null;
+        drawMarkups.forEach(m => dc.drawMarkup(ctx2d, m, zoom, pan, drawCalibration, selectedId, t, false, dc.canvasSize.current, angleMode, showAnnotations, annotationSize, dc.hoveredPtRef.current, { showCpAlways, showAnchorAlways, autoHideLabels, annotationBold, facing, activeAnalysis: labelAnalysis }));
+        if (labelLayout) flushLabelLayout(ctx2d);
 
     // ── Calibration ruler highlight ──
     if (showCalib && pendingRuler) {

@@ -117,6 +117,11 @@ import {
 } from "./storage/secureStorage.js";
 import { anonymizeProject, hasUnanonymizedPHI } from "./report/anonymize.js";
 import { logError, logWarn } from "./lib/logger.js";
+import { askConfirm, askText, notify, showInfo, dismissToastKey } from "./ui/dialogs.js";
+import { describeChange, isNotableChange } from "./workspace/undoHistory.js";
+import { nextToReview, confirmPoint } from "./workspace/aiReview.js";
+import { PlacingGuide, Magnifier } from "./panels/PlacingGuide.jsx";
+import { DialogHost } from "./ui/DialogHost.jsx";
 
 import { useStoreDispatch, syncPlacingQueue } from "./state/workspaceStore.js";
 import { useToolStore, useUIStore } from "./state/workspaceStore.js";
@@ -297,25 +302,22 @@ function importCephx(file, onLoad) {
       parsed = JSON.parse(e.target.result);
     } catch (err) {
       logError("Cephx import error:", err);
-      alert("Cannot parse file — it is not valid JSON.");
+      notify("Cannot open the file — it is not valid JSON.", { tone: "err" });
       return;
     }
     const res = importCephxPayload(parsed);
     if (!res.ok) {
-      alert(res.error);
+      notify(res.error, { tone: "err" });
       return;
     }
     onLoad(res.project);
     if (res.warnings && res.warnings.length) {
-      setTimeout(
-        () => alert("Imported with notes:\n• " + res.warnings.join("\n• ")),
-        60,
-      );
+      showInfo({ title: "Imported with notes", items: res.warnings });
     }
   };
   reader.onerror = () => {
     logError("Cephx file read failed:", reader.error);
-    alert("Could not read the file.");
+    notify("Could not read the file.", { tone: "err" });
   };
   reader.readAsText(file);
 }
@@ -1403,12 +1405,15 @@ function Workspace({
   const isMobile = useMediaQuery("(max-width: 1024px)"); // compact layout: phones + tablets (portrait/landscape)
 
   // ─── Mobile sheet: share save logic + browser-back integration ───
-  const handleSaveProject = useCallback(() => {
+  const handleSaveProject = useCallback(async () => {
     if (
       hasUnanonymizedPHI(project) &&
-      !window.confirm(
-        "This project still contains patient identifiers (name, DOB, age, etc.). Exporting will include them. Continue? Use the Export dialog for an anonymized export.",
-      )
+      !(await askConfirm({
+        title: "Export with patient identifiers?",
+        message: "This project still contains patient identifiers (name, DOB, age, etc.). Exporting will include them. Use the Export dialog for an anonymized export.",
+        confirmLabel: "Export anyway",
+        danger: true,
+      }))
     )
       return;
     const patched = {
@@ -1786,6 +1791,9 @@ function Workspace({
   const lutMode = activeSession?.lutMode || "gray";
   const lutInvert = activeSession?.lutInvert || false;
   const analysisTemplate = activeSession?.analysisTemplate || "blank";
+  // Read by the canvas redraw (labels for the active analysis only, B3).
+  const analysisTemplateRef = useRef(analysisTemplate);
+  useEffect(() => { analysisTemplateRef.current = analysisTemplate; }, [analysisTemplate]);
   const patientSex = activeSession?.meta?.sex || null;
   const patientAge =
     activeSession?.meta?.age !== undefined && activeSession?.meta?.age !== null
@@ -1899,14 +1907,56 @@ function Workspace({
     [angleMode],
   );
   const pushUndo = useCallback(() => useSessionStore.getState().pushUndo(), []);
-  const undo = useCallback(() => {
-    useSessionStore.getState().undo();
+  // B6: undo/redo say what they did, with the opposite action on the toast.
+  // `undoingRef` tells the push watcher below that these stack changes are not
+  // new user actions.
+  const undoingRef = useRef(false);
+  const undoSteps = useCallback((k = 1) => {
+    const st = useSessionStore.getState();
+    const n = Math.min(k, st.undoStack.length);
+    if (!n) return;
+    const what = describeChange(st.undoStack[st.undoStack.length - 1], st.snapshot()).text;
+    undoingRef.current = true;
+    try { for (let i = 0; i < n; i++) useSessionStore.getState().undo(); } finally { undoingRef.current = false; }
     syncPlacingQueue();
+    notify(n === 1 ? `Undone: ${what}` : `Undone ${n} steps`, { key: "undo", duration: 4000, action: { label: "Redo", onClick: () => redoStepsRef.current(n) } });
   }, []);
-  const redo = useCallback(() => {
-    useSessionStore.getState().redo();
+  const redoSteps = useCallback((k = 1) => {
+    const st = useSessionStore.getState();
+    const n = Math.min(k, st.redoStack.length);
+    if (!n) return;
+    undoingRef.current = true;
+    try { for (let i = 0; i < n; i++) useSessionStore.getState().redo(); } finally { undoingRef.current = false; }
     syncPlacingQueue();
-  }, []);
+    const after = useSessionStore.getState();
+    const what = describeChange(after.undoStack[after.undoStack.length - 1], after.snapshot()).text;
+    notify(n === 1 ? `Redone: ${what}` : `Redone ${n} steps`, { key: "undo", duration: 4000, action: { label: "Undo", onClick: () => undoSteps(n) } });
+  }, [undoSteps]);
+  const redoStepsRef = useRef(redoSteps);
+  useEffect(() => { redoStepsRef.current = redoSteps; }, [redoSteps]);
+  const undo = useCallback(() => undoSteps(1), [undoSteps]);
+  const redo = useCallback(() => redoSteps(1), [redoSteps]);
+  // A deletion, move, multi-edit or calibration gets a "… · Undo" toast once it
+  // settles (drags push their snapshot at mouse-up). Any newer action retires
+  // the toast so its Undo never reverts something else.
+  useEffect(() => {
+    let timer = null;
+    const unsub = useSessionStore.subscribe((s, prev) => {
+      if (undoingRef.current || s.undoStack === prev.undoStack) return;
+      if (!s.undoStack.length || s.undoStack.length < prev.undoStack.length) return;
+      if (s.redoStack.length) return;
+      dismissToastKey("undo");
+      clearTimeout(timer);
+      const depth = s.undoStack.length;
+      timer = setTimeout(() => {
+        const st = useSessionStore.getState();
+        if (st.undoStack.length !== depth) return;
+        const c = describeChange(st.undoStack[depth - 1], st.snapshot());
+        if (isNotableChange(c)) notify(c.text, { key: "undo", action: { label: "Undo", onClick: () => { if (useSessionStore.getState().undoStack.length === depth) undoSteps(1); } } });
+      }, 450);
+    });
+    return () => { clearTimeout(timer); unsub(); };
+  }, [undoSteps]);
   const refreshAutoMeas = useCallback(
     (ms) => refreshAutoMeasurements(ms, calibration, facingSetting),
     [calibration, facingSetting],
@@ -2188,13 +2238,18 @@ function Workspace({
   const flashRafRef = useRef(null);
   const flashTimerRef = useRef(null);
   const selectAndFocusMarkup = useCallback(
-    (id) => {
+    (id, opts = {}) => {
       setSelectedId(id);
       if (!id) return;
       const m = useSessionStore.getState().markups.find((x) => x.id === id);
       if (!m) return;
       const pts = vpts(m);
       if (!pts.length) return;
+      // B4: review zooms in (never out) so the point can be judged.
+      if (opts.zoom && zoomRef.current < opts.zoom) {
+        zoomRef.current = opts.zoom;
+        dispatch({ type: "SET", payload: { zoom: opts.zoom } });
+      }
       const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
       const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
       const cw = canvasSize.current.w,
@@ -2222,6 +2277,58 @@ function Workspace({
       flashRafRef.current = requestAnimationFrame(_fl);
     },
     [setSelectedId, dispatch],
+  );
+
+  // B4: step through landmarks that need checking (unreviewed AI points, lowest
+  // confidence first, then points marked unsure). `confirmId` confirms that
+  // point first.
+  // B2: guided tracing — "unsure" is set for one queued landmark (by id), so
+  // skipping or going back never carries it to another; the magnifier
+  // preference is remembered.
+  const [placingUnsureId, setPlacingUnsureId] = useState(null);
+  const placingUnsureRef = useRef(null);
+  useEffect(() => { placingUnsureRef.current = placingUnsureId; }, [placingUnsureId]);
+  const [magnifierOn, setMagnifierOn] = useState(() => {
+    try { return localStorage.getItem("cephalo_magnifier") !== "off"; } catch { return true; }
+  });
+  const toggleMagnifier = useCallback(() => {
+    setMagnifierOn((v) => {
+      try { localStorage.setItem("cephalo_magnifier", v ? "off" : "on"); } catch { /* storage blocked */ }
+      return !v;
+    });
+  }, []);
+  const endPlacing = useCallback(() => {
+    dispatch({ type: "SET", payload: { placingMode: false, placingQueue: [], placingIdx: 0 } });
+  }, [dispatch]);
+  // Same behaviour as Esc / Backspace while placing.
+  const placingSkip = useCallback(() => {
+    const ts = useToolStore.getState();
+    if (ts.placingIdx < ts.placingQueue.length - 1)
+      dispatch({ type: "SET", payload: { placingIdx: ts.placingIdx + 1 } });
+    else endPlacing();
+  }, [dispatch, endPlacing]);
+  const placingBack = useCallback(() => {
+    const ts = useToolStore.getState();
+    if (ts.placingIdx > 0) undo();
+    else endPlacing();
+  }, [undo, endPlacing]);
+
+  const reviewNext = useCallback(
+    (confirmId) => {
+      const st = useSessionStore.getState();
+      if (confirmId) {
+        st.pushUndo();
+        st.updMarkups((ms) => confirmPoint(ms, confirmId));
+      }
+      const current = confirmId || useToolStore.getState().selectedId;
+      const next = nextToReview(useSessionStore.getState().markups, current);
+      if (!next) {
+        notify("All landmarks are reviewed.", { tone: "ok", key: "review" });
+        return;
+      }
+      selectAndFocusMarkup(next, { zoom: 2.5 });
+    },
+    [selectAndFocusMarkup],
   );
 
   // F2+F8: ResizeObserver with DPR scaling and rAF coalescing
@@ -2310,6 +2417,9 @@ function Workspace({
       showAnchorAlways: us.showAnchorAlways,
       snapTolerance: us.snapTolerance,
       autoHideLabels: us.autoHideLabels,
+      labelLayout: us.labelLayout,
+      labelsActiveOnly: us.labelsActiveOnly,
+      activeAnalysis: analysisTemplateRef.current,
       annotationBold: us.annotationBold,
       showGroupsLegend: us.showGroupsLegend,
       getProcessed,
@@ -2387,6 +2497,8 @@ function Workspace({
         ana: us.showAnchorAlways,
         tol: us.snapTolerance,
         al: us.autoHideLabels,
+        ll: us.labelLayout,
+        lao: us.labelsActiveOnly,
         ab: us.annotationBold,
         sgl: us.showGroupsLegend,
         ovd: us.displacementOverlay,
@@ -2662,7 +2774,7 @@ function Workspace({
       ) {
         const qid = placingQueue[placingIdx];
         const updatedMarkups = markups.map((m) =>
-          m.id === qid ? { ...m, points: [ip], placed: true } : m,
+          m.id === qid ? { ...m, points: [ip], placed: true, ...(placingUnsureRef.current === qid ? { unsure: true } : {}) } : m,
         );
         // Only instantiate measurements whose landmarks are all placed, so
         // partially-placed analyses never show phantom (placeholder-coordinate) values.
@@ -4501,6 +4613,7 @@ function Workspace({
     theme,
     selectedId,
     onSelect: selectAndFocusMarkup,
+    onReviewNext: reviewNext,
     onDelete: delMarkup,
     calibration,
     placingMode,
@@ -4588,8 +4701,21 @@ function Workspace({
     },
     onPausePlacing: () =>
       dispatch({ type: "SET", payload: { placingMode: false } }),
-    onResumePlacing: () =>
-      dispatch({ type: "SET", payload: { placingMode: true } }),
+    onResumePlacing: () => {
+      // "Start" with no queue: queue the landmarks that are not placed yet.
+      if (!useToolStore.getState().placingQueue.length) {
+        const qids = useSessionStore.getState().markups
+          .filter((m) => m.type === "point" && m.placed === false)
+          .map((m) => m.id);
+        if (!qids.length) {
+          notify("Every landmark is already placed.", { tone: "ok" });
+          return;
+        }
+        dispatch({ type: "SET", payload: { placingQueue: qids, placingIdx: 0, placingMode: true } });
+        return;
+      }
+      dispatch({ type: "SET", payload: { placingMode: true } });
+    },
     onClear: () => {
       pushUndo();
       updSession({ markups: [] });
@@ -4759,6 +4885,7 @@ function Workspace({
             panRef={panRef}
             zoomRef={zoomRef}
             undo={undo}
+            undoSteps={undoSteps}
             redo={redo}
             handleDblClick={handleDblClick}
             currentDraw={currentDraw}
@@ -4838,93 +4965,26 @@ function Workspace({
               {placingMode &&
                 placingQueue.length > 0 &&
                 placingIdx < placingQueue.length &&
-                markups.find((x) => x.id === placingQueue[placingIdx]) &&
-                (() => {
-                  const m = markups.find(
-                    (x) => x.id === placingQueue[placingIdx],
-                  );
-                  const defText = m.definition || "No definition available";
-                  return (
-                    <div
-                      role="status"
-                      aria-label={`Place ${m.label}: ${defText}`}
-                      style={{
-                        position: "absolute",
-                        bottom: 20,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "min(520px,calc(100% - 32px))",
-                        background: t.surf,
-                        borderRadius: 10,
-                        boxShadow: `0 4px 16px rgba(0,0,0,0.5)`,
-                        overflow: "hidden",
-                        zIndex: 8,
+                markups.find((x) => x.id === placingQueue[placingIdx]) && (
+                  <>
+                    {magnifierOn && !isMobile && <Magnifier canvasRef={canvasRef} t={t} />}
+                    <PlacingGuide
+                      t={t}
+                      markup={markups.find((x) => x.id === placingQueue[placingIdx])}
+                      idx={placingIdx}
+                      total={placingQueue.length}
+                      unsure={placingUnsureId === placingQueue[placingIdx]}
+                      onToggleUnsure={() => {
+                        const qid = placingQueue[placingIdx];
+                        setPlacingUnsureId((v) => (v === qid ? null : qid));
                       }}
-                    >
-                      <div
-                        style={{
-                          height: 4,
-                          background: t.acc,
-                          borderRadius: "10px 10px 0 0",
-                        }}
-                      />
-                      <div style={{ padding: "12px 16px 10px" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 6,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: "bold",
-                              fontSize: 15,
-                              color: t.tx,
-                              fontFamily: "'DM Sans',sans-serif",
-                            }}
-                          >
-                            {m.label}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              color: t.tx3,
-                              fontFamily: "'DM Sans',sans-serif",
-                            }}
-                          >
-                            {placingIdx + 1}/{placingQueue.length}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            color: t.tx2,
-                            fontFamily: "'DM Sans',sans-serif",
-                            marginBottom: 8,
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {defText}
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 16,
-                            fontSize: 10,
-                            color: t.tx3,
-                            fontFamily: "'DM Mono',monospace",
-                          }}
-                        >
-                          <span>Click to place</span>
-                          <span>Esc skip</span>
-                          <span>Backspace back</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+                      onSkip={placingSkip}
+                      onBack={placingBack}
+                      magnifier={magnifierOn}
+                      onToggleMagnifier={toggleMagnifier}
+                    />
+                  </>
+                )}
               <div className="draw-status">
                 {currentDraw && (
                   <div
@@ -5408,12 +5468,15 @@ function Workspace({
             <Btn
               t={t}
               danger={hasUnanonymizedPHI(project)}
-              onClick={() => {
+              onClick={async () => {
                 if (
                   hasUnanonymizedPHI(project) &&
-                  !window.confirm(
-                    "This project still contains patient identifiers (name, DOB, age, etc.). Exporting a FULL project file will include them. Continue? Consider exporting an Anonymized .cephx instead.",
-                  )
+                  !(await askConfirm({
+                    title: "Export with patient identifiers?",
+                    message: "This project still contains patient identifiers (name, DOB, age, etc.). A full project file will include them. Consider exporting an anonymized .cephx instead.",
+                    confirmLabel: "Export anyway",
+                    danger: true,
+                  }))
                 )
                   return;
                 onSave?.(project);
@@ -5435,8 +5498,8 @@ function Workspace({
             </Btn>
             <Btn
               t={t}
-              onClick={() => {
-                const name = window.prompt("Template name:", project.name);
+              onClick={async () => {
+                const name = await askText({ title: "Export template", label: "Template name", defaultValue: project.name });
                 if (name) {
                   exportTemplateAsCepht(project, name);
                   dispatch({ type: "SET", payload: { showExport: false } });
@@ -5447,11 +5510,8 @@ function Workspace({
             </Btn>
             <Btn
               t={t}
-              onClick={() => {
-                const name = window.prompt(
-                  "Template name:",
-                  project.name + " (placed)",
-                );
+              onClick={async () => {
+                const name = await askText({ title: "Export template with placed points", label: "Template name", defaultValue: project.name + " (placed)" });
                 if (name) {
                   exportTemplateAsCepht(project, name, true);
                   dispatch({ type: "SET", payload: { showExport: false } });
@@ -5465,9 +5525,11 @@ function Workspace({
               ghost
               onClick={() => {
                 const p = profileProject(project);
-                alert(
-                  `Images: ${p.imgMB}MB\nResearch: ${p.rsMB}MB\nMeta/subjects: ${p.otherMB}MB\nTotal: ${p.grandTotalMB}MB\n(See console for full breakdown)`,
-                );
+                showInfo({
+                  title: "Project size",
+                  items: [`Images: ${p.imgMB} MB`, `Research: ${p.rsMB} MB`, `Meta/subjects: ${p.otherMB} MB`, `Total: ${p.grandTotalMB} MB`],
+                  message: "The browser console has the full breakdown.",
+                });
               }}
             >
               Check Size
@@ -5551,9 +5613,12 @@ function Workspace({
                   setShowReportOptions(false);
                   if (
                     hasUnanonymizedPHI(project) &&
-                    !window.confirm(
-                      "This project contains patient identifiers (name, DOB, etc.). The PDF report will include them on the cover. This software is intended for research and educational purposes only. Continue?",
-                    )
+                    !(await askConfirm({
+                      title: "Report with patient identifiers?",
+                      message: "This project contains patient identifiers (name, DOB, etc.). The PDF report will include them on the cover. This software is intended for research and educational purposes only.",
+                      confirmLabel: "Create report",
+                      danger: true,
+                    }))
                   ) {
                     setShowReportOptions(true);
                     return;
@@ -6145,9 +6210,12 @@ export default function CephalometryStudio() {
 
   const handleClearLocalData = async () => {
     if (
-      !window.confirm(
-        "Clear ALL local data?\n\nThis permanently deletes every project, image, and patient identifier stored in this browser. This cannot be undone. Export any project you want to keep as a .cephx file first.",
-      )
+      !(await askConfirm({
+        title: "Clear ALL local data?",
+        message: "This permanently deletes every project, image, and patient identifier stored in this browser. This cannot be undone. Export any project you want to keep as a .cephx file first.",
+        confirmLabel: "Delete everything",
+        danger: true,
+      }))
     )
       return;
     await clearAllLocalData();
@@ -6228,11 +6296,16 @@ export default function CephalometryStudio() {
   };
 
   const importCephxFile = (file) => {
-    importCephx(file, (proj) => {
+    importCephx(file, async (proj) => {
       const existing = projects.find((p) => p.id === proj.id);
       if (
         existing &&
-        !window.confirm("A case with this ID already exists. Overwrite?")
+        !(await askConfirm({
+          title: "Replace the existing case?",
+          message: `A case with this ID (“${existing.name || proj.name || "untitled"}”) already exists. Importing replaces it.`,
+          confirmLabel: "Replace",
+          danger: true,
+        }))
       )
         return;
       setProjects((prev) => [...prev.filter((p) => p.id !== proj.id), proj]);
@@ -6243,6 +6316,7 @@ export default function CephalometryStudio() {
   return (
     <ErrorBoundary t={t}>
       <div style={{ background: t.bg, minHeight: "100vh" }}>
+        <DialogHost t={t} />
         {storageWarn && (
           <div
             role="alert"

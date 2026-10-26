@@ -12,27 +12,107 @@ let _annotationBold = false;
 // Profile direction for signed labels (set per drawMarkup call from displayOpts).
 let _facing = "right";
 
-export function drawMeasLabel(ctx, text, x, y, showAnnotations = true, annotationSize = 1, m = null, color = "#fff", bgColor = "rgba(46, 46, 46, 0.85)"){
-  if(!showAnnotations || (m && m.noLabel)) return;
-  
-  const fontSize = 10 * annotationSize;
-  const prevFont = ctx.font;
-  ctx.font = `${_annotationBold ? "bold " : ""}${fontSize}px "DM Mono",monospace`;
-  
-  const prevFill = ctx.fillStyle;
-  if(bgColor){
-    const metrics = ctx.measureText(text);
-    const padding = 3 * annotationSize;
-    const bgHeight = 14 * annotationSize;
-    ctx.fillStyle = bgColor;
+// ─── Label layout (B3) ──────────────────────────────────────────────────────────
+// Between beginLabelLayout() and flushLabelLayout(), labels are queued instead
+// of drawn; the flush moves overlapping ones to a free spot nearby (selected
+// markup first, then landmarks, then measurements) and draws a leader line
+// back to where the label belonged.
+let _labelQueue = null;
+let _labelTf = null;
+let _labelPriority = 1;
+let _suppressLabels = false;
+
+const sameTf = (a, b) => a && b && a.a === b.a && a.b === b.b && a.c === b.c && a.d === b.d && a.e === b.e && a.f === b.f;
+
+function paintLabel(ctx, L, x, y){
+  const prevFont = ctx.font, prevFill = ctx.fillStyle;
+  ctx.font = L.font;
+  if(L.bgColor){
+    ctx.fillStyle = L.bgColor;
     ctx.beginPath();
-    ctx.roundRect(x - padding, y - bgHeight + 2, metrics.width + padding * 2, bgHeight + 4 , 5);
+    ctx.roundRect(x - L.pad, y - L.bgH + 2, L.w + L.pad * 2, L.bgH + 4, 5);
     ctx.fill();
   }
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
+  ctx.fillStyle = L.color;
+  ctx.fillText(L.text, x, y);
   ctx.fillStyle = prevFill;
   ctx.font = prevFont;
+}
+
+export function drawMeasLabel(ctx, text, x, y, showAnnotations = true, annotationSize = 1, m = null, color = "#fff", bgColor = "rgba(46, 46, 46, 0.85)"){
+  if(!showAnnotations || (m && m.noLabel) || _suppressLabels) return;
+  const fontSize = 10 * annotationSize;
+  const font = `${_annotationBold ? "bold " : ""}${fontSize}px "DM Mono",monospace`;
+  const prevFont = ctx.font;
+  ctx.font = font;
+  const w = ctx.measureText(text).width;
+  ctx.font = prevFont;
+  const L = { text, x, y, w, font, color, bgColor, pad: 3 * annotationSize, bgH: 14 * annotationSize, alpha: ctx.globalAlpha, priority: _labelPriority };
+  if(_labelQueue && sameTf(ctx.getTransform(), _labelTf)){
+    L.order = _labelQueue.length;
+    _labelQueue.push(L);
+    return;
+  }
+  paintLabel(ctx, L, x, y);
+}
+
+export function beginLabelLayout(ctx){
+  _labelQueue = [];
+  _labelTf = ctx.getTransform();
+}
+
+// Greedy placement: keep a label where it is if it is free, else try rings of
+// offsets around it; if nothing is free it stays put.
+export function layoutLabels(labels){
+  const boxOf = (L, dx, dy) => ({ x: L.x - L.pad + dx, y: L.y - L.bgH + 2 + dy, w: L.w + L.pad * 2, h: L.bgH + 4 });
+  const hits = (a, b) => a.x < b.x + b.w + 1 && b.x < a.x + a.w + 1 && a.y < b.y + b.h + 1 && b.y < a.y + a.h + 1;
+  const dirs = [[0, -1], [0, 1], [1, 0], [-1, 0], [1, -1], [-1, -1], [1, 1], [-1, 1]];
+  const placed = [];
+  const out = [];
+  for(const L of [...labels].sort((a, b) => a.priority - b.priority || a.order - b.order)){
+    let best = { dx: 0, dy: 0 };
+    if(placed.some(b => hits(boxOf(L, 0, 0), b))){
+      const stepX = L.w * 0.5 + L.pad + 4, stepY = L.bgH + 6;
+      search: for(let k = 1; k <= 3; k++){
+        for(const [ux, uy] of dirs){
+          const dx = ux * stepX * k, dy = uy * stepY * k;
+          const box = boxOf(L, dx, dy);
+          if(!placed.some(b => hits(box, b))){ best = { dx, dy }; break search; }
+        }
+      }
+    }
+    placed.push(boxOf(L, best.dx, best.dy));
+    out.push({ ...L, dx: best.dx, dy: best.dy });
+  }
+  return out;
+}
+
+export function flushLabelLayout(ctx){
+  const queue = _labelQueue;
+  _labelQueue = null;
+  if(!queue || !queue.length) return;
+  ctx.save();
+  ctx.setTransform(_labelTf);
+  for(const L of layoutLabels(queue)){
+    ctx.globalAlpha = L.alpha;
+    if(L.dx || L.dy){
+      // Leader from the label's own anchor to the nearest edge of its new box.
+      const ax = L.x, ay = L.y - L.bgH / 2 + 2;
+      const bx = Math.max(L.x - L.pad + L.dx, Math.min(ax, L.x + L.w + L.pad + L.dx));
+      const by = Math.max(L.y - L.bgH + 2 + L.dy, Math.min(ay, L.y + 6 + L.dy));
+      ctx.strokeStyle = L.color;
+      ctx.globalAlpha = L.alpha * 0.6;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.globalAlpha = L.alpha;
+    }
+    paintLabel(ctx, L, L.x + L.dx, L.y + L.dy);
+  }
+  ctx.restore();
 }
 
 export function drawMarkup(ctx, m, zoom, pan, cal, sel, t, reproCollecting, canvasSize, angleMode, showAnnotations = true, annotationSize = 1, hoveredPt = null, displayOpts = {}){
@@ -57,6 +137,10 @@ export function drawMarkup(ctx, m, zoom, pan, cal, sel, t, reproCollecting, canv
   
   const isSel = sel === m.id;
   const drawLabel = showAnnotations && !(autoHideLabels && m.type !== "point");
+  _labelPriority = isSel ? 0 : m.type === "point" ? 1 : 2;
+  // "Labels for the active analysis only": hide labels of other analyses' markups.
+  const act = displayOpts.activeAnalysis;
+  _suppressLabels = !!(act && !isSel && m.templateId && !m.templateId.startsWith(act + "::"));
   ctx.save();
   try {
     switch(m.type){
@@ -118,6 +202,8 @@ export function drawMarkup(ctx, m, zoom, pan, cal, sel, t, reproCollecting, canv
         break;
     }
   } catch { /*silent*/ }
+  _suppressLabels = false;
+  _labelPriority = 1;
   ctx.restore();
 }
 
@@ -151,6 +237,16 @@ function drawPoint(ctx, m, sp, isSel, t, zoom, pan, showAnnotations, annotationS
     ctx.setLineDash([3, 3]);
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = tier === "high" ? (t.ok || "#4ade80") : tier === "medium" ? (t.warn || "#fbbf24") : (t.err || "#f87171");
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * 2.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  } else if(m.unsure === true){
+    // Marked unsure while tracing (B2): dotted amber ring until confirmed.
+    ctx.save();
+    ctx.setLineDash([1.5, 3]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = t.warn || "#fbbf24";
     ctx.beginPath();
     ctx.arc(p.x, p.y, r * 2.6, 0, Math.PI * 2);
     ctx.stroke();

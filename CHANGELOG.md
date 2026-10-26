@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased] - Tracing workspace (UI/UX B1–B6)
+
+### Added
+- **Toolbar modes**: Trace / Measure / Draw / All. Each mode lists its tools with names and
+  shortcut keys; tooltips say what each tool does. A tool shortcut switches to its mode; the
+  mode is remembered. "All" keeps the compact icon grid.
+- **Guided tracing**: while placing landmarks, a reference skull map (mean of 700 CEPHA29
+  cephalograms) highlights the landmark, with its definition, progress, Back / Skip buttons,
+  an **Unsure** flag and a **magnifier** at the cursor. "▶ Start" now queues the unplaced
+  landmarks (it previously started placing with an empty queue).
+- **Labels that don't overlap**: measurement and landmark labels are moved apart, with a leader
+  line to where they belong (selected markup first). Settings: "Avoid overlapping labels"
+  (on by default) and "Labels: active analysis only".
+- **AI review flow**: "Review next →" centres and zooms on the next landmark to check (unreviewed
+  AI points, lowest confidence first, then points marked unsure); "✓ Confirm & next".
+  Unsure points have a dotted ring and are reported as "manual, marked unsure" in exports.
+- **Undo you can see**: undo/redo say what they did ("Undone: Moved S · Redo"); deletions,
+  moves, multi-edits and calibration show a "… · Undo" toast; an undo **History** list under
+  Undo/Redo undoes back to any recent step.
+
+### Changed
+- Browser pop-ups (alert / confirm / prompt) are replaced by in-app dialogs and toasts
+  (31 of 34); the three in the crash screen stay native because the app is not running there.
+  Dialogs keep keyboard shortcuts from acting behind them.
+
 ## [Unreleased] - Studies workspace (UI/UX A1–A16)
 
 ### Added

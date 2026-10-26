@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useUIStore } from "../state/uiStore.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUP GEAR SETTINGS — dropdown with Display, Defaults, Snap, Bezier, Bulk
@@ -63,6 +64,8 @@ export function MarkupGearSettings({
   onLockAll, onUnlockAll,
 }) {
   const [open, setOpen] = useState(false);
+  const labelLayout = useUIStore(s => s.labelLayout);
+  const labelsActiveOnly = useUIStore(s => s.labelsActiveOnly);
   const [rect, setRect] = useState(null);
   const ref = useRef(null);
 
@@ -91,6 +94,8 @@ export function MarkupGearSettings({
           <ToggleRow t={t} label="Annotations" checked={showAnnotations} onChange={() => setShowAnnotations(v => !v)} />
           <ToggleRow t={t} label="Def. tooltips" checked={showDefTooltips} onChange={() => setShowDefTooltips(v => !v)} />
           <ToggleRow t={t} label="Auto-hide labels" checked={autoHideLabels} onChange={() => setAutoHideLabels(v => !v)} />
+          <ToggleRow t={t} label="Avoid overlapping labels" checked={labelLayout} onChange={() => useUIStore.setState(s => ({ labelLayout: !s.labelLayout }))} />
+          <ToggleRow t={t} label="Labels: active analysis only" checked={labelsActiveOnly} onChange={() => useUIStore.setState(s => ({ labelsActiveOnly: !s.labelsActiveOnly }))} />
           <ToggleRow t={t} label="Bold labels" checked={annotationBold} onChange={() => setAnnotationBold(v => !v)} />
           <SliderRow t={t} label="Annotation size" value={annotationSize} min={0.5} max={3} step={0.1} onChange={setAnnotationSize} displayValue={`${(annotationSize * 100).toFixed(0)}%`} />
           <ToggleRow t={t} label="Displacement" checked={showDisplacement} onChange={() => setShowDisplacement(v => !v)} />

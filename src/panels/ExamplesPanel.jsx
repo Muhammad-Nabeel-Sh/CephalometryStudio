@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
+import { notify } from "../ui/dialogs.js";
 import {
   EXAMPLE_LIST,
   getExampleData,
@@ -240,9 +241,7 @@ export function ExamplesPanel({ t }) {
   const openExample = useCallback((id) => {
     const d = getExampleData(id);
     if (!d) {
-      alert(
-        "Could not load example. Make sure the Examples/ folder contains .cepht files.",
-      );
+      notify("Could not load example. Make sure the Examples/ folder contains .cepht files.", { tone: "err" });
       return;
     }
     setData(d);

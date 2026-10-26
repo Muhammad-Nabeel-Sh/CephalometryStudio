@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **730 tests (Vitest)**
+- **No TypeScript**, **746 tests (Vitest)**
 
 ---
 
@@ -70,7 +70,9 @@ src/
 │   ├── normLibrary.js          Library norm browsing
 │   ├── communityNorms.js       GitHub-fetched community norms
 │   ├── silhouettes.js          Silhouette overlay data
-│   └── examplesData.js         Example project data
+│   ├── examplesData.js         Example project data
+│   ├── toolModes.js            Toolbar modes (Trace/Measure/Draw), tool hints + shortcuts
+│   └── landmarkReference.js    Mean CEPHA29 shape for the guided-tracing reference map
 │
 ├── hooks/                      Custom React hooks
 │   ├── useKatex.jsx            KaTeX rendering (useKatex, KatexSpan, LatexFloatingPanel; CSS bundled from npm)
@@ -92,7 +94,9 @@ src/
 ├── panels/                     All UI panel components
 │   ├── PanelContent.jsx        11-panel router
 │   ├── panelIcons.jsx          PANEL_ICONS + PANEL_TABS (single source of truth)
-│   ├── Toolbar.jsx             Desktop + mobile toolbar
+│   ├── Toolbar.jsx             Desktop (mode tabs, labelled tools) + mobile toolbar
+│   ├── UndoHistory.jsx         Undo history list (under Undo/Redo)
+│   ├── PlacingGuide.jsx        Guided tracing banner, reference map, magnifier
 │   ├── TopBar.jsx              Top bar (home, logo, save)
 │   ├── RightPanelSidebar.jsx   Vertical tab sidebar
 │   ├── SessionFilmstrip.jsx    Bottom-center thumbnail bar
@@ -182,6 +186,8 @@ src/
 │   ├── Modal.jsx               Reusable modal
 │   ├── ToolBtn.jsx             Toolbar button
 │   ├── ContextMenu.jsx         Right-click context menu
+│   ├── dialogs.js              askConfirm / askText / showInfo / notify (no window.alert/confirm/prompt)
+│   ├── DialogHost.jsx          Renders dialogs + toasts (mounted once at the app root)
 │   └── ErrorBoundary.jsx       React error boundary
 │
 ├── workspace/                  Workspace state logic
@@ -189,9 +195,11 @@ src/
 │   ├── calibration.js          Ruler/manual calibration, CSV export
 │   ├── template.js             autoCreateMeasurements, getMeasValue
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
+│   ├── aiReview.js             AI review state, review queue, provenance
+│   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (730 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (746 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -500,6 +508,8 @@ Recommended settings for `.vscode/settings.json`:
 - **CEPHA29 model live (Part C)**: the trained model is activated end-to-end. `LANDMARK_MODEL` now uses `landmarkSet: "cepha29"`, `inputSize: 768`, `inputChannels: 3`, `enabled: true`, with weights hosted on Hugging Face (`MuhammadNabeelSh/cephalometry-landmarks`, static-QDQ INT8, SHA-256 pinned `f7f1db9c…`). The SSM prior `data/shapeModel.cepha29.json` (700 shapes, K=10, 74.5% var) is registered in `lib/shapeModel.js`. The ORT runtime is committed under `public/ort/` (`ort.wasm.min.js` + `ort-wasm-simd-threaded.{mjs,wasm}`, ~11 MB; wasm EP, loaded via `<script>`). `vercel.json` CSP adds `'wasm-unsafe-eval'` and HF hosts to `connect-src`. Browser-verified end-to-end: HF fetch (CORS, 29.7 MB) → session → inference `[1,29,192,192]`.
 - **Decoupled AI Trace (analysis modal)**: AI auto-trace places **all 29** detected landmarks with **no template** (the 6 previously-unmapped CEPHA29 symbols now map: `R, LPM, LMT, UPM, UMT, N\`` → `R, LPM, LMT, UPM, UMT, N'`), then `panels/AnalysisModal.jsx` asks which analysis to apply — showing, per analysis, how many landmarks the AI supplied, which still need manual placement, and ready/total measurements. On pick, `workspace/template.applyAnalysis` enriches matched points (defs/colours/templateIds), queues the undetected landmarks for manual placement, and instantiates only the measurements whose landmarks are all placed; it sets `session.analysisTemplate` so Measurements/Norm/Interpretation align. Detection is decoupled from analysis (no template mutation). `runAutoTrace` no longer takes `templateName`; the manual-placement handler also filters to ready measurements to avoid placeholder-coordinate values. 6 new tests.
 
+- **Tracing workspace (B1–B6)**: toolbar modes with labelled tools (`data/toolModes.js`); guided tracing with reference map, magnifier, Skip/Back/Unsure (`panels/PlacingGuide.jsx`, `data/landmarkReference.js`); label collision layout with leader lines (`beginLabelLayout`/`layoutLabels`/`flushLabelLayout` in `canvas/drawMarkups.js`, uiStore `labelLayout`/`labelsActiveOnly`); AI review queue (`reviewQueue`/`nextToReview`/`confirmPoint`); visible undo (`workspace/undoHistory.js`, `panels/UndoHistory.jsx`); in-app dialogs replace browser pop-ups — use `ui/dialogs.js`, never `window.alert/confirm/prompt` (except `ErrorBoundary`). 16 tests in `src/test/workspaceUx.test.js`
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -508,7 +518,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 710 tests pass (42 test files, 0 failures)
+- `npm test` — 746 tests pass (44 test files, 0 failures)
 
 
 

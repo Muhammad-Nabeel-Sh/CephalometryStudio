@@ -6,6 +6,7 @@ import BatchImportModal from "./BatchImportModal.jsx";
 import SessionMetadataModal from "./SessionMetadataModal.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { sealedSessions } from "../research/blinding.js";
+import { askConfirm } from "../ui/dialogs.js";
 
 
 export default function SessionsPanel({
@@ -52,9 +53,10 @@ export default function SessionsPanel({
     onUpdateProject(duplicateSessionInProject(project, id));
   };
 
-  const handleRemove = (id) => {
+  const handleRemove = async (id) => {
     if (sessionList.length <= 1) return;
-    if (!window.confirm("Remove this session?")) return;
+    const name = sessionList.find(s => s.id === id)?.name;
+    if (!(await askConfirm({ title: `Remove session${name ? ` “${name}”` : ""}?`, message: "Its image, tracing and measurements are removed from this case.", confirmLabel: "Remove session", danger: true }))) return;
     onUpdateProject(removeSession(project, id));
   };
 
@@ -325,7 +327,7 @@ export default function SessionsPanel({
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                   <input value={sub.label} onChange={e => onUpdateProject(updateSubject(project, sub.id, { label: e.target.value }))}
                     style={{ flex: 1, padding: "3px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 10, fontWeight: 600 }} />
-                  <button onClick={() => { if (window.confirm("Remove subject and unlink its sessions?")) onUpdateProject(removeSubject(project, sub.id)); }}
+                  <button onClick={async () => { if (await askConfirm({ title: "Remove subject?", message: "The subject is removed and its sessions are unlinked (the sessions themselves are kept).", confirmLabel: "Remove subject", danger: true })) onUpdateProject(removeSubject(project, sub.id)); }}
                     style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 10, padding: 2 }}>✕</button>
                 </div>
                 <div style={{ display: "flex", gap: 4, fontSize: 9, color: t.tx3 }}>

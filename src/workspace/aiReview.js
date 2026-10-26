@@ -50,9 +50,38 @@ export function aiReviewSummary(markups) {
 
 // Human-readable provenance for exports.
 export function provenanceOf(m) {
-  if (m?.aiPlaced !== true) return "manual";
+  if (m?.aiPlaced !== true) return m?.unsure ? "manual, marked unsure" : "manual";
   const conf = typeof m.aiConfidence === "number" ? ` (confidence ${Math.round(m.aiConfidence * 100)}%)` : "";
   if (m.aiAdjusted) return `AI, adjusted${conf}`;
   if (m.aiReviewed === false) return `AI, NOT reviewed${conf}`;
   return `AI, reviewed${conf}`;
+}
+
+// B4: the order points are reviewed in — unreviewed AI points, lowest
+// confidence first, then manual points marked "unsure" while tracing.
+export function reviewQueue(markups) {
+  const pts = (markups || []).filter(m => m?.type === "point" && m.visible !== false);
+  const conf = m => (typeof m.aiConfidence === "number" ? m.aiConfidence : 1);
+  const ai = pts.filter(isPendingAiPoint).sort((a, b) => conf(a) - conf(b));
+  const unsure = pts.filter(m => m.unsure === true && !isPendingAiPoint(m));
+  return [...ai, ...unsure].map(m => m.id);
+}
+
+// The next point to review after `currentId` (wrapping), or null when done.
+export function nextToReview(markups, currentId) {
+  const q = reviewQueue(markups);
+  if (!q.length) return null;
+  const i = q.indexOf(currentId);
+  return i < 0 ? q[0] : q[(i + 1) % q.length];
+}
+
+// Confirm a point as checked: an AI point becomes reviewed, an unsure flag clears.
+export function confirmPoint(markups, id) {
+  return (markups || []).map(m => {
+    if (m.id !== id) return m;
+    const out = { ...m };
+    if (isPendingAiPoint(m)) out.aiReviewed = true;
+    if (m.unsure) delete out.unsure;
+    return out;
+  });
 }

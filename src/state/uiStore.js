@@ -47,6 +47,9 @@ export const useUIStore = create(() => ({
   defaultMarkupColor: null,
   defaultLineWidth: 1.5,
   autoHideLabels: false,
+  // B3: move overlapping labels apart; show labels of the active analysis only.
+  labelLayout: true,
+  labelsActiveOnly: false,
   annotationBold: false,
   snapTolerance: 12,
 

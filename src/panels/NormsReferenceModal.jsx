@@ -4,6 +4,7 @@ import { addPreset, exportLibraryJSON, exportPresetJSON, exportPresetCSV, import
 import { fetchCommunityNorms, installPreset, getContributionURL, getRepoURL } from "../data/communityNorms.js";
 import { Btn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { askConfirm } from "../ui/dialogs.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NORMS REFERENCE GALLERY MODAL — Browse presets + manage personal library
@@ -220,7 +221,7 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
             <PresetTable key={p.key} preset={p} source={p.source} builtIn={p.builtIn}
               onAddOne={(label, mean, sd, type, source) => { const existing = []; if (onAdd.__norms) existing.push(...onAdd.__norms); if (!existing.some(e => e.markupLabel === label && e.measureType === type)) onAdd(label, mean, sd, type, source); }}
               onAddAll={() => p.norms.forEach(n => onAdd(n.label, n.mean, n.sd, n.type, p.source))}
-              {...(!p.builtIn ? { onEdit: () => setEditingPreset({ ...p }), onDelete: () => { if (window.confirm(`Delete "${p.name}" from your library?`)) onDeletePreset(p.id); } } : {})}
+              {...(!p.builtIn ? { onEdit: () => setEditingPreset({ ...p }), onDelete: async () => { if (await askConfirm({ title: `Delete "${p.name}"?`, message: "The preset is removed from your norm library.", confirmLabel: "Delete", danger: true })) onDeletePreset(p.id); } } : {})}
               onExportJSON={() => downloadJSON(exportPresetJSON(p), `${p.name.replace(/\s+/g, "_")}.json`)}
               onExportCSV={() => downloadJSON(exportPresetCSV(p), `${p.name.replace(/\s+/g, "_")}.csv`)}
             />
@@ -312,7 +313,7 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
               onAddOne={(label, mean, sd, type, source) => { const existing = []; if (onAdd.__norms) existing.push(...onAdd.__norms); if (!existing.some(e => e.markupLabel === label && e.measureType === type)) onAdd(label, mean, sd, type, source); }}
               onAddAll={() => p.norms.forEach(n => onAdd(n.label, n.mean, n.sd, n.type, p.source))}
               onEdit={() => setEditingPreset({ ...p })}
-              onDelete={() => { if (window.confirm(`Delete "${p.name}" from your library?`)) onDeletePreset(p.id); }}
+              onDelete={async () => { if (await askConfirm({ title: `Delete "${p.name}"?`, message: "The preset is removed from your norm library.", confirmLabel: "Delete", danger: true })) onDeletePreset(p.id); }}
               onExportJSON={() => downloadJSON(exportPresetJSON(p), `${p.name.replace(/\s+/g, "_")}.json`)}
               onExportCSV={() => downloadJSON(exportPresetCSV(p), `${p.name.replace(/\s+/g, "_")}.csv`)}
             />

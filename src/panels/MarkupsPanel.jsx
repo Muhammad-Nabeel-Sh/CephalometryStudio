@@ -10,7 +10,7 @@ import { aiReviewSummary, confidenceTier, markReviewed } from "../workspace/aiRe
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUPS PANEL
 // ═══════════════════════════════════════════════════════════════════════════════
-export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete, onToggleVisible, onToggleLock, onToggleLabel, onToggleGroupVisible, onReplace, replacingId, calibration, placingMode, placingQueue, placingIdx, onStopPlacing, onPausePlacing, onResumePlacing,   onClear, onAddPoint, norms, formatAngle, angleMode, setAngleMode, dispatch, showCpAlways, showAnchorAlways,
+export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReviewNext, onDelete, onToggleVisible, onToggleLock, onToggleLabel, onToggleGroupVisible, onReplace, replacingId, calibration, placingMode, placingQueue, placingIdx, onStopPlacing, onPausePlacing, onResumePlacing,   onClear, onAddPoint, norms, formatAngle, angleMode, setAngleMode, dispatch, showCpAlways, showAnchorAlways,
   onAutoTrace, autoTraceBusy, autoTraceInfo, onAutoTraceDismiss, autoTraceQuality, onAutoTraceRetry,
   showAnnotations, setShowAnnotations, annotationSize, setAnnotationSize,
   showDefTooltips, setShowDefTooltips, showDisplacement, setShowDisplacement,
@@ -23,6 +23,8 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
 }) {
   const facing = useSessionStore(s => resolveFacing(s.facing, s.markups));
   const aiReview = aiReviewSummary(markups);
+  const unsureCount = markups.filter(m => m.type === "point" && m.unsure === true).length;
+  const selectedNeedsReview = markups.some(m => m.id === selectedId && m.type === "point" && ((m.aiPlaced === true && m.aiReviewed === false) || m.unsure === true));
   const confirmAiPoints = (ids) => {
     const st = useSessionStore.getState();
     st.pushUndo();
@@ -114,17 +116,36 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
           {onAutoTraceDismiss && <button onClick={onAutoTraceDismiss} style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 13, flexShrink: 0 }}>×</button>}
         </div>
       )}
-      {aiReview.pending > 0 && (
-        <div style={{ padding: "6px 10px", background: t.warn + "14", borderBottom: `1px solid ${t.bdr}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ flex: 1, fontSize: 11, color: t.tx2, lineHeight: 1.4 }}>
-            <b style={{ color: t.warn }}>{aiReview.pending}</b> AI landmark{aiReview.pending === 1 ? "" : "s"} not yet reviewed
-            {aiReview.pendingLow > 0 ? <> (<b style={{ color: t.err }}>{aiReview.pendingLow} low-confidence</b>)</> : null}.
-            Drag a point to correct it, or confirm the ones that are right.
+      {(aiReview.pending > 0 || unsureCount > 0) && (
+        <div style={{ padding: "6px 10px", background: t.warn + "14", borderBottom: `1px solid ${t.bdr}`, display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, color: t.tx2, lineHeight: 1.4 }}>
+            {aiReview.pending > 0 && <>
+              <b style={{ color: t.warn }}>{aiReview.pending}</b> AI landmark{aiReview.pending === 1 ? "" : "s"} not yet reviewed
+              {aiReview.pendingLow > 0 ? <> (<b style={{ color: t.err }}>{aiReview.pendingLow} low-confidence</b>)</> : null}.{" "}
+            </>}
+            {unsureCount > 0 && <><b style={{ color: t.warn }}>{unsureCount}</b> marked unsure. </>}
+            Review steps through them lowest confidence first; drag a point to correct it.
           </span>
-          <button onClick={() => confirmAiPoints(null)} title="Confirm every remaining AI landmark as correct"
-            style={{ padding: "3px 8px", fontSize: 11, borderRadius: 4, border: `1px solid ${t.warn}`, background: "transparent", color: t.warn, cursor: "pointer", flexShrink: 0 }}>
-            Confirm all
-          </button>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {onReviewNext && (
+              <button onClick={() => onReviewNext(null)} title="Centre and zoom on the next landmark to check"
+                style={{ padding: "4px 10px", fontSize: 12, borderRadius: 4, border: "none", background: t.warn, color: "#111", fontWeight: 700, cursor: "pointer" }}>
+                {selectedNeedsReview ? "Skip →" : "Review next →"}
+              </button>
+            )}
+            {onReviewNext && selectedNeedsReview && (
+              <button onClick={() => onReviewNext(selectedId)} title="Mark the selected landmark as correct and go to the next"
+                style={{ padding: "4px 10px", fontSize: 12, borderRadius: 4, border: `1px solid ${t.ok}`, background: "transparent", color: t.ok, fontWeight: 700, cursor: "pointer" }}>
+                ✓ Confirm &amp; next
+              </button>
+            )}
+            {aiReview.pending > 0 && (
+              <button onClick={() => confirmAiPoints(null)} title="Confirm every remaining AI landmark as correct"
+                style={{ padding: "4px 10px", fontSize: 12, borderRadius: 4, border: `1px solid ${t.warn}`, background: "transparent", color: t.warn, cursor: "pointer", marginLeft: "auto" }}>
+                Confirm all AI
+              </button>
+            )}
+          </div>
         </div>
       )}
       {autoTraceQuality && autoTraceQuality.level !== "high" && (
@@ -201,6 +222,9 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onDelete
                         {m.type === "text" && m.text && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>"{m.text.slice(0, 15)}{m.text.length > 15 ? "…" : ""}"</span>}
                         {m.type === "arrow" && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>→</span>}
                         {isLocked && <span style={{ fontSize: 9, color: t.warn, marginLeft: 4 }}>[locked]</span>}
+                        {m.type === "point" && m.unsure === true && (
+                          <span title="Marked unsure while tracing — check it, then confirm" style={{ fontSize: 10, marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px dotted ${t.warn}`, color: t.warn }}>unsure</span>
+                        )}
                         {m.type === "point" && m.aiPlaced === true && (() => {
                           const tier = confidenceTier(m.aiConfidence);
                           const pending = m.aiReviewed === false;

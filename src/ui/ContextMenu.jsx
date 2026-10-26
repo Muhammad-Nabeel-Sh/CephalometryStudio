@@ -3,6 +3,7 @@ import { uid, computeMeasurements, autoControlPoints } from "../lib/utils.js";
 import { useStoreDispatch, useToolStore, useUIStore } from "../state/workspaceStore.js";
 import { useSessionStore } from "../state/sessionStore.js";
 import { resolveFacing } from "../lib/measureConventions.js";
+import { askText } from "./dialogs.js";
 
 export default function ContextMenu({
   theme: t,
@@ -186,7 +187,7 @@ export default function ContextMenu({
       {m ? <>
         <div style={{ padding: "6px 14px", fontSize: 10, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.5, borderBottom: `1px solid ${t.bdr}`, fontWeight: 600 }}>{m.label || m.type}</div>
         {item("Focus", () => { onSelectAndFocus(mId); close(); })}
-        {item("Rename", () => { const n = window.prompt("Rename markup:", m.label); if (n && n.trim()) onUpdMarkup(mId, { label: n.trim() }); close(); })}
+        {item("Rename", () => { close(); askText({ title: "Rename markup", label: "Name", defaultValue: m.label || "" }).then(n => { if (n && n.trim()) onUpdMarkup(mId, { label: n.trim() }); }); })}
         {item("Change Color", () => {
           const ci = document.createElement("input");
           ci.type = "color"; ci.value = m.color || t.acc;
