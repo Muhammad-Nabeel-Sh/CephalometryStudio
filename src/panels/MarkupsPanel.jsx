@@ -31,7 +31,6 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
     st.updMarkups(ms => markReviewed(ms, ids));
   };
   const [collapsed, setCollapsed] = useState({});
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [guideKey, setGuideKey] = useState(null);
   const toggle = id => setCollapsed(c => ({ ...c, [id]: !c[id] }));
 
@@ -47,33 +46,15 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
     { id: "silhouette", label: "Silhouettes", types: ["silhouette"], icon: "🧑", color: "#f59e0b" },
   ];
 
+  // Clear is one undo step; the "Cleared N markups · Undo" toast replaces a
+  // confirmation (B5/C2).
   const handleClear = () => {
-    if (markups.length === 0) {
-      setShowClearConfirm(false);
-      return;
-    }
-    setShowClearConfirm(true);
-  };
-
-  const confirmClear = () => {
+    if (markups.length === 0) return;
     onClear();
-    setShowClearConfirm(false);
   };
 
   return (
     <div>
-      {showClearConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: t.surf, border: `1px solid ${t.bdr}`, borderRadius: 12, padding: 24, maxWidth: 320 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: t.tx, marginBottom: 8 }}>Clear All Markups?</div>
-            <div style={{ fontSize: 12, color: t.tx2, marginBottom: 20 }}>This will remove all {markups.length} markups from the workspace. This action cannot be undone.</div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <Btn t={t} small onClick={() => setShowClearConfirm(false)}>Cancel</Btn>
-              <Btn t={t} small danger onClick={confirmClear}>Clear All</Btn>
-            </div>
-          </div>
-        </div>
-      )}
       <div style={{ padding: "8px 10px", display: "flex", gap: 4, borderBottom: `1px solid ${t.bdr}`, flexShrink: 0, flexWrap: "nowrap", overflowX: "auto" }}>
         <Btn t={t} small onClick={onAddPoint} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>+ Point</Btn>
         {onAutoTrace && (

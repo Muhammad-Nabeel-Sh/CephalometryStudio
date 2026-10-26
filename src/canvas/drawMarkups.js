@@ -1911,8 +1911,11 @@ export function getSilhouetteHandlesImage(m, zoom = 1) {
   } catch { return { corners: [], rotCenter: null }; }
 }
 
-export function hitTest(markups, ip, zoom, reproCollecting){
-  const thr = 8 / zoom;
+// `slop` is the hit radius in screen pixels: 8 for a mouse or pen, larger for
+// a fingertip (C5).
+export const FINGER_SLOP = 18;
+export function hitTest(markups, ip, zoom, reproCollecting, slop = 8){
+  const thr = slop / zoom;
   
   for(let i = markups.length - 1; i >= 0; i--){
     const m = markups[i];

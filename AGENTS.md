@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **746 tests (Vitest)**
+- **No TypeScript**, **757 tests (Vitest)**
 
 ---
 
@@ -76,7 +76,9 @@ src/
 │
 ├── hooks/                      Custom React hooks
 │   ├── useKatex.jsx            KaTeX rendering (useKatex, KatexSpan, LatexFloatingPanel; CSS bundled from npm)
-│   └── useMediaQuery.js        Responsive breakpoint hook
+│   ├── useMediaQuery.js        Responsive breakpoint hook
+│   ├── useFormulaEngine.js     Loads mathjs on first use; re-renders when ready
+│   └── useDialogA11y.js        Focus/Tab trap/Escape for dialogs (shared stack, used by Modal)
 │
 ├── lib/                        Core utilities
 │   ├── utils.js                Geometry, math, formatting, export (dist, angle3pt, buildPDF, etc.)
@@ -84,11 +86,13 @@ src/
 │   ├── landmarkModel.js        Model preprocessing + heatmap/regression decode
 │   ├── measureConventions.js   Patient-facing frame + signed cephalometric geometry
 │   ├── distributions.js        Normal CDF / quantile (single source)
+│   ├── procrustes.js           procrustesAlign + centroid helpers (canvas overlay + superimposition)
 │   └── logger.js               Logging utility
 │
 ├── model/                      Data models
 │   ├── csv.js                  CSV parsing
 │   ├── project.js              Project data model
+│   ├── patients.js             Home page: cases grouped by patient, timelines, search
 │   └── session.js              Session data model
 │
 ├── panels/                     All UI panel components
@@ -104,7 +108,8 @@ src/
 │   ├── AirwayPanel.jsx         Airway analysis panel
 │   ├── InterpretationPanel.jsx Clinical interpretation
 │   ├── NormogramPanel.jsx      Normogram visualization
-│   ├── HomePage.jsx            Home/start screen
+│   ├── HomePage.jsx            Home screen: new case, patients (search + timelines)
+│   ├── SettingsModal.jsx       All settings in one dialog
 │   ├── StartupWizard.jsx       First-run wizard
 │   ├── Modal.jsx               Reusable modal
 │   ├── AnonModal.jsx           Anonymization dialog
@@ -199,7 +204,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (746 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (757 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -510,6 +515,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Tracing workspace (B1–B6)**: toolbar modes with labelled tools (`data/toolModes.js`); guided tracing with reference map, magnifier, Skip/Back/Unsure (`panels/PlacingGuide.jsx`, `data/landmarkReference.js`); label collision layout with leader lines (`beginLabelLayout`/`layoutLabels`/`flushLabelLayout` in `canvas/drawMarkups.js`, uiStore `labelLayout`/`labelsActiveOnly`); AI review queue (`reviewQueue`/`nextToReview`/`confirmPoint`); visible undo (`workspace/undoHistory.js`, `panels/UndoHistory.jsx`); in-app dialogs replace browser pop-ups — use `ui/dialogs.js`, never `window.alert/confirm/prompt` (except `ErrorBoundary`). 16 tests in `src/test/workspaceUx.test.js`
 
+- **App-wide UX (C1–C3, C5, C6)**: patient-centred home page (`model/patients.js`), Settings dialog (`panels/SettingsModal.jsx`; uiStore `PREF_KEYS` persisted to `cephalo_prefs_v1`), WCAG-AA theme colours (`src/test/themeContrast.test.js`), 12 px text floor + focus ring + touch targets in `index.css` (opt out with `data-small`), `useDialogA11y` for every dialog, stylus/finger handling (`FINGER_SLOP`), lazy loading of research/report/mathjs/KaTeX. `evalFormula` returns null until `loadFormulaEngine()` has run — components use `useFormulaEngine()`. C4 (Arabic/RTL) deferred. 6 tests in `src/test/appWideUx.test.js`, 1 in `formulaEngine.test.js`, 4 in `themeContrast.test.js`
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -518,7 +525,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 746 tests pass (44 test files, 0 failures)
+- `npm test` — 757 tests pass (47 test files, 0 failures)
 
 
 

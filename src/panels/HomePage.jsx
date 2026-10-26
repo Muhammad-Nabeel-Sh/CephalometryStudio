@@ -1,13 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { THEMES } from "../data/constants.js";
 import { Btn, Tag } from "../ui/ui.jsx";
 import { onEnter } from "../lib/utils.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import StartupWizard from "./StartupWizard.jsx";
+import { groupByPatient, searchPatients } from "../model/patients.js";
+import { useDialogA11y } from "../hooks/useDialogA11y.js";
 
-function NewCaseForm({t,onSubmit,onCancel}){
+function NewCaseForm({t,onSubmit,onCancel,initial,pickProjection}){
+  const[proj,setProj]=useState("lateral");
   const isMobile=useMediaQuery("(max-width: 640px)");
-  const[d,setD]=useState({name:"Case 001",patientId:"",patientName:"",dob:"",age:"",gender:"",ethnicity:"",clinician:"",facility:"",referral:"",notes:""});
+  const[d,setD]=useState(()=>({name:"Case 001",patientId:"",patientName:"",dob:"",age:"",gender:"",ethnicity:"",clinician:"",facility:"",referral:"",notes:"",...(initial||{})}));
   const upd=(k,v)=>setD(prev=>({...prev,[k]:v}));
   const base={background:t.surf3,border:`1px solid ${t.bdr}`,borderRadius:6,padding:isMobile?"11px 12px":"4px 8px",color:t.tx,fontSize:isMobile?16:12,width:"100%",fontFamily:"inherit",boxSizing:"border-box",outline:"none"};
   return(
@@ -34,16 +37,113 @@ function NewCaseForm({t,onSubmit,onCancel}){
         <textarea value={d.notes} onChange={e=>upd("notes",e.target.value)} rows={isMobile?3:2}
           style={{...base,resize:"vertical"}}/>
       </div>
-      <div style={{display:"flex",gap:8}}><Btn t={t} onClick={()=>onSubmit(d.name||"New Case",d)} disabled={!d.name} style={{flex:1,padding:isMobile?"13px 0":"8px 16px",fontSize:isMobile?16:15}}>Start Setup →</Btn><Btn t={t} onClick={onCancel} style={{flex:1,padding:isMobile?"13px 0":"8px 16px",fontSize:isMobile?16:15}}>Cancel</Btn></div>
+      {pickProjection&&<div style={{marginBottom:16}}>
+        <div style={{fontSize:isMobile?13:11,color:t.tx2,marginBottom:4,fontWeight:600}}>Projection</div>
+        <select value={proj} onChange={e=>setProj(e.target.value)} style={base} aria-label="Projection">
+          <option value="lateral">Lateral cephalogram</option>
+          <option value="ap">AP cephalogram</option>
+          <option value="other">Other projection</option>
+        </select>
+      </div>}
+      <div style={{display:"flex",gap:8}}><Btn t={t} onClick={()=>onSubmit(d.name||"New Case",d,pickProjection?proj:undefined)} disabled={!d.name} style={{flex:1,padding:isMobile?"13px 0":"8px 16px",fontSize:isMobile?16:15}}>Start Setup →</Btn><Btn t={t} onClick={onCancel} style={{flex:1,padding:isMobile?"13px 0":"8px 16px",fontSize:isMobile?16:15}}>Cancel</Btn></div>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PATIENTS (C1) — cases grouped by patient, with a session timeline each
+// ═══════════════════════════════════════════════════════════════════════════════
+const PROJ_LABEL={lateral:"Lateral",ap:"AP",other:"Other"};
+const MAX_CHIPS=8, MAX_GROUPS=12;
+
+function TimelineChip({t,row,showProjection,onOpen}){
+  const when=row.age!=null?`${row.age} y`:row.date?new Date(row.date).toLocaleDateString():"";
+  const title=`${row.caseName} · ${row.label||row.name}${row.name&&row.label?` (${row.name})`:""}${when?` · ${when}`:""}${row.traced?"":" · not traced yet"}`;
+  return(
+    <button onClick={()=>onOpen(row.projectId,row.sessionId)} title={title} aria-label={`Open ${title}`}
+      style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:1,padding:"5px 9px",borderRadius:8,border:`1px solid ${row.traced?t.acc+"66":t.bdr}`,background:row.traced?t.accMuted:"transparent",color:t.tx,cursor:"pointer",fontFamily:"inherit",minWidth:64}}>
+      <span style={{fontSize:13,fontWeight:700}}>{row.label||row.name||"Session"}</span>
+      <span style={{fontSize:12,color:t.tx2}}>{[showProjection?PROJ_LABEL[row.projection]||row.projection:null,when].filter(Boolean).join(" · ")||"\u00a0"}</span>
+    </button>
+  );
+}
+
+function PatientRow({t,g,onOpen,onNewCase}){
+  const projections=new Set(g.cases.map(p=>p.projection));
+  const chips=g.timeline.slice(0,MAX_CHIPS);
+  const title=g.anonymized&&g.kind!=="study"?"Anonymized patient":g.title;
+  return(
+    <div style={{border:`1px solid ${t.bdr}`,borderRadius:12,padding:"12px 14px",background:t.surf,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:180}}>
+          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:t.tx,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+            {title}
+            {g.kind==="patient"&&g.patientId&&!g.anonymized&&<Tag color={t.acc}>ID {g.patientId}</Tag>}
+            {g.kind==="study"&&<Tag color={t.warn}>Study</Tag>}
+            {g.kind==="case"&&<span style={{fontSize:12,fontWeight:500,color:t.tx3}}>no patient details</span>}
+            {g.anonymized&&<Tag color={t.ok}>🔒 anonymized</Tag>}
+          </div>
+          <div style={{fontSize:12,color:t.tx2,marginTop:2}}>
+            {g.kind==="study"
+              ?`${g.patientCount} patients · ${g.sessionCount} sessions`
+              :`${g.cases.length} case${g.cases.length===1?"":"s"} · ${g.sessionCount} session${g.sessionCount===1?"":"s"}`}
+            {" · updated "}{new Date(g.modified).toLocaleDateString()}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          <Btn t={t} small onClick={()=>onOpen(g.cases[0].id)} title={`Open ${g.cases[0].name}`}>Open</Btn>
+          {g.kind==="patient"&&<Btn t={t} small onClick={()=>onNewCase(g)} title="Start another case (e.g. another projection) for this patient">+ New case</Btn>}
+        </div>
+      </div>
+      {g.kind!=="study"&&chips.length>0&&(
+        <div role="list" aria-label="Sessions, oldest first" style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"stretch"}}>
+          {chips.map((row,i)=>(
+            <div role="listitem" key={row.sessionId} style={{display:"flex",alignItems:"center",gap:6}}>
+              {i>0&&<span aria-hidden="true" style={{color:t.tx3,fontSize:12}}>→</span>}
+              <TimelineChip t={t} row={row} showProjection={projections.size>1} onOpen={onOpen}/>
+            </div>
+          ))}
+          {g.timeline.length>MAX_CHIPS&&<span style={{alignSelf:"center",fontSize:12,color:t.tx3}}>+{g.timeline.length-MAX_CHIPS} more</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PatientsSection({t,projects,onOpen,onNewCase}){
+  const[q,setQ]=useState("");
+  const[showAll,setShowAll]=useState(false);
+  const groups=useMemo(()=>groupByPatient(projects),[projects]);
+  const found=useMemo(()=>searchPatients(groups,q),[groups,q]);
+  const shown=q||showAll?found:found.slice(0,MAX_GROUPS);
+  const patients=groups.filter(g=>g.kind==="patient").length;
+  return(
+    <section aria-labelledby="patients-heading" style={{maxWidth:1100,margin:"0 auto",padding:"0 32px 36px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:12}}>
+        <h2 id="patients-heading" style={{margin:0,fontSize:15,fontWeight:700,color:t.tx,fontFamily:"'Syne',sans-serif"}}>
+          Patients <span style={{fontSize:13,fontWeight:500,color:t.tx3}}>{patients} patient{patients===1?"":"s"} · {projects.length} case{projects.length===1?"":"s"}</span>
+        </h2>
+        <input type="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search name, ID, case or session…" aria-label="Search patients and cases"
+          style={{flex:1,minWidth:200,maxWidth:380,marginLeft:"auto",padding:"7px 10px",borderRadius:8,border:`1px solid ${t.bdr}`,background:t.surf,color:t.tx,fontSize:14,fontFamily:"inherit"}}/>
+      </div>
+      {shown.length===0
+        ?<div style={{fontSize:14,color:t.tx2,padding:"16px 0"}}>No patient or case matches “{q}”.</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {shown.map(g=><PatientRow key={g.key} t={t} g={g} onOpen={onOpen} onNewCase={onNewCase}/>)}
+        </div>}
+      {!q&&!showAll&&found.length>MAX_GROUPS&&(
+        <button onClick={()=>setShowAll(true)} style={{marginTop:10,background:"none",border:"none",color:t.acc,fontSize:13,cursor:"pointer",padding:0}}>Show all {found.length}</button>
+      )}
+    </section>
   );
 }
 
 export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onImport,storageEncrypted,onClearLocalData}){
   const[hov,setHov]=useState(null);
   const isMobile=useMediaQuery("(max-width: 640px)");
-  // flow: null | {proj, phase:"form"} | {proj, phase:"wizard", caseData:{name,meta}}
+  // flow: null | {proj, phase:"form", initial?} | {proj, phase:"wizard", caseData:{name,meta}}
   const[flow,setFlow]=useState(null);
+  const flowRef=useDialogA11y(()=>setFlow(null),{active:!!flow});
   const fileRef=useRef(null);
   const portals=[
     {id:"lateral",title:"Lateral Cephalogram",subtitle:"Profile view analysis",desc:"Sagittal skeletal & dental relationships, airway analysis, vertical proportions,  growth patterns",analyses:["Steiner","Ricketts","McNamara","Downs","Tweed","Björk-Jarabak"],color:t.acc,
@@ -128,28 +228,14 @@ export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onIm
         </div>
       </div>
 
-      {/* SESSION CASES */}
-      {projects.length>0&&<div style={{maxWidth:1100,margin:"0 auto",padding:"0 32px 40px"}}>
-        <div style={{fontSize:13,fontWeight:700,color:t.tx2,textTransform:"uppercase",letterSpacing:0.5,marginBottom:16}}>Recent Cases</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
-          {projects.map(p=>(
-            <div key={p.id} role="button" tabIndex={0} aria-label={p.name} onClick={()=>onOpen(p.id)} onKeyDown={onEnter(()=>onOpen(p.id))} onMouseEnter={()=>setHov(p.id+"-e")} onMouseLeave={()=>setHov(null)}
-              style={{border:`1px solid ${hov===p.id+"-e"?t.acc:t.bdr}`,borderRadius:10,padding:14,cursor:"pointer",background:hov===p.id+"-e"?t.surf2:t.surf,transition:"all 0.15s"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13,color:t.tx}}>{p.name}</div>
-                <div style={{display:"flex",gap:3}}><Tag color={t.acc}>{p.projection}</Tag>{p.meta?.anonymized&&<Tag color={t.ok}>🔒</Tag>}</div>
-              </div>
-              <div style={{fontSize:11,color:t.tx2}}>{(p.sessions||[]).length} session{(p.sessions||[]).length!==1?"s":""}  ·  {((p.sessions||[]).find(s=>s.id===p.activeSessionId)?.markups||[]).length} markups</div>
-              <div style={{fontSize:10,color:t.tx3,marginTop:4}}>{new Date(p.modified).toLocaleString()}</div>
-            </div>
-          ))}
-        </div>
-      </div>}
+      {/* PATIENTS (C1) — saved cases grouped by patient */}
+      {projects.length>0&&<PatientsSection t={t} projects={projects} onOpen={onOpen}
+        onNewCase={g=>{const src=g.cases[0]?.meta||{};setFlow({proj:"pick",phase:"form",initial:{name:`Case ${g.cases.length+1}`,patientId:src.patientId||"",patientName:src.name||"",dob:src.dob||"",gender:src.gender||"",ethnicity:src.ethnicity||"",clinician:src.clinician||"",facility:src.facility||""}});}}/>}
 
       {/* OVERLAY: New Case Form → Startup Wizard */}
-      {flow&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:50,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"14px 12px":"24px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={e=>e.target===e.currentTarget&&setFlow(null)}>
+      {flow&&<div ref={flowRef} role="dialog" aria-modal="true" aria-label={flow.phase==="form"?"New case":"Case setup"} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:50,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"14px 12px":"24px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={e=>e.target===e.currentTarget&&setFlow(null)}>
         {flow.phase==="form"&&<div style={{background:t.surf,border:`1px solid ${t.bdr}`,borderRadius:14,padding:isMobile?18:28,width:"100%",maxWidth:620,flexShrink:0,boxSizing:"border-box"}}>
-          <NewCaseForm t={t} onSubmit={(name,meta)=>setFlow({...flow,phase:"wizard",caseData:{name,meta}})} onCancel={()=>setFlow(null)}/>
+          <NewCaseForm t={t} initial={flow.initial} pickProjection={flow.proj==="pick"} onSubmit={(name,meta,proj)=>setFlow({...flow,proj:proj||flow.proj,phase:"wizard",caseData:{name,meta}})} onCancel={()=>setFlow(null)}/>
         </div>}
         {flow.phase==="wizard"&&<StartupWizard t={t} projection={flow.proj}
           onComplete={(result)=>{

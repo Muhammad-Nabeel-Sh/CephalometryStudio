@@ -1,32 +1,47 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useRef } from "react";
-// KaTeX is now BUNDLED from the npm package (was loaded at runtime from
+import { useEffect, useRef, useState } from "react";
+import { useDialogA11y } from "./useDialogA11y.js";
+// KaTeX is BUNDLED from the npm package (was loaded at runtime from
 // cdnjs.cloudflare.com with no integrity/SRI — a supply-chain and offline
 // risk for a clinical tool). Bundling ships the matched CSS+JS from the same
 // origin as the app, so a CDN compromise or offline clinic can't break or
-// hijack rendering. The version now tracks package.json (^0.16.44) instead of
-// the previously-hardcoded 0.16.8 CDN path.
-import katex from "katex";
-import "katex/dist/katex.min.css";
+// hijack rendering. It is split into its own chunk and loaded the first time a
+// formula is shown (C6), so it no longer weighs on start-up.
+let katex = null;
+let katexLoading = null;
+function loadKatex() {
+  if (!katexLoading) {
+    katexLoading = Promise.all([import("katex"), import("katex/dist/katex.min.css")])
+      .then(([mod]) => { katex = mod.default || mod; return katex; })
+      .catch(e => { katexLoading = null; throw e; });
+  }
+  return katexLoading;
+}
 
-// Kept for API compatibility. KaTeX is available synchronously now, so there is
-// no async load step — always reports loaded.
+// Returns true once KaTeX has loaded (and starts loading it).
 export function useKatex() {
-  return true;
+  const [ready, setReady] = useState(() => katex !== null);
+  useEffect(() => {
+    if (ready) return undefined;
+    let live = true;
+    loadKatex().then(() => { if (live) setReady(true); }).catch(() => { /* offline */ });
+    return () => { live = false; };
+  }, [ready]);
+  return ready;
 }
 
 export function KatexSpan({ latex, block = false, large = false, fontSize }) {
-  useKatex();
+  const ready = useKatex();
   const ref = useRef(null);
   useEffect(() => {
-    if (!ref.current || !katex) return;
+    if (!ref.current || !ready || !katex) return;
     try {
       katex.render(latex, ref.current, {
         throwOnError: false, displayMode: block,
         output: "html",
       });
     } catch { /* ignore KaTeX render errors */ }
-  }, [latex, block]);
+  }, [latex, block, ready]);
   const size = fontSize ? `${fontSize}pt` : (large ? "2.4rem" : "inherit");
   return (
     <span ref={ref}
@@ -36,9 +51,10 @@ export function KatexSpan({ latex, block = false, large = false, fontSize }) {
 }
 
 export function LatexFloatingPanel({ latex, onClose }) {
+  const ref = useDialogA11y(onClose);
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#ffffff", borderRadius: 16, padding: "48px 60px", maxWidth: "80vw", minWidth: 360, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative" }}>
+    <div role="dialog" aria-modal="true" aria-label="Formula" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div ref={ref} onClick={e => e.stopPropagation()} style={{ background: "#ffffff", borderRadius: 16, padding: "48px 60px", maxWidth: "80vw", minWidth: 360, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative" }}>
         <button onClick={onClose} title="Close" style={{ position: "absolute", top: 12, right: 16, background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
         <div style={{ color: "#111", fontSize: "40pt", fontFamily: "'KaTeX_Main',serif", textAlign: "center", lineHeight: 1.4 }}>
           <KatexSpan latex={latex} block fontSize={40} />

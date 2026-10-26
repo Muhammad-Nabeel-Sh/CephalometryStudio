@@ -217,11 +217,13 @@ const _additionalLateral = _lateralAnalyses
     return !_existingLateralNames.has(a.name);
   });
 
+// Text colours (tx, tx2, tx3) and acc/err/ok/warn meet WCAG AA (4.5:1) on bg,
+// surf and surf2 in every theme — see src/test/themeContrast.test.js.
 export const THEMES = {
-  bluish: { name: "Plasticity", id: "bluish", bg: "#0f0f12", surf: "#1a1a22", surf2: "#252530", surf3: "#323242", bdr: "#404058", tx: "#e4e4ef", tx2: "#9999ad", tx3: "#6a6a80", acc: "#a855f7", acc2: "#9333ea", accMuted: "rgba(168,85,247,0.15)", err: "#f87171", ok: "#4ade80", warn: "#fbbf24", shadow: "rgba(0,0,0,0.6)", inHeader: true },
-  dark: { name: "GitHub Dark", id: "dark", bg: "#0d1117", surf: "#161b22", surf2: "#21262d", surf3: "#30363d", bdr: "#30363d", tx: "#c9d1d9", tx2: "#8b949e", tx3: "#6e7681", acc: "#58a6ff", acc2: "#388bfd", accMuted: "rgba(88,166,255,0.1)", err: "#f85149", ok: "#3fb950", warn: "#d29922", shadow: "rgba(0,0,0,0.4)", inHeader: true },
-  paper: { name: "Paper", id: "paper", bg: "#e8eaed", surf: "#f6f8fa", surf2: "#ffffff", surf3: "#eaecf0", bdr: "#d0d0d0", tx: "#1a1a1a", tx2: "#4a4a4a", tx3: "#787878", acc: "#2563eb", acc2: "#1d4ed8", accMuted: "rgba(37,99,235,0.12)", err: "#dc2626", ok: "#16a34a", warn: "#ca8a04", shadow: "rgba(0, 0, 0, 0.2)", inHeader: true },
-  light: { name: "GitHub Light", id: "light", bg: "#e8eaed", surf: "#f6f8fa", surf2: "#ffffff", surf3: "#eaecf0", bdr: "#d0d7de", tx: "#24292f", tx2: "#57606a", tx3: "#8c959f", acc: "#06a23d", acc2: "#078050", accMuted: "rgba(9,105,218,0.1)", err: "#cf222e", ok: "#1a7f37", warn: "#9a6700", shadow: "rgba(0,0,0,0.2)", inHeader: true },
+  bluish: { name: "Plasticity", id: "bluish", bg: "#0f0f12", surf: "#1a1a22", surf2: "#252530", surf3: "#323242", bdr: "#404058", tx: "#e4e4ef", tx2: "#9b9baf", tx3: "#8c8c9f", acc: "#b269f8", acc2: "#9333ea", accMuted: "rgba(168,85,247,0.15)", err: "#f87171", ok: "#4ade80", warn: "#fbbf24", shadow: "rgba(0,0,0,0.6)", inHeader: true },
+  dark: { name: "GitHub Dark", id: "dark", bg: "#0d1117", surf: "#161b22", surf2: "#21262d", surf3: "#30363d", bdr: "#30363d", tx: "#c9d1d9", tx2: "#979fa8", tx3: "#868e98", acc: "#58a6ff", acc2: "#388bfd", accMuted: "rgba(88,166,255,0.1)", err: "#f85149", ok: "#3fb950", warn: "#d29922", shadow: "rgba(0,0,0,0.4)", inHeader: true },
+  paper: { name: "Paper", id: "paper", bg: "#e8eaed", surf: "#f6f8fa", surf2: "#ffffff", surf3: "#eaecf0", bdr: "#d0d0d0", tx: "#1a1a1a", tx2: "#4a4a4a", tx3: "#696969", acc: "#245fe2", acc2: "#1d4ed8", accMuted: "rgba(37,99,235,0.12)", err: "#ca2323", ok: "#107937", warn: "#8d6103", shadow: "rgba(0, 0, 0, 0.2)", inHeader: true },
+  light: { name: "GitHub Light", id: "light", bg: "#e8eaed", surf: "#f6f8fa", surf2: "#ffffff", surf3: "#eaecf0", bdr: "#d0d7de", tx: "#24292f", tx2: "#57606a", tx3: "#626a72", acc: "#04782d", acc2: "#078050", accMuted: "rgba(9,105,218,0.1)", err: "#cb212d", ok: "#187734", warn: "#8e5f00", shadow: "rgba(0,0,0,0.2)", inHeader: true },
 };
 
 export const TOOLS = [

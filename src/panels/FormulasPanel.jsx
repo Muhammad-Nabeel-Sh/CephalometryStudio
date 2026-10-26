@@ -3,6 +3,7 @@ import { evalFormula, onEnter } from "../lib/utils.js";
 import { PanelHeader, Btn } from "../ui/ui.jsx";
 import { KatexSpan, LatexFloatingPanel } from "../hooks/useKatex.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { useFormulaEngine } from "../hooks/useFormulaEngine.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORMULAS PANEL
@@ -10,6 +11,7 @@ import PanelGuideModal from "./PanelGuideModal.jsx";
 export function FormulasPanel({ formulas, t, scope, onAdd, onEdit, onDelete, pinnedFormulas, onPinFormula }) {
   const [bigLatex, setBigLatex] = useState(null);
   const [guideKey, setGuideKey] = useState(null);
+  useFormulaEngine(); // re-render with values once the engine has loaded
   return (
     <div style={{ padding: 12 }}>
       <PanelHeader t={t}>

@@ -39,7 +39,7 @@ export function UndoHistoryButton({ t, undoSteps }) {
       <button ref={btnRef} onClick={toggle} disabled={!depth} aria-expanded={!!open} aria-haspopup="menu"
         title="Undo history" aria-label="Undo history"
         style={{ width: "100%", height: 26, borderRadius: 6, border: "none", background: open ? t.accMuted : "transparent", color: depth ? t.tx2 : t.bdr, cursor: depth ? "pointer" : "not-allowed", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-        <span aria-hidden="true">🕘</span> History
+        Undo History
       </button>
       {open && (
         <div ref={boxRef} role="menu" aria-label="Undo history"

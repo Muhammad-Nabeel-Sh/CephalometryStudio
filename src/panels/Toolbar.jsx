@@ -54,7 +54,7 @@ const ALL_GRID = [
 const MODE_KEY = "cephalo_toolMode";
 const loadMode = () => {
   try { const m = localStorage.getItem(MODE_KEY); if (TOOL_MODES.some(x => x.id === m)) return m; } catch { /* storage blocked */ }
-  return "trace";
+  return "all";
 };
 
 // A full-width tool button with its name and shortcut (desktop rail, B1).
@@ -69,7 +69,7 @@ function LabeledToolBtn({ id, icon, active, onClick, theme, t }) {
         boxShadow: active ? `0 0 0 2px ${t.acc}` : "none" }}>
       <span aria-hidden="true" style={{ position: "relative", width: 22, height: 22, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
         <span style={{ display: "flex", transform: "scale(0.85)" }}>{icon}</span>
-        {toolKey(id) && <span style={{ position: "absolute", right: -5, bottom: -4, fontSize: 9, lineHeight: 1, opacity: 0.75, fontFamily: "'DM Mono',monospace" }}>{toolKey(id)}</span>}
+        {toolKey(id) && <span data-small style={{ position: "absolute", right: -5, bottom: -4, fontSize: 9, lineHeight: 1, opacity: 0.75, fontFamily: "'DM Mono',monospace" }}>{toolKey(id)}</span>}
       </span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{TOOL_INFO[id]?.label}</span>
     </button>
@@ -190,7 +190,7 @@ export default function Toolbar({
   );
 
   return (
-    <div style={{ width: 120, background: t.surf, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px", gap: 1, flexShrink: 0, overflowY: "auto", scrollbarWidth: "thin" }}>
+    <div className="no-scrollbar" style={{ width: 120, background: t.surf, display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px", gap: 1, flexShrink: 0, overflowY: "auto", scrollbarWidth: "none" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
         {/* Task modes */}
         <div role="tablist" aria-label="Tool mode" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, marginBottom: 2 }}>

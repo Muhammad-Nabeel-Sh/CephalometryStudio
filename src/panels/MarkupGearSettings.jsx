@@ -170,6 +170,10 @@ export function MarkupGearSettings({
           </div>
 
           {/* ── BULK ACTIONS ── */}
+          <button onClick={() => { setOpen(false); useUIStore.setState({ showSettings: true }); }}
+            style={{ width: "100%", margin: "2px 0 6px", padding: "5px 0", fontSize: 12, fontWeight: 600, borderRadius: 4, border: `1px solid ${t.acc}`, background: "transparent", color: t.acc, cursor: "pointer" }}>
+            All settings…
+          </button>
           <SectionHeader t={t} label="Bulk" />
           <div style={{ display: "flex", gap: 6 }}>
             <button disabled={!hasMarkups} onClick={onLockAll}

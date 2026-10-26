@@ -2,7 +2,6 @@
 // UTILS - Geometry, Measurements, Snap, Alignment, Statistics
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { create, all } from "mathjs";
 import { SILHOUETTES } from "../data/silhouettes.js";
 import { normalCdf as normalCDF } from "./distributions.js";
 import {
@@ -10,13 +9,40 @@ import {
   signedAngle3, convexityAngle, abPlaneAngle, signedPerpDist, signedProjection,
 } from "./measureConventions.js";
 
-const math = create(all, { number: "number", precision: 14 });
-math.import({
-  import: () => { throw new Error("Not allowed"); },
-  createUnit: () => { throw new Error("Not allowed"); },
-  evaluate: () => { throw new Error("Not allowed"); },
-  simplify: () => { throw new Error("Not allowed"); }
-}, { override: true });
+// mathjs (~650 KB) is loaded on first use (C6), not with the app. Until it has
+// loaded, evalFormula() returns null; components that show formula values use
+// useFormulaEngine() to re-render once it is ready.
+let math = null;
+let mathLoading = null;
+const mathListeners = new Set();
+
+export function loadFormulaEngine() {
+  if (math) return Promise.resolve(true);
+  if (!mathLoading) {
+    mathLoading = import("mathjs").then(({ create, all }) => {
+      const m = create(all, { number: "number", precision: 14 });
+      m.import({
+        import: () => { throw new Error("Not allowed"); },
+        createUnit: () => { throw new Error("Not allowed"); },
+        evaluate: () => { throw new Error("Not allowed"); },
+        simplify: () => { throw new Error("Not allowed"); }
+      }, { override: true });
+      math = m;
+      for (const fn of mathListeners) fn();
+      mathListeners.clear();
+      return true;
+    }).catch(e => { mathLoading = null; throw e; });
+  }
+  return mathLoading;
+}
+
+export const formulaEngineReady = () => math !== null;
+
+export function onFormulaEngineReady(fn) {
+  if (math) { fn(); return () => {}; }
+  mathListeners.add(fn);
+  return () => mathListeners.delete(fn);
+}
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -448,6 +474,7 @@ export function evalFormula(expr, scope) {
     const missing = tokens.filter(w=>!used.has(w));
     if (missing.length > 0) return null;
     // AST sandbox: parse and reject any non-allowlisted node/type/function.
+    if (!math) { loadFormulaEngine().catch(() => {}); return null; }
     const ast = math.parse(s);
     if (!_validateFormulaAst(ast)) return null;
     const r = ast.compile().evaluate({});

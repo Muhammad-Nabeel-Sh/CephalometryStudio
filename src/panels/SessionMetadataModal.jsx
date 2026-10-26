@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Btn, Tag } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { notify } from "../ui/dialogs.js";
+import { useDialogA11y } from "../hooks/useDialogA11y.js";
 
 export default function SessionMetadataModal({ project, t, onUpdateProject, onClose }) {
   const sessionList = project?.sessions || [];
@@ -18,6 +19,8 @@ export default function SessionMetadataModal({ project, t, onUpdateProject, onCl
   const [newTpVal, setNewTpVal] = useState("");
   const [newOpVal, setNewOpVal] = useState("");
   const [showParseModal, setShowParseModal] = useState(false);
+  const dialogRef = useDialogA11y(onClose);
+  const parseDialogRef = useDialogA11y(() => setShowParseModal(false), { active: showParseModal });
   const [parsePattern, setParsePattern] = useState("{patient}_{group}_{timepoint}");
   const [guideKey, setGuideKey] = useState(null);
   const parseRef = useRef(null);
@@ -146,9 +149,9 @@ export default function SessionMetadataModal({ project, t, onUpdateProject, onCl
   const totalSessions = sessionList.length;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+    <div role="dialog" aria-modal="true" aria-label="Session metadata" style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
       onClick={onClose}>
-      <div onClick={e => e.stopPropagation()}
+      <div ref={dialogRef} onClick={e => e.stopPropagation()}
         style={{ background: t.surf, borderRadius: 12, padding: 20, maxWidth: 900, width: "92%", maxHeight: "85vh", display: "flex", flexDirection: "column", border: `1px solid ${t.bdr}`, boxShadow: `0 8px 32px ${t.shadow}` }}>
 
         {/* Header */}
@@ -299,9 +302,9 @@ export default function SessionMetadataModal({ project, t, onUpdateProject, onCl
 
         {/* Parse Filenames Modal */}
         {showParseModal && (
-          <div style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}
+          <div role="dialog" aria-modal="true" aria-label="Parse from filenames" style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}
             onClick={() => setShowParseModal(false)}>
-            <div onClick={e => e.stopPropagation()}
+            <div ref={parseDialogRef} onClick={e => e.stopPropagation()}
               style={{ background: t.surf, borderRadius: 12, padding: 20, maxWidth: 400, width: "90%", border: `1px solid ${t.bdr}`, boxShadow: `0 8px 32px ${t.shadow}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: t.tx, marginBottom: 12 }}>Parse from Filenames</div>
               <div style={{ fontSize: 10, color: t.tx2, marginBottom: 8 }}>
@@ -420,10 +423,11 @@ function BatchActionBar({ t, selectedSessions, subjects, groups, timepoints, ope
 }
 
 function ManageValuesModal({ t, title, values, newVal, setNewVal, addNewVal, removeVal, presets, onClose }) {
+  const ref = useDialogA11y(onClose);
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }}
+    <div role="dialog" aria-modal="true" aria-label={title} style={{ position: "fixed", inset: 0, background: "#00000066", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200 }}
       onClick={onClose}>
-      <div onClick={e => e.stopPropagation()}
+      <div ref={ref} onClick={e => e.stopPropagation()}
         style={{ background: t.surf, borderRadius: 12, padding: 20, maxWidth: 360, width: "90%", border: `1px solid ${t.bdr}`, boxShadow: `0 8px 32px ${t.shadow}` }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: t.tx, marginBottom: 8 }}>{title}</div>
 

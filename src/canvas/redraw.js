@@ -5,7 +5,7 @@
 
 import { vpts } from "../lib/utils.js";
 import { beginLabelLayout, flushLabelLayout } from "./drawMarkups.js";
-import { procrustesAlign } from "../research/superimposition.js";
+import { procrustesAlign } from "../lib/procrustes.js";
 
 export function createRedraw(dc) {
   return function redraw() {

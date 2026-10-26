@@ -28,15 +28,20 @@ export default function ContextMenu({
 
   useEffect(() => {
     if (!contextMenu) return;
+    // C2: return focus to where it was when the menu closes.
+    const previous = document.activeElement;
     const onKey = (e) => {
       if (e.key === "Escape") close();
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
         e.preventDefault();
-        const els = document.querySelectorAll('[data-cmenu] [role="menuitem"]');
-        const current = e.target.closest('[role="menuitem"]');
-        const idx = Array.from(els).indexOf(current);
-        const next = e.key === "ArrowDown" ? Math.min(idx + 1, els.length - 1) : Math.max(idx - 1, 0);
-        if (els[next]) els[next].focus();
+        const els = Array.from(document.querySelectorAll('[data-cmenu] [role="menuitem"]'));
+        if (!els.length) return;
+        const idx = els.indexOf(e.target.closest?.('[role="menuitem"]'));
+        const next = e.key === "Home" ? 0
+          : e.key === "End" ? els.length - 1
+          : e.key === "ArrowDown" ? (idx + 1) % els.length
+          : (idx <= 0 ? els.length - 1 : idx - 1);
+        els[next].focus();
       }
       if (e.key === "Tab") {
         e.preventDefault();
@@ -57,6 +62,7 @@ export default function ContextMenu({
     return () => {
       document.removeEventListener("mousedown", onClickOutside);
       document.removeEventListener("keydown", onKey);
+      try { if (previous && document.contains(previous)) previous.focus(); } catch { /* element gone */ }
     };
   }, [contextMenu]);
 
@@ -162,14 +168,14 @@ export default function ContextMenu({
     </div>
   );
 
-  const sep = <div style={{ borderTop: `1px solid ${t.bdr}`, margin: "4px 0" }} />;
+  const sep = <div role="separator" style={{ borderTop: `1px solid ${t.bdr}`, margin: "4px 0" }} />;
 
   const setRef1 = (v) => useUIStore.setState({ refLandmark1: typeof v === "function" ? v(useUIStore.getState().refLandmark1) : v });
   const setRef2 = (v) => useUIStore.setState({ refLandmark2: typeof v === "function" ? v(useUIStore.getState().refLandmark2) : v });
   const setGrid = (v) => useUIStore.setState({ showGrid: typeof v === "function" ? v(useUIStore.getState().showGrid) : v });
 
   return (
-    <div data-cmenu="1" role="menu"
+    <div data-cmenu="1" role="menu" aria-label={m ? `Actions for ${m.label || m.type}` : "Canvas actions"}
       style={{
         position: "fixed",
         left: Math.min(contextMenu.x, window.innerWidth - 200),

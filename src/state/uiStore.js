@@ -6,6 +6,20 @@ try {
   if (saved) initialFavorites = JSON.parse(saved);
 } catch { /* localStorage unavailable */ }
 
+// C3: display and tracing preferences are remembered between visits.
+export const PREF_KEYS = [
+  "showDefTooltips", "showAnnotations", "annotationSize", "showScaleBar",
+  "autoHideLabels", "annotationBold", "labelLayout", "labelsActiveOnly",
+  "snapTolerance", "defaultLineStyle", "defaultMarkupColor", "defaultLineWidth",
+  "showCpAlways", "showAnchorAlways", "readableText",
+];
+const PREFS_KEY = "cephalo_prefs_v1";
+let savedPrefs = {};
+try {
+  const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+  if (raw && typeof raw === "object") for (const k of PREF_KEYS) if (k in raw) savedPrefs[k] = raw[k];
+} catch { /* localStorage unavailable or corrupt */ }
+
 export const useUIStore = create(() => ({
   showScaleBar: false,
   showDefTooltips: true,
@@ -73,4 +87,13 @@ export const useUIStore = create(() => ({
   copiedMarkup: null,
   contextMenu: null,
   favoriteTools: initialFavorites,
+  showSettings: false,
+  // C2: 12 px minimum text size across the app.
+  readableText: true,
+  ...savedPrefs,
 }));
+
+useUIStore.subscribe((s, prev) => {
+  if (!PREF_KEYS.some(k => s[k] !== prev[k])) return;
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries(PREF_KEYS.map(k => [k, s[k]])))); } catch { /* storage blocked */ }
+});

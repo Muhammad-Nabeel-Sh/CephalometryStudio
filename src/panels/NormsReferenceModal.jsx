@@ -5,6 +5,7 @@ import { fetchCommunityNorms, installPreset, getContributionURL, getRepoURL } fr
 import { Btn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { askConfirm } from "../ui/dialogs.js";
+import { useDialogA11y } from "../hooks/useDialogA11y.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NORMS REFERENCE GALLERY MODAL — Browse presets + manage personal library
@@ -16,6 +17,8 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
   const [search, setSearch] = useState("");
   const [guideKey, setGuideKey] = useState(null);
   const [editingPreset, setEditingPreset] = useState(null);
+  // Escape closes the preset editor first, then the reference dialog.
+  const dialogRef = useDialogA11y(editingPreset ? () => setEditingPreset(null) : onClose);
   const [editErrors, setEditErrors] = useState([]);
   const [importError, setImportError] = useState(null);
   const jsonRef = useRef(null);
@@ -140,8 +143,8 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
     function addNorm() { setEditingPreset(prev => ({ ...prev, norms: [...prev.norms, { label: "", mean: 0, sd: 1, type: "angle" }] })); }
     function removeNorm(i) { setEditingPreset(prev => ({ ...prev, norms: prev.norms.filter((_, j) => j !== i) })); }
     return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={() => { setEditingPreset(null); setEditErrors([]); }}>
-        <div style={{ background: t.bg, border: `1px solid ${t.bdr}`, borderRadius: 12, width: "min(90vw, 640px)", maxHeight: "min(90vh, 700px)", display: "flex", flexDirection: "column", boxShadow: `0 24px 64px ${t.shadow}50` }} onClick={e => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={p.id ? "Edit norm preset" : "New norm preset"} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={() => { setEditingPreset(null); setEditErrors([]); }}>
+        <div ref={dialogRef} style={{ background: t.bg, border: `1px solid ${t.bdr}`, borderRadius: 12, width: "min(90vw, 640px)", maxHeight: "min(90vh, 700px)", display: "flex", flexDirection: "column", boxShadow: `0 24px 64px ${t.shadow}50` }} onClick={e => e.stopPropagation()}>
           <div style={{ padding: "12px 16px", overflowY: "auto", flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: t.acc, marginBottom: 10 }}>{p.id ? "Edit Preset" : "New Preset"}</div>
             {editErrors.length > 0 && <div style={{ background: t.err + "22", border: `1px solid ${t.err}44`, borderRadius: 6, padding: 8, marginBottom: 10, fontSize: 10, color: t.err, whiteSpace: "pre-wrap" }}>{editErrors.join("\n")}</div>}
@@ -190,8 +193,8 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={onClose}>
-      <div style={{ background: t.bg, border: `1px solid ${t.bdr}`, borderRadius: 12, width: "min(90vw, 680px)", maxHeight: "min(90vh, 720px)", display: "flex", flexDirection: "column", boxShadow: `0 24px 64px ${t.shadow}50` }} onClick={e => e.stopPropagation()}>
+    <div role="dialog" aria-modal="true" aria-label="Norms reference" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div ref={dialogRef} style={{ background: t.bg, border: `1px solid ${t.bdr}`, borderRadius: 12, width: "min(90vw, 680px)", maxHeight: "min(90vh, 720px)", display: "flex", flexDirection: "column", boxShadow: `0 24px 64px ${t.shadow}50` }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${t.bdr}`, flexShrink: 0 }}>
           <span style={{ fontSize: 16 }}>&#x1F4D6;</span>

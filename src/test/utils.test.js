@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   uid,
   clamp,
@@ -37,6 +37,7 @@ import {
   detectOutliers,
   buildScope,
   evalFormula,
+  loadFormulaEngine,
   getMissingVars,
   ellipseFromAxes,
   mirrorPoint,
@@ -672,6 +673,8 @@ describe("buildScope", () => {
 });
 
 describe("evalFormula", () => {
+  // mathjs loads on first use (C6); the API returns null until then.
+  beforeAll(() => loadFormulaEngine());
   it("evaluates simple arithmetic", () => {
     expect(evalFormula("2 + 3", {})).toBe(5);
   });
@@ -710,6 +713,7 @@ describe("getMissingVars", () => {
 // property access, assignment, function definition, blocks).
 // ═════════════════════════════════════════════════════════════════
 describe("evalFormula — sandbox hardening", () => {
+  beforeAll(() => loadFormulaEngine());
   it("evaluates legitimate arithmetic and allowed functions", () => {
     expect(evalFormula("SNA + 2", { SNA: 82 })).toBe(84);
     expect(evalFormula("sqrt(ANB^2 + 1)", { ANB: 3 })).toBeCloseTo(Math.sqrt(10), 6);

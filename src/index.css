@@ -171,3 +171,47 @@ body {
 @media (min-width: 1025px) {
   .rightpanel-sidebar-open { display: flex; }
 }
+
+/* ── Accessibility (C2) ─────────────────────────────────────────────────────
+   Visible keyboard focus everywhere, in the theme's accent colour. */
+/* !important: several inputs remove the outline inline; programmatic focus
+   targets (tabindex=-1) keep their own look. */
+:focus-visible:not([tabindex="-1"]) {
+  outline: 2px solid var(--focus-ring, #58a6ff) !important;
+  outline-offset: 2px;
+}
+canvas:focus-visible { outline-offset: -2px; }
+
+/* 12 px minimum text size (Settings → Appearance → Readable text). Applies to
+   inline font sizes below 12 px; chart/SVG text and elements marked
+   data-small (e.g. shortcut letters on tool icons) keep their size. */
+html.readable-text [style*="font-size: 7px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 7.5px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 8px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 8.5px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 9px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 9.5px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 10px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 10.5px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 11px"]:not(svg *):not([data-small]),
+html.readable-text [style*="font-size: 11.5px"]:not(svg *):not([data-small]) {
+  font-size: 12px !important;
+}
+
+/* Touch screens (C5): buttons are at least 32 × 32 px so they can be hit with
+   a finger. Deliberately small marks opt out with data-small. */
+@media (pointer: coarse) {
+  button:not([data-small]):not([role="switch"]),
+  [role="button"]:not([data-small]),
+  [role="menuitem"] {
+    min-height: 32px;
+    min-width: 32px;
+  }
+  select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    min-height: 32px;
+  }
+}
+
+/* Scrollable without a visible scrollbar (desktop tool rail). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

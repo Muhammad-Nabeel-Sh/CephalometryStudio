@@ -5,6 +5,8 @@ import {
   useCallback,
   useMemo,
   useLayoutEffect,
+  lazy,
+  Suspense,
 } from "react";
 import { THEMES, PREDEFINED, LUT_PRESETS } from "./data/constants.js";
 import { KEYBINDINGS } from "./data/keybindings.js";
@@ -20,6 +22,7 @@ import {
   alignTwoPoints,
   buildScope,
   evalFormula,
+  loadFormulaEngine,
   getMissingVars,
   autoControlPoints,
   findTangentOnCurve,
@@ -28,7 +31,6 @@ import {
 } from "./lib/utils.js";
 import { resolveFacing } from "./lib/measureConventions.js";
 import { generateInterpretation } from "./lib/interpretation.js";
-import { generateReport } from "./report/reportGenerator.js";
 import {
   processImageToCanvas,
   computeHistogram,
@@ -46,6 +48,7 @@ import {
   drawDisplacementVectors,
   drawAirwayOverlay,
   hitTest,
+  FINGER_SLOP,
   getSilhouetteHandlesImage,
 } from "./canvas/drawMarkups.js";
 import { MarkupsPanel } from "./panels/MarkupsPanel.jsx";
@@ -87,7 +90,10 @@ import { RightPanelSidebar } from "./panels/RightPanelSidebar.jsx";
 import SessionFilmstrip from "./panels/SessionFilmstrip.jsx";
 import AnonModal from "./panels/AnonModal.jsx";
 import AnalysisModal from "./panels/AnalysisModal.jsx";
-import ResearchWorkspace from "./research/ResearchWorkspace.jsx";
+// C6: the studies workspace, PDF report generator and formula engine load on
+// first use instead of with the app.
+const ResearchWorkspace = lazy(() => import("./research/ResearchWorkspace.jsx"));
+import { useFormulaEngine } from "./hooks/useFormulaEngine.js";
 import { sessionSeal, unsealSession } from "./research/blinding.js";
 import InterpretationPanel from "./panels/InterpretationPanel.jsx";
 import NormogramPanel from "./panels/NormogramPanel.jsx";
@@ -122,6 +128,7 @@ import { describeChange, isNotableChange } from "./workspace/undoHistory.js";
 import { nextToReview, confirmPoint } from "./workspace/aiReview.js";
 import { PlacingGuide, Magnifier } from "./panels/PlacingGuide.jsx";
 import { DialogHost } from "./ui/DialogHost.jsx";
+import SettingsModal from "./panels/SettingsModal.jsx";
 
 import { useStoreDispatch, syncPlacingQueue } from "./state/workspaceStore.js";
 import { useToolStore, useUIStore } from "./state/workspaceStore.js";
@@ -603,7 +610,8 @@ function FormulaEditor({ t, formula, scope, onSave, onClose }) {
   const [bigLatex, setBigLatex] = useState(null);
   const [showFx, setShowFx] = useState(false);
   const inputRef = useRef(null);
-  const preview = useMemo(() => evalFormula(expr, scope), [expr, scope]);
+  const formulaReady = useFormulaEngine();
+  const preview = useMemo(() => (formulaReady ? evalFormula(expr, scope) : null), [expr, scope, formulaReady]);
   const missing = useMemo(() => getMissingVars(expr, scope), [expr, scope]);
 
   const groups = useMemo(() => {
@@ -1364,6 +1372,7 @@ function Workspace({
   const toolbarDragging = useUIStore((s) => s.toolbarDragging);
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const researchOpen = useUIStore((s) => s.researchOpen);
+  const showSettings = useUIStore((s) => s.showSettings);
   const closeResearch = useCallback(() => useUIStore.setState({ researchOpen: false }), []);
   const rightPanelResizing = useUIStore((s) => s.rightPanelResizing);
   const displacementOverlay = useUIStore((s) => s.displacementOverlay);
@@ -1403,6 +1412,8 @@ function Workspace({
     dispatch({ type: "SET", payload: { pan: { x: 40, y: 40 } } });
   }, [dispatch]);
   const isMobile = useMediaQuery("(max-width: 1024px)"); // compact layout: phones + tablets (portrait/landscape)
+  // C5: tablets keep the magnifier (useful with a stylus); phones have no room for it.
+  const isPhone = useMediaQuery("(max-width: 640px)");
 
   // ─── Mobile sheet: share save logic + browser-back integration ───
   const handleSaveProject = useCallback(async () => {
@@ -2820,7 +2831,7 @@ function Workspace({
         return;
       }
       if (activeTool === "select") {
-        const hit = hitTest(markups, ip, zoomRef.current);
+        const hit = hitTest(markups, ip, zoomRef.current, undefined, e.fromFinger ? FINGER_SLOP : 8);
         if (!hit) {
           boxSelectRectRef.current = { x1: ip.x, y1: ip.y, x2: ip.x, y2: ip.y };
           dispatch({
@@ -4100,6 +4111,8 @@ function Workspace({
   const touchMoveRef = useRef();
   const touchEndRef = useRef();
   const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+  const stylusRef = useRef(false);
   const gestureRef = useRef("none");
   const pinchRef = useRef(null);
   const panCandidateRef = useRef(null);
@@ -4118,6 +4131,16 @@ function Workspace({
     if (touches.length === 1) {
       if (gestureRef.current === "pinch") return;
       const t2 = touches[0];
+      // C5: a stylus (Apple Pencil) acts like a mouse — precise drags and
+      // placement, no double-tap zoom or one-finger panning.
+      if (t2.touchType === "stylus") {
+        gestureRef.current = "single";
+        panCandidateRef.current = null;
+        stylusRef.current = true;
+        handleMouseDown({ button: 0, clientX: t2.clientX, clientY: t2.clientY });
+        return;
+      }
+      stylusRef.current = false;
       const now = Date.now();
       if (now - lastTapRef.current < 300) {
         lastTapRef.current = 0;
@@ -4147,7 +4170,7 @@ function Workspace({
       panCandidateRef.current = null;
       const sp = getCanvasPos({ clientX: t2.clientX, clientY: t2.clientY });
       const ip = toImage(sp.x, sp.y);
-      const hit = hitTest(markups, ip, zoomRef.current);
+      const hit = hitTest(markups, ip, zoomRef.current, undefined, FINGER_SLOP);
       if (activeTool === "select" && !hit) {
         panCandidateRef.current = { x: t2.clientX, y: t2.clientY };
       } else {
@@ -4155,8 +4178,10 @@ function Workspace({
           button: 0,
           clientX: t2.clientX,
           clientY: t2.clientY,
+          fromFinger: true,
         });
       }
+      longPressStartRef.current = { x: t2.clientX, y: t2.clientY };
       longPressTimerRef.current = setTimeout(() => {
         longPressTimerRef.current = null;
         if (navigator.vibrate) navigator.vibrate(20);
@@ -4204,9 +4229,18 @@ function Workspace({
     }
   };
   touchMoveRef.current = (e) => {
+    // A fingertip always jitters a little; only a real move (> 10 px) cancels
+    // the long-press context menu (C5).
     if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+      const t0 = e.touches[0], st = longPressStartRef.current;
+      if (!t0 || !st || e.touches.length > 1 || Math.hypot(t0.clientX - st.x, t0.clientY - st.y) > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+    if (stylusRef.current && e.touches.length === 1) {
+      handleMouseMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+      return;
     }
     if (
       gestureRef.current === "pinch" &&
@@ -4257,6 +4291,12 @@ function Workspace({
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+    if (stylusRef.current) {
+      stylusRef.current = false;
+      gestureRef.current = "none";
+      handleMouseUp();
+      return;
     }
     if (gestureRef.current === "pinch") {
       if (e.touches.length === 0) {
@@ -4406,6 +4446,7 @@ function Workspace({
     () => buildScope(markups, calibration, facingSetting),
     [markups, calibration, facingSetting],
   );
+  const formulaEngineReady = useFormulaEngine();
   const allMeas = useMemo(
     () =>
       markups
@@ -4431,7 +4472,7 @@ function Workspace({
       }
     });
     return res;
-  }, [formulas, measScope, pinnedFormulas, t]);
+  }, [formulas, measScope, pinnedFormulas, t, formulaEngineReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const cursorStyle =
     {
       select: "default",
@@ -4967,7 +5008,7 @@ function Workspace({
                 placingIdx < placingQueue.length &&
                 markups.find((x) => x.id === placingQueue[placingIdx]) && (
                   <>
-                    {magnifierOn && !isMobile && <Magnifier canvasRef={canvasRef} t={t} />}
+                    {magnifierOn && !isPhone && <Magnifier canvasRef={canvasRef} t={t} />}
                     <PlacingGuide
                       t={t}
                       markup={markups.find((x) => x.id === placingQueue[placingIdx])}
@@ -5630,6 +5671,10 @@ function Workspace({
                     const origUrl = imgEl ? imgEl.src : null;
                     const markupUrl = await captureMarkupImage();
                     const interp = generateInterpretation(allMeas, norms);
+                    const [{ generateReport }] = await Promise.all([
+                      import("./report/reportGenerator.js"),
+                      loadFormulaEngine().catch(() => false),
+                    ]);
                     const fv = {};
                     formulas.forEach((f) => {
                       const v = evalFormula(f.expression, measScope);
@@ -5693,6 +5738,22 @@ function Workspace({
           />
         </Modal>
       )}
+      {showSettings && (
+        <SettingsModal
+          t={t}
+          theme={theme}
+          setTheme={setTheme}
+          angleMode={angleMode}
+          setAngleMode={setAngleMode}
+          facingSetting={facingSetting}
+          setFacingSetting={setFacingSetting}
+          resolvedFacing={facing}
+          magnifierOn={magnifierOn}
+          toggleMagnifier={toggleMagnifier}
+          storageEncrypted={secureStorageAvailable()}
+          onClose={() => useUIStore.setState({ showSettings: false })}
+        />
+      )}
       {showAnon && (
         <Modal
           t={t}
@@ -5739,13 +5800,21 @@ function Workspace({
       )}
 
       {researchOpen && (
-        <ResearchWorkspace
-          t={t}
-          project={project}
-          onUpdateProject={onUpdateProject}
-          calibration={calibration}
-          onClose={closeResearch}
-        />
+        <Suspense
+          fallback={
+            <div role="status" style={{ position: "fixed", inset: 0, zIndex: 60, background: t.bg, color: t.tx2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+              Loading the Research workspace…
+            </div>
+          }
+        >
+          <ResearchWorkspace
+            t={t}
+            project={project}
+            onUpdateProject={onUpdateProject}
+            calibration={calibration}
+            onClose={closeResearch}
+          />
+        </Suspense>
       )}
 
       {showAnalysisModal && (
@@ -6042,6 +6111,13 @@ async function clearAllLocalData() {
 export default function CephalometryStudio() {
   const splashMobile = useMediaQuery("(max-width: 640px)");
   const [theme, setTheme] = useState("bluish");
+  // C2: focus ring colour follows the theme; readable-text floor from Settings.
+  const readableText = useUIStore((s) => s.readableText);
+  useEffect(() => {
+    const el = document.documentElement;
+    el.style.setProperty("--focus-ring", (THEMES[theme] || THEMES.bluish).acc);
+    el.classList.toggle("readable-text", !!readableText);
+  }, [theme, readableText]);
   const t = useMemo(() => ({ ...THEMES[theme], id: theme }), [theme]);
   // Start empty and async-load the encrypted autosave so the PHI blob is never
   // held in plaintext localStorage. `loaded` guards the save effect so the
@@ -6054,8 +6130,20 @@ export default function CephalometryStudio() {
   // homepage instead of leaving the site. Opening a project pushes a history
   // entry; `popstate` then switches back to the homepage. A second Back
   // (from the homepage) still leaves the site as usual.
-  const openProject = (id) => {
+  // C1: the home page can open a particular session of a case.
+  const openProject = (id, sessionId) => {
+    if (sessionId)
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === id && p.activeSessionId !== sessionId && p.sessions?.some((s) => s.id === sessionId)
+            ? { ...p, activeSessionId: sessionId }
+            : p,
+        ),
+      );
     window.history.pushState({ cephView: "workspace" }, "");
+    // Opening any case answers the "Welcome back" prompt; it must not come
+    // back on returning home with an out-of-date suggestion.
+    setWelcome(null);
     setActiveId(id);
   };
   const goHome = () => {
@@ -6226,7 +6314,24 @@ export default function CephalometryStudio() {
 
   const createProject = (projection, result) => {
     const p = { ...mkProject(projection), name: result.name };
+    // Patient details from the New Case form (previously collected but dropped).
+    const f = result.meta || {};
+    const str = (v) => (v == null ? "" : String(v).trim());
+    p.meta = {
+      ...p.meta,
+      patientId: str(f.patientId),
+      name: str(f.patientName),
+      dob: str(f.dob),
+      age: str(f.age),
+      gender: str(f.gender),
+      ethnicity: str(f.ethnicity),
+      clinician: str(f.clinician),
+      facility: str(f.facility),
+      referral: str(f.referral),
+      notes: str(f.notes),
+    };
     const session = p.sessions.find((s) => s.id === p.activeSessionId);
+    session.meta = { ...session.meta, patientId: p.meta.patientId, age: p.meta.age };
     if (result.image)
       session.images = [
         {

@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased] - App-wide UX (C1, C2, C3, C5, C6)
+
+### Added
+- **Patients on the home page** (below the new-case cards): cases are grouped by patient
+  (patient ID, else name) with a search box and each patient's session timeline (oldest first,
+  by age then date); click a session to open it, "+ New case" starts another case for the same
+  patient (choosing the projection). Multi-patient research collections are listed as studies.
+- **Settings** (top bar ⚙, or "All settings…" in the markup gear): appearance, tracing,
+  measurements (saved with the case), AI model, data and privacy. Display and tracing
+  preferences are now remembered between visits.
+- **Readable text**: a 12 px minimum for interface text (Settings → Appearance; on by default).
+- **Keyboard**: visible focus ring everywhere; custom dialogs (new case, norms, session
+  metadata, enlarged formula) move focus in, trap Tab, close with Escape one at a time and
+  return focus; the context menu wraps with the arrow keys, supports Home/End and returns focus.
+- **Tablet and stylus**: an Apple Pencil acts like a mouse (precise drags, no accidental
+  panning); fingertips get a larger hit radius; long-press tolerates small finger movement;
+  the magnifier is available on tablets; touch screens get 32 px minimum buttons.
+
+### Changed
+- Theme colours adjusted so all text colours meet WCAG AA (4.5:1) in every theme
+  (most visibly: muted text, and the accent/status colours in Light and Paper).
+- Start-up is lighter: the Research workspace, the PDF report generator, the formula engine
+  (mathjs) and KaTeX load on first use. Main bundle 3.07 MB → 1.24 MB (843 → 318 KB gzipped);
+  the statistics worker 830 → 186 KB.
+- Clearing all markups no longer asks for confirmation; it can be undone from the toast.
+- The tool rail opens in the "All" mode and has no visible scrollbar; the undo history button
+  reads "Undo History".
+
+### Fixed
+- Patient details entered in the New Case form (ID, name, DOB, age…) were not saved.
+- "▶ Start" with nothing queued now queues the landmarks that are not placed yet.
+- The "Welcome back" prompt no longer reappears with an out-of-date case after opening one.
+
 ## [Unreleased] - Tracing workspace (UI/UX B1–B6)
 
 ### Added
