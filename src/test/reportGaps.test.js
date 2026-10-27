@@ -108,3 +108,39 @@ describe("PDF report — text", () => {
     expect(needsUnicodeFont("SNA 82.0° ± 3.5")).toBe(false);
   });
 });
+
+describe("PDF report — formulas", () => {
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const formulas = [
+    { id: "a", name: "Ratio", latex: String.raw`\frac{S\text{-}Go}{N\text{-}Me}`, expression: "SGo / NMe * 100", unit: "%" },
+    { id: "b", name: "Sum", expression: "SNA + SNB" },
+  ];
+
+  it("draws each formula as a typeset equation with its value, not a table", async () => {
+    const calls = [];
+    const renderLatex = async (tex) => { calls.push(tex); return { dataUrl: PNG, w: 400, h: 80 }; };
+    const formulaTex = expr => String.raw`\mathrm{${expr}}`;
+    const doc = await generateReport({ ...base, allMeas: [], formulas, formulaValues: { a: 64.2, b: 160 }, renderLatex, formulaTex, sections: { ...NONE, formulas: true } });
+    expect(calls).toEqual([formulas[0].latex, String.raw`\mathrm{SNA + SNB}`]);
+    const text = pageText(doc);
+    expect(text).toContain("(= 64.20 %)");
+    expect(text).toContain("(= 160.00)");
+    expect(text).toContain("(Computed as: SGo / NMe * 100)");
+    expect(text).not.toContain("(Expression)");
+    expect(doc.output()).toContain("/Subtype /Image");
+  });
+
+  it("falls back to the expression as large text when it cannot be typeset", async () => {
+    const doc = await generateReport({ ...base, allMeas: [], formulas: [formulas[1]], formulaValues: {}, sections: { ...NONE, formulas: true } });
+    const text = pageText(doc);
+    expect(text).toContain("(SNA + SNB)");
+    expect(text).toContain("(= N/A)");
+  });
+
+  it("typesets an expression once the formula engine has loaded", async () => {
+    const { loadFormulaEngine, formulaTex } = await import("../lib/utils.js");
+    await loadFormulaEngine();
+    expect(formulaTex("SNA - SNB + U1_SN * pi")).toBe(String.raw`\mathrm{SNA}-\mathrm{SNB}+\mathrm{U1\_SN}\cdot\pi`);
+    expect(formulaTex("(")).toBeNull();
+  });
+});

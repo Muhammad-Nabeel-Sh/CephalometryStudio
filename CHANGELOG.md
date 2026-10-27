@@ -35,6 +35,9 @@
   columns).
 - Greek letters in statistics (η², χ², α) print as Greek (Noto Sans, fetched only when needed);
   the cover logo is visible on white pages; projection reads "Lateral cephalogram".
+- Custom formulas print as typeset equations (the formula's LaTeX, or its expression typeset
+  with upright variable names) in large type, each with its value, instead of a table.
+- Every chart of a study goes into the report (the limit of 8 is gone).
 
 ## [Unreleased] - Normogram
 

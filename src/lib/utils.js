@@ -454,6 +454,18 @@ function _validateFormulaAst(node) {
   return ok;
 }
 
+// LaTeX for a formula expression (for the PDF report when no LaTeX was written);
+// null until the formula engine has loaded or when the expression does not parse.
+export function formulaTex(expr) {
+  if (!math || !expr) return null;
+  // Multi-letter names (SNA, U1_SN) print upright, as one name, not as a product.
+  const handler = node => {
+    if (node.type !== "SymbolNode" || node.name.length < 2 || node.name in math) return undefined;
+    return `\\mathrm{${node.name.replace(/_/g, "\\_")}}`;
+  };
+  try { return math.parse(expr).toTex({ parenthesis: "auto", implicit: "hide", handler }); } catch { return null; }
+}
+
 export function evalFormula(expr, scope) {
   try {
     // Inline-substitute numeric scope values so the residual expression contains

@@ -718,19 +718,60 @@ function buildAirway(doc, project, live) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORMULAS
 // ═══════════════════════════════════════════════════════════════════════════════
-function buildFormulas(doc, formulas, formulaValues) {
+// Mm per CSS px of a rendered equation: KaTeX's 44 px type prints at about 16 pt.
+const EQ_MM_PER_PX = 0.13;
+
+function fmtFormulaValue(f, val) {
+  if (val == null || !isFinite(val)) return "N/A";
+  return val.toFixed(2) + (!f.unit ? "" : f.unit === "°" ? "°" : " " + f.unit);
+}
+
+// Each formula as a block: its name, the equation drawn large (the LaTeX the
+// user wrote, otherwise the expression typeset), and its value.
+async function buildFormulas(doc, formulas, formulaValues, { renderLatex, formulaTex } = {}) {
   if (!formulas || !formulas.length) return;
   const flow = textFlow(doc, startSection(doc, "Custom formulas"));
-  doc.autoTable({
-    ...tableStyles(8),
-    startY: flow.y,
-    head: [["Name", "Expression", "Value"]],
-    body: formulas.map(f => {
-      const val = formulaValues?.[f.id];
-      return [f.name || "Unnamed", f.expression || "—", val != null && isFinite(val) ? val.toFixed(2) + (f.unit ? " " + f.unit : "") : "N/A"];
-    }),
-    columnStyles: { 0: { fontStyle: "bold" }, 1: { textColor: C.tx2, fontStyle: "italic" }, 2: { halign: "right", fontStyle: "bold" } },
-  });
+  for (const f of formulas) {
+    const tex = f.latex?.trim() || formulaTex?.(f.expression) || null;
+    let eq = null;
+    if (tex && renderLatex) {
+      try { eq = await renderLatex(tex, { color: C.tx }); } catch { eq = null; }
+    }
+    let dw = 0, dh = 0;
+    if (eq) {
+      dw = eq.w * EQ_MM_PER_PX;
+      dh = eq.h * EQ_MM_PER_PX;
+      const k = Math.min(1, (BODY_W - 10) / dw);
+      dw *= k;
+      dh *= k;
+    }
+    const boxH = eq ? dh + 8 : 16;
+    flow.breakIfNeeded(12 + boxH + 14);
+    flow.heading(f.name || "Unnamed formula");
+    if (f.description) flow.para(f.description, { size: 8.5, color: C.tx2, gap: 1 });
+    const top = flow.y;
+    doc.setFillColor(C.surf);
+    doc.setDrawColor(C.bdr);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(MARGIN, top, BODY_W, boxH, 2, 2, "FD");
+    if (eq) {
+      try { doc.addImage(eq.dataUrl, "PNG", MARGIN + (BODY_W - dw) / 2, top + 4, dw, dh); } catch { /* skip */ }
+    } else {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(14);
+      doc.setTextColor(C.tx);
+      const line = doc.splitTextToSize(cleanText(doc, f.expression || "—"), BODY_W - 10)[0];
+      doc.text(line, PAGE_W / 2, top + 10, { align: "center" });
+    }
+    flow.y = top + boxH + 6;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(C.acc);
+    doc.text(cleanText(doc, `= ${fmtFormulaValue(f, formulaValues?.[f.id])}`), PAGE_W / 2, flow.y, { align: "center" });
+    flow.y += 6;
+    if (f.latex?.trim() && f.expression) flow.para(`Computed as: ${f.expression}`, { size: 8, color: C.tx3, gap: 1 });
+    flow.y += 4;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -883,6 +924,8 @@ export async function generateReport({
   compare = null,          // another session ({ markups, calibration, facing, label, name })
   studyIds = null,         // research studies to include (null = all with results)
   captureStudyCharts = null, // async (study, palette) => [{ dataUrl, w, h }]
+  renderLatex = null,      // async (latex, { color }) => { dataUrl, w, h } | null
+  formulaTex = null,       // (expression) => LaTeX | null, for formulas without LaTeX
   clinic = null,           // { name, logo (data URL) }
   save = true,
 }) {
@@ -914,7 +957,7 @@ export async function generateReport({
   const research = sections.research !== false ? reportableStudies(project, studyIds) : [];
   const texts = [
     project?.name, ...Object.values(project?.meta || {}), session?.name, clinic?.name,
-    ...marks.map(m => m?.label), ...(formulas || []).map(f => f.name),
+    ...marks.map(m => m?.label), ...(formulas || []).flatMap(f => [f.name, f.description]),
     ...(airway?.measurements || []).map(m => m.label),
     ...research.flatMap(st => { const c = studyReportContent(st, null); return [c.title, c.methods, c.results, ...c.tables.flatMap(t => t.header)]; }),
   ];
@@ -933,7 +976,7 @@ export async function generateReport({
   if (sections.images !== false) await buildImages(doc, originalImageDataUrl, markupImageDataUrl);
   if (sections.measurements !== false) buildMeasurements(doc, ctx);
   if (compare && sections.comparison !== false) buildComparison(doc, ctx);
-  if (sections.formulas !== false) buildFormulas(doc, formulas, formulaValues);
+  if (sections.formulas !== false) await buildFormulas(doc, formulas, formulaValues, { renderLatex, formulaTex });
   if (sections.normograms !== false) await buildNormogram(doc, ctx);
   if (sections.airway !== false) buildAirway(doc, project, airway);
   if (sections.research !== false) await buildResearchStudies(doc, ctx);

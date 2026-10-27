@@ -24,6 +24,7 @@ import {
   buildScope,
   evalFormula,
   loadFormulaEngine,
+  formulaTex,
   getMissingVars,
   autoControlPoints,
   findTangentOnCurve,
@@ -5762,9 +5763,10 @@ function Workspace({
                     // Same as the Interpretation panel: linear measures need calibration.
                     const interp = generateInterpretation(allMeas, norms, calibration);
                     setReportBusy(true);
-                    const [{ generateReport }, { captureStudyCharts }] = await Promise.all([
+                    const [{ generateReport }, { captureStudyCharts }, { renderLatex }] = await Promise.all([
                       import("./report/reportGenerator.js"),
                       import("./report/studyChartCapture.jsx"),
+                      import("./report/latexCapture.js"),
                       loadFormulaEngine().catch(() => false),
                     ]);
                     const cmp = (project.sessions || []).find((s) => s.id === reportCompareId && s.id !== activeSession?.id);
@@ -5796,6 +5798,8 @@ function Workspace({
                       compare: cmp ? { ...cmp, facing: resolveFacing(cmp.facing, cmp.markups) } : null,
                       studyIds: reportStudyIds,
                       captureStudyCharts,
+                      renderLatex,
+                      formulaTex,
                       clinic: reportClinicName || reportClinicLogo ? { name: reportClinicName, logo: reportClinicLogo } : null,
                       save: false,
                     });

@@ -22,7 +22,6 @@ const CHARTS = {
 };
 
 const WIDTH = 900;
-const MAX_CHARTS = 8;
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -54,7 +53,7 @@ export async function captureStudyCharts(study, palette) {
     if (!plots.length) return [];
     const Plotly = await import("plotly.js-basic-dist-min");
     const out = [];
-    for (const gd of plots.slice(0, MAX_CHARTS)) {
+    for (const gd of plots) {
       const w = gd._fullLayout.width || WIDTH, h = gd._fullLayout.height || 400;
       try {
         const dataUrl = await Plotly.toImage(gd, { format: "png", width: w, height: h, scale: 2 });
