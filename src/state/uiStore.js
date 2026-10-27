@@ -79,6 +79,7 @@ export const useUIStore = create(() => ({
     images: true,
     measurements: true,
     normograms: true,
+    airway: true,
     research: true,
     formulas: true,
     interpretation: true,

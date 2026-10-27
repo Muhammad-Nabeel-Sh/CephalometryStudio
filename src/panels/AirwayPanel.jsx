@@ -25,12 +25,15 @@ function isPlaced(markups, label) {
   }
 }
 
-function zBadge(z, t) {
-  if (z === null || z === undefined) return { color: t.tx3, label: "—" };
-  const a = Math.abs(z);
-  if (a <= 1) return { color: t.ok, label: "Normal" };
-  if (a <= 2) return { color: t.warn, label: "Borderline" };
-  return { color: t.err, label: "Constrained" };
+// The engine's wording already knows which direction is pathological (a wide
+// airway is not "constrained"; a long soft palate is not "patent").
+function zBadge(m, t) {
+  if (m.zScore === null || m.zScore === undefined) return { color: t.tx3, label: "—" };
+  const label = m.interpretation || "—";
+  if (label === "Normal") return { color: t.ok, label };
+  if (/^(Narrow|Increased)$/.test(label)) return { color: t.err, label };
+  if (/^Borderline/.test(label)) return { color: t.warn, label };
+  return { color: t.tx2, label }; // above/below average, wider than average
 }
 
 function fmtVal(v) {
@@ -42,7 +45,7 @@ function fmtVal(v) {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function AirwayPanel({ t, markups, calibration, norms, loadAirwayTier, onUpdateMarkups, showOverlay, onToggleOverlay, onLoadTemplate, dispatch, sex, age, canvasRef }) {
+export default function AirwayPanel({ t, markups, calibration, norms, loadAirwayTier, onUpdateMarkups, showOverlay, onToggleOverlay, onLoadTemplate, dispatch, sex, age, getImagePixels }) {
   void norms;
   void onUpdateMarkups;
   const [guideKey, setGuideKey] = useState(null);
@@ -345,7 +348,9 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
           <Btn
             t={t}
             onClick={() => {
-              const imageData = canvasRef?.current?.getContext("2d")?.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+              // Pixels of the radiograph itself, in image coordinates (not the
+              // zoomed, panned, drawn-over screen canvas).
+              const imageData = getImagePixels ? getImagePixels() : null;
               const bounds = generateAirwayBoundaries(markups, imageData);
               if (!bounds) return;
               const curves = [];
@@ -415,7 +420,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {measurements.map((m) => {
-              const badge = zBadge(m.zScore, t);
+              const badge = zBadge(m, t);
               const valStr = m.value !== null ? `${fmtVal(m.value)} ${m.unit || unit}` : "—";
               const rangeStr =
                 m.normMean && m.normSD
@@ -515,7 +520,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                         gridColumn: "1 / -1",
                       }}
                     >
-                      Source: {m.normSource}
+                      Source: {m.normSource}{m.basis === "traced boundary" ? " · measured on the traced airway walls" : ""}
                     </div>
                   )}
                   {m.value === null && (

@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **757 tests (Vitest)**
+- **No TypeScript**, **771 tests (Vitest)**
 
 ---
 
@@ -57,6 +57,7 @@ src/
 │
 ├── canvas/                     Canvas rendering + image processing
 │   ├── redraw.js               Draw pipeline (createRedraw factory)
+│   ├── imageLayers.js          drawImageLayers (shared by redraw + report capture), report image scale
 │   ├── drawMarkups.js          drawMarkup, drawMeasLabel, hitTest, drawAirwayOverlay
 │   ├── imageUtils.jsx          LUT processing, getProcessed
 │   ├── imageProcessor.worker.js Web worker for image processing
@@ -204,7 +205,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (757 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (771 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -517,6 +518,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **App-wide UX (C1–C3, C5, C6)**: patient-centred home page (`model/patients.js`), Settings dialog (`panels/SettingsModal.jsx`; uiStore `PREF_KEYS` persisted to `cephalo_prefs_v1`), WCAG-AA theme colours (`src/test/themeContrast.test.js`), 12 px text floor + focus ring + touch targets in `index.css` (opt out with `data-small`), `useDialogA11y` for every dialog, stylus/finger handling (`FINGER_SLOP`), lazy loading of research/report/mathjs/KaTeX. `evalFormula` returns null until `loadFormulaEngine()` has run — components use `useFormulaEngine()`. C4 (Arabic/RTL) deferred. 6 tests in `src/test/appWideUx.test.js`, 1 in `formulaEngine.test.js`, 4 in `themeContrast.test.js`
 
+- **PDF report + airway fixes**: report pages via `newPage` (reuses the empty first page; never call `doc.addPage` directly in builders), headers/footers drawn in a final pass, `measurementRows` (primary measure + unit), live airway results passed from App, Amiri font for non-Latin text (`public/fonts/`, loaded on demand), report images from `captureReportImages`. Airway: `getInterpretation(z, id)` is direction-aware, `normalizeSex`/`normalizeAge`, clinical notes only when calibrated, traced walls (`tracedBoundaries`) feed R-PAS/R-RG/Min-CSA/area, snapping uses `getImagePixels` (image coordinates). 14 tests in `src/test/reportAirwayFixes.test.js`
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -525,7 +528,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 757 tests pass (47 test files, 0 failures)
+- `npm test` — 771 tests pass (48 test files, 0 failures)
 
 
 

@@ -1,5 +1,40 @@
 # Changelog
 
+## [Unreleased] - PDF report and airway fixes
+
+### Fixed - PDF report
+- An empty "Airway Assessment" page appeared in every report and could not be switched off;
+  it is now a report option and only appears when there are airway results.
+- The airway page now uses the Airway panel's results for the session (a Research airway
+  study is used only when the session has no airway landmarks).
+- Turning the cover off no longer leaves a blank first page; pages are numbered "Page i of N".
+- Formulas without the measurements section get their own page instead of printing over
+  the cover or image page.
+- Measurements show one value per markup with its own unit (°, mm, mm², %, none for ratios)
+  instead of every numeric field labelled "mm"; uncalibrated reports say distances are in px.
+- The interpretation in the PDF now uses the calibration (linear measures were always dropped).
+- The marked-up image matches the screen (image processing, layers, overlays), has labels
+  sized to print at about 2.3 mm with overlap avoidance, and both images are capped at
+  1800 px as JPEG (much smaller files).
+- Long notes, pattern details, descriptions and interpretations wrap instead of running off
+  the page or being cut short; deviation severity reads "Beyond 2 SD" / "1–2 SD" / "Within 1 SD".
+- Patient and case names in other scripts (e.g. Arabic) are set in Amiri (SIL OFL,
+  `public/fonts/`), with Arabic shaping and right-to-left order.
+- A failed report now shows an error message instead of failing silently.
+
+### Fixed - Airway
+- Clinical notes used mm thresholds on pixel values, so uncalibrated images almost always
+  showed "Inferiorly positioned hyoid" and "Elongated soft palate"; notes now need calibration.
+- Interpretation follows the pathological direction: airway widths "Narrow" / "Wider than
+  average", hyoid distance and soft palate "Increased"; the panel badge no longer shows
+  "Constrained" for a wide airway.
+- Age- and sex-specific norms are used: sex accepts M/F/Male/Female and falls back to the
+  case's gender; an empty age is unknown (not 0).
+- "Auto-trace airway boundaries" snaps to the radiograph's own pixels (it read the zoomed,
+  drawn-over screen), with 8-bit windowing, a weak-edge guard and light smoothing.
+- Traced airway walls are used for R-PAS, R-RG, minimum cross-section and pharyngeal area
+  (the panel notes "measured on the traced airway walls"); only drawn curves count as walls.
+
 ## [Unreleased] - App-wide UX (C1, C2, C3, C5, C6)
 
 ### Added

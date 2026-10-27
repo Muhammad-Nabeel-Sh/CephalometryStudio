@@ -379,14 +379,19 @@ export function sampleCatmullRom(pts, numSamples = 50) {
   } catch { return pts; }
 }
 
+// Snap guide points to the strongest nearby edge in the radiograph. `imageData`
+// must be in IMAGE coordinates (the image's own pixels, 8-bit). Points with no
+// clear edge within 15 px stay where they are; the result is lightly smoothed
+// so one strong bone edge cannot pull a single point out of line.
 export function autoSnapBoundary(imageData, guidePts, windowWidth, windowCenter) {
   try {
     if (!imageData || !guidePts || guidePts.length === 0) return guidePts;
     const data = imageData.data;
     const w = imageData.width;
     const h = imageData.height;
-    const ww = windowWidth || 2000;
-    const wc = windowCenter || 500;
+    const ww = windowWidth || 256;
+    const wc = windowCenter || 128;
+    const MIN_EDGE = 0.04; // normalised intensity step per pixel
     const halfWw = ww / 2;
     const lo = wc - halfWw;
     const hi = wc + halfWw;
@@ -425,19 +430,41 @@ export function autoSnapBoundary(imageData, guidePts, windowWidth, windowCenter)
           }
         }
       }
-      return bestP;
+      return bestScore >= MIN_EDGE ? bestP : { x: cx, y: cy };
     };
 
-    return guidePts.map((p) => snap(p.x, p.y));
+    const snapped = guidePts.map((p) => snap(p.x, p.y));
+    return snapped.map((p, i) => {
+      const win = snapped.slice(Math.max(0, i - 2), i + 3);
+      return { x: win.reduce((a, q) => a + q.x, 0) / win.length, y: win.reduce((a, q) => a + q.y, 0) / win.length };
+    });
   } catch { return guidePts; }
 }
 
-function getInterpretation(z) {
-  if (z === null || z === undefined) return "Unknown";
-  if (z < -2) return "Narrow";
-  if (z < -1) return "Borderline narrow";
-  if (z <= 1) return "Normal";
-  return "Wide/Patent";
+// Which way is pathological, for wording (airway widths/areas: smaller is
+// worse; hyoid distance and soft-palate length: larger is worse; the rest are
+// sizes with no "good" direction).
+const SMALLER_IS_NARROWER = new Set(["R-PAS", "R-RG", "SP-AW", "MAS", "IAS", "Pharyngeal-Area", "Min-CSA", "N-PH", "PNS-AD1", "PNS-AD2"]);
+
+export function getInterpretation(z, id) {
+  if (z === null || z === undefined || !isFinite(z)) return "Unknown";
+  if (SMALLER_IS_NARROWER.has(id)) {
+    if (z < -2) return "Narrow";
+    if (z < -1) return "Borderline narrow";
+    if (z <= 1) return "Normal";
+    return "Wider than average";
+  }
+  if (HIGHER_IS_WORSE.has(id)) {
+    if (z > 2) return "Increased";
+    if (z > 1) return "Borderline increased";
+    if (z >= -1) return "Normal";
+    return "Below average";
+  }
+  if (z > 2) return "Well above average";
+  if (z > 1) return "Above average";
+  if (z >= -1) return "Normal";
+  if (z >= -2) return "Below average";
+  return "Well below average";
 }
 
 // ─── Stratified airway norms ─────────────────────────────────────────────────
@@ -520,14 +547,27 @@ export const AIRWAY_NORMS_STRATIFIED = {
   },
 };
 
-export function lookupAirwayNorm(id, sex, age) {
+// "M", "male", "Male" → "M"; "F", "female" → "F"; anything else → null.
+export function normalizeSex(sex) {
+  const c = String(sex ?? "").trim().charAt(0).toUpperCase();
+  return c === "M" || c === "F" ? c : null;
+}
+
+// Age in years, or null for empty / non-numeric values ("" is not age 0).
+export function normalizeAge(age) {
+  if (age === null || age === undefined || String(age).trim() === "") return null;
+  const a = Number(age);
+  return Number.isFinite(a) && a >= 0 ? a : null;
+}
+
+export function lookupAirwayNorm(id, sexIn, ageIn) {
   try {
-    if (sex && age !== undefined && age !== null) {
+    const sex = normalizeSex(sexIn), age = normalizeAge(ageIn);
+    if (sex && age !== null) {
       const stratified = AIRWAY_NORMS_STRATIFIED[id];
       if (stratified) {
-        const sexUpper = sex.toUpperCase();
         for (const g of stratified.groups) {
-          if (g.sex === sexUpper && age >= g.ageMin && age < g.ageMax) {
+          if (g.sex === sex && age >= g.ageMin && age < g.ageMax) {
             return { mean: g.mean, sd: g.sd, source: stratified.source };
           }
         }
@@ -539,7 +579,9 @@ export function lookupAirwayNorm(id, sex, age) {
   } catch { return null; }
 }
 
-function getClinicalNote(id, value) {
+// Thresholds are in mm / mm²: no note for uncalibrated (pixel) values.
+function getClinicalNote(id, value, calibrated) {
+  if (!calibrated || value === null || value === undefined) return null;
   if (id === "R-PAS" && value !== null && value < 5) return "Retropalatal narrowing <5mm — strong OSA screening indicator";
   if (id === "R-PAS" && value !== null && value < 8) return "Retropalatal narrowing — consider sleep apnea screening";
   if (id === "R-RG" && value !== null && value < 5) return "Retroglossal narrowing <5mm — associated with OSA";
@@ -559,6 +601,62 @@ function buildGlobalClinicalNote(results) {
   return null;
 }
 
+// ─── Measurements from traced boundary curves ─────────────────────────────────
+
+// Anterior and posterior wall curves (labelled as airway boundaries), smoothed;
+// null unless both walls have at least two points.
+export function tracedBoundaries(markups) {
+  // Only drawn curves count as walls (not straight template lines whose names
+  // happen to mention the tongue or pharynx).
+  const curves = (markups || []).filter(m => ["curve", "polyline", "bezier"].includes(m.type));
+  const { anterior, posterior } = traceAirwayBoundary(curves);
+  if (anterior.length < 2 || posterior.length < 2) return null;
+  return { anterior: sampleCatmullRom(anterior, 80), posterior: sampleCatmullRom(posterior, 80) };
+}
+
+const yRange = pts => [Math.min(...pts.map(p => p.y)), Math.max(...pts.map(p => p.y))];
+
+// Sagittal area between the two walls over [yMin, yMax]: ∫ |x_post − x_ant| dy.
+export function areaBetweenBoundaries(anterior, posterior, yMin, yMax, steps = 120) {
+  if (!(yMax > yMin)) return null;
+  let area = 0, prev = null;
+  for (let i = 0; i <= steps; i++) {
+    const y = yMin + (yMax - yMin) * (i / steps);
+    const a = sampleBoundaryAtY(anterior, y), b = sampleBoundaryAtY(posterior, y);
+    const w = a && b ? Math.abs(b.x - a.x) : null;
+    if (w !== null && prev !== null) area += ((w + prev) / 2) * ((yMax - yMin) / steps);
+    prev = w;
+  }
+  return area > 0 ? area : null;
+}
+
+// Width/area from traced walls for the measurements that are defined on the
+// airway lumen; null when the levels or walls needed are missing.
+function boundaryMeasure(id, traced, find) {
+  const [aTop, aBot] = yRange(traced.anterior), [pTop, pBot] = yRange(traced.posterior);
+  const top = Math.max(aTop, pTop), bot = Math.min(aBot, pBot);
+  if (!(bot > top)) return null;
+  const clip = (lo, hi) => [Math.max(lo, top), Math.min(hi, bot)];
+  const narrowest = (lo, hi) => {
+    const [a, b] = clip(lo, hi);
+    if (!(b > a)) return null;
+    const n = findNarrowestPoint(traced.anterior, traced.posterior, a, b, 80);
+    return n ? { width: n.width, antPt: n.antPt, postPt: n.postPt } : null;
+  };
+  const pns = find("PNS"), sp = find("SP"), eb = find("Eb") || find("Epiglottis");
+  switch (id) {
+    case "R-PAS": return pns && sp ? narrowest(Math.min(pns.y, sp.y), Math.max(pns.y, sp.y)) : null; // retropalatal level
+    case "R-RG": return sp && eb ? narrowest(Math.min(sp.y, eb.y), Math.max(sp.y, eb.y)) : null;     // retroglossal level
+    case "Min-CSA": return narrowest(top, bot);
+    case "Pharyngeal-Area": {
+      const lo = pns ? Math.max(top, pns.y) : top, hi = eb ? Math.min(bot, eb.y) : bot;
+      const area = areaBetweenBoundaries(traced.anterior, traced.posterior, lo, hi);
+      return area ? { area } : null;
+    }
+    default: return null;
+  }
+}
+
 // ─── Airway measurement computation ──────────────────────────────────────────
 
 export function computeAirwayMeasurements(markups, calibration, sex, age) {
@@ -569,6 +667,9 @@ export function computeAirwayMeasurements(markups, calibration, sex, age) {
 
     const ptMap = buildPtMap(markups);
     const find = (label) => findPt(markups, label, ptMap);
+    // Traced (or auto-traced) airway boundary curves, when both walls exist,
+    // replace the landmark chords for the narrowest widths and the area.
+    const traced = tracedBoundaries(markups);
 
     const results = [];
 
@@ -598,8 +699,25 @@ export function computeAirwayMeasurements(markups, calibration, sex, age) {
 
         let value = null;
         let unit = calDone ? "mm" : "px";
+        let basis = "landmarks";
 
-        if (def.id === "MP-H") {
+        const fromTrace = traced && boundaryMeasure(def.id, traced, find);
+        if (fromTrace) {
+          basis = "traced boundary";
+          if (fromTrace.width != null) {
+            if (def.id === "Min-CSA") {
+              const w = calDone ? fromTrace.width / ppm : fromTrace.width;
+              value = Math.PI * (w / 2) ** 2;
+              unit = calDone ? "mm²" : "px²";
+            } else {
+              value = calDone ? fromTrace.width / ppm : fromTrace.width;
+            }
+            validPts = [fromTrace.antPt, fromTrace.postPt];
+          } else if (fromTrace.area != null) {
+            value = calDone ? fromTrace.area / (ppm * ppm) : fromTrace.area;
+            unit = calDone ? "mm²" : "px²";
+          }
+        } else if (def.id === "MP-H") {
           const h = pts[0];
           const go = pts[1];
           const me = pts[2];
@@ -697,11 +815,11 @@ export function computeAirwayMeasurements(markups, calibration, sex, age) {
           value !== null && calDone && unvalidated
             ? "No validated norm — reference value shown for context only"
             : value !== null && calDone
-            ? getInterpretation(zScore)
+            ? getInterpretation(zScore, def.id)
             : value !== null
               ? "Calibration required for z-score"
               : "Missing landmarks";
-        const clinicalNote = getClinicalNote(def.id, value);
+        const clinicalNote = getClinicalNote(def.id, value, calDone);
 
         results.push({
           id: def.id,
@@ -715,6 +833,7 @@ export function computeAirwayMeasurements(markups, calibration, sex, age) {
           zScore,
           interpretation,
           clinicalNote,
+          basis,
           points: validPts,
         });
       } catch {
@@ -802,9 +921,9 @@ export function generateAirwayBoundaries(markups, imageData) {
     let posteriorSmooth = posteriorRaw.length >= 2 ? sampleCatmullRom(posteriorRaw, 50) : [];
 
     if (imageData) {
-      const ww = 2000, wc = 500;
-      if (anteriorSmooth.length > 0) anteriorSmooth = autoSnapBoundary(imageData, anteriorSmooth, ww, wc);
-      if (posteriorSmooth.length > 0) posteriorSmooth = autoSnapBoundary(imageData, posteriorSmooth, ww, wc);
+      // 8-bit pixels: full range, no windowing.
+      if (anteriorSmooth.length > 0) anteriorSmooth = autoSnapBoundary(imageData, anteriorSmooth, 256, 128);
+      if (posteriorSmooth.length > 0) posteriorSmooth = autoSnapBoundary(imageData, posteriorSmooth, 256, 128);
     }
 
     return {

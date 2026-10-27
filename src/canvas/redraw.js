@@ -5,6 +5,7 @@
 
 import { vpts } from "../lib/utils.js";
 import { beginLabelLayout, flushLabelLayout } from "./drawMarkups.js";
+import { drawImageLayers } from "./imageLayers.js";
 import { procrustesAlign } from "../lib/procrustes.js";
 
 export function createRedraw(dc) {
@@ -57,28 +58,7 @@ export function createRedraw(dc) {
       ctx2d.textAlign = "left";
     } else {
       // ── Draw images ──
-      sessionImage.forEach(imgE => {
-        if (!imgE.visible) return;
-        const src = getProcessed(imgE) || dc.imgRefs.current[imgE.id];
-        if (!src) return;
-        const tf = imgE.transform || { tx: 0, ty: 0, rot: 0, scale: 1 };
-        const nw = src.naturalWidth || src.width || 600;
-        const nh = src.naturalHeight || src.height || 500;
-        ctx2d.save();
-        ctx2d.globalAlpha = imgE.opacity ?? 1;
-        ctx2d.globalCompositeOperation = imgE.blendMode || "normal";
-        ctx2d.translate(pan.x + (imgE.dx || 0) * zoom, pan.y + (imgE.dy || 0) * zoom);
-        ctx2d.translate((nw / 2 + tf.tx) * zoom, (nh / 2 + tf.ty) * zoom);
-        ctx2d.rotate(tf.rot || 0);
-        ctx2d.scale((tf.scale || 1) * zoom, (tf.scale || 1) * zoom);
-        ctx2d.drawImage(src, -nw / 2, -nh / 2);
-        if (imgE.color && imgE.color !== "none") {
-          ctx2d.globalCompositeOperation = "color";
-          ctx2d.fillStyle = imgE.color + "77";
-          ctx2d.fillRect(-nw / 2, -nh / 2, nw, nh);
-        }
-        ctx2d.restore();
-      });
+      drawImageLayers(ctx2d, sessionImage, { zoom, pan, getProcessed, imgRefs: dc.imgRefs });
     }
 
     const drawMarkups = markups;

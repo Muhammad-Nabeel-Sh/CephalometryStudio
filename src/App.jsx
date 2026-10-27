@@ -49,6 +49,8 @@ import {
   drawAirwayOverlay,
   hitTest,
   FINGER_SLOP,
+  beginLabelLayout,
+  flushLabelLayout,
   getSilhouetteHandlesImage,
 } from "./canvas/drawMarkups.js";
 import { MarkupsPanel } from "./panels/MarkupsPanel.jsx";
@@ -129,6 +131,8 @@ import { nextToReview, confirmPoint } from "./workspace/aiReview.js";
 import { PlacingGuide, Magnifier } from "./panels/PlacingGuide.jsx";
 import { DialogHost } from "./ui/DialogHost.jsx";
 import SettingsModal from "./panels/SettingsModal.jsx";
+import { drawImageLayers, reportScale, printLabelScale } from "./canvas/imageLayers.js";
+import { computeAirwayMeasurements, normalizeSex, normalizeAge } from "./research/airway.js";
 
 import { useStoreDispatch, syncPlacingQueue } from "./state/workspaceStore.js";
 import { useToolStore, useUIStore } from "./state/workspaceStore.js";
@@ -1624,6 +1628,7 @@ function Workspace({
     images: true,
     measurements: true,
     normograms: true,
+    airway: true,
     research: true,
     formulas: true,
     interpretation: true,
@@ -1805,11 +1810,10 @@ function Workspace({
   // Read by the canvas redraw (labels for the active analysis only, B3).
   const analysisTemplateRef = useRef(analysisTemplate);
   useEffect(() => { analysisTemplateRef.current = analysisTemplate; }, [analysisTemplate]);
-  const patientSex = activeSession?.meta?.sex || null;
-  const patientAge =
-    activeSession?.meta?.age !== undefined && activeSession?.meta?.age !== null
-      ? Number(activeSession.meta.age)
-      : null;
+  // Session details first, then the case's patient details (New Case form).
+  // "" is unknown, not age 0; sex accepts M/F/Male/Female.
+  const patientSex = normalizeSex(activeSession?.meta?.sex) || normalizeSex(project?.meta?.gender);
+  const patientAge = normalizeAge(activeSession?.meta?.age) ?? normalizeAge(project?.meta?.age);
   const selectedMarkup = markups.find((m) => m.id === selectedId);
 
   const groupOptions = useMemo(() => {
@@ -4408,39 +4412,61 @@ function Workspace({
     exportCSVData(markups, calibration, formatAngle, project.name, facing);
   }, [markups, calibration, formatAngle, project.name, facing]);
 
-  const captureMarkupImage = useCallback(async () => {
-    const imgEl = sessionImage?.[0]
-      ? imgRefs.current[sessionImage[0].id]
-      : null;
-    if (!imgEl) return null;
+  // Report images: downscaled to at most REPORT_IMAGE_MAX px (smaller PDFs).
+  // The marked-up copy draws the image layers as shown on screen (processing,
+  // transforms, overlays), then the tracing with labels sized to print at
+  // about 2.3 mm, laid out so they don't overlap.
+  // The radiograph's own pixels in image coordinates (for airway edge snapping).
+  // Null when the base image is rotated or scaled, where pixels and image
+  // coordinates no longer line up 1:1.
+  const getImagePixels = useCallback(() => {
+    const base = (sessionImage || []).find((x) => x.visible !== false) || sessionImage?.[0];
+    const imgEl = base ? imgRefs.current[base.id] : null;
+    if (!imgEl || !imgEl.naturalWidth) return null;
+    const tf = base.transform || {};
+    if ((tf.rot || 0) !== 0 || (tf.scale ?? 1) !== 1) return null;
+    const ox = Math.round((base.dx || 0) + (tf.tx || 0)), oy = Math.round((base.dy || 0) + (tf.ty || 0));
+    if (ox < 0 || oy < 0) return null;
     const c = document.createElement("canvas");
-    c.width = imgEl.naturalWidth;
-    c.height = imgEl.naturalHeight;
-    const ctx = c.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(imgEl, 0, 0);
-    const visible = markups.filter((m) => m.visible !== false);
-    const cs = { w: c.width, h: c.height };
-    visible.forEach((m) =>
-      drawMarkup(
-        ctx,
-        m,
-        1,
-        { x: 0, y: 0 },
-        calibration,
-        null,
-        t,
-        false,
-        cs,
-        "deg",
-        true,
-        1.2,
-        null,
-        { facing },
-      ),
-    );
-    return c.toDataURL("image/png");
-  }, [sessionImage, markups, calibration, t, facing]);
+    c.width = imgEl.naturalWidth + ox;
+    c.height = imgEl.naturalHeight + oy;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(imgEl, ox, oy);
+    try { return ctx.getImageData(0, 0, c.width, c.height); } catch { return null; }
+  }, [sessionImage]);
+
+  const captureReportImages = useCallback(async () => {
+    const base = (sessionImage || []).find((x) => x.visible !== false) || sessionImage?.[0];
+    const imgEl = base ? imgRefs.current[base.id] : null;
+    if (!imgEl || !imgEl.naturalWidth) return { original: null, markup: null };
+    const nw = imgEl.naturalWidth, nh = imgEl.naturalHeight;
+    const k = reportScale(nw, nh);
+    const W = Math.round(nw * k), H = Math.round(nh * k);
+    const canvas = () => {
+      const c = document.createElement("canvas");
+      c.width = W;
+      c.height = H;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+      return [c, ctx];
+    };
+    const [oc, octx] = canvas();
+    octx.drawImage(imgEl, 0, 0, W, H);
+    const [mc, ctx] = canvas();
+    drawImageLayers(ctx, sessionImage, { zoom: k, pan: { x: 0, y: 0 }, getProcessed, imgRefs });
+    // Same fit as the PDF page: 166 mm wide unless the height limit (252 mm) binds.
+    const printedMm = Math.min(166, 252 * (W / H));
+    const labelScale = printLabelScale(W, printedMm);
+    beginLabelLayout(ctx);
+    markups
+      .filter((m) => m.visible !== false)
+      .forEach((m) =>
+        drawMarkup(ctx, m, k, { x: 0, y: 0 }, calibration, null, t, false, { w: W, h: H }, angleMode, true, labelScale, null, { facing, annotationBold: true }),
+      );
+    flushLabelLayout(ctx);
+    return { original: oc.toDataURL("image/jpeg", 0.9), markup: mc.toDataURL("image/jpeg", 0.92) };
+  }, [sessionImage, markups, calibration, t, facing, angleMode, getProcessed]);
 
   const measScope = useMemo(
     () => buildScope(markups, calibration, facingSetting),
@@ -5224,7 +5250,7 @@ function Workspace({
                 loadTemplate={loadTemplate}
                 patientSex={patientSex}
                 patientAge={patientAge}
-                canvasRef={canvasRef}
+                getImagePixels={getImagePixels}
                 canvasSize={canvasSize}
                 toImage={toImage}
                 addMarkup={addMarkup}
@@ -5364,7 +5390,7 @@ function Workspace({
                 loadTemplate={loadTemplate}
                 patientSex={patientSex}
                 patientAge={patientAge}
-                canvasRef={canvasRef}
+                getImagePixels={getImagePixels}
                 canvasSize={canvasSize}
                 toImage={toImage}
                 addMarkup={addMarkup}
@@ -5593,6 +5619,7 @@ function Workspace({
               ["images", "Original & Marked-up Images"],
               ["measurements", "Measurements Table"],
               ["normograms", "Normogram Charts"],
+              ["airway", "Airway Assessment"],
               ["research", "Research Studies"],
               ["formulas", "Custom Formulas"],
               ["interpretation", "Clinical Interpretation"],
@@ -5665,12 +5692,9 @@ function Workspace({
                     return;
                   }
                   try {
-                    const imgEl = sessionImage?.[0]
-                      ? imgRefs.current[sessionImage[0].id]
-                      : null;
-                    const origUrl = imgEl ? imgEl.src : null;
-                    const markupUrl = await captureMarkupImage();
-                    const interp = generateInterpretation(allMeas, norms);
+                    const { original: origUrl, markup: markupUrl } = await captureReportImages();
+                    // Same as the Interpretation panel: linear measures need calibration.
+                    const interp = generateInterpretation(allMeas, norms, calibration);
                     const [{ generateReport }] = await Promise.all([
                       import("./report/reportGenerator.js"),
                       loadFormulaEngine().catch(() => false),
@@ -5690,10 +5714,18 @@ function Workspace({
                       originalImageDataUrl: origUrl,
                       markupImageDataUrl: markupUrl,
                       interpretation: interp,
+                      // The Airway panel's live results for this session.
+                      airway: {
+                        measurements: computeAirwayMeasurements(markups, calibration, patientSex, patientAge),
+                        sessionName: activeSession?.name,
+                      },
+                      calibration,
+                      facing,
                       sections: reportSections,
                     });
                   } catch (e) {
                     logError("PDF generation failed:", e);
+                    notify("The PDF report could not be created. " + (e?.message || ""), { tone: "err" });
                   }
                 }}
                 style={{ flex: 1 }}
