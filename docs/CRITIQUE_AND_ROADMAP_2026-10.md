@@ -317,6 +317,185 @@ From [Data/AnalysisMeasurements.csv](../Data/AnalysisMeasurements.csv) and [data
 
 ---
 
+## 9. Phase 2/3 implementation plan (2026-10-27)
+
+Phases 0 and 1 are done. This section says how each Phase 2/3 item would be built in this codebase and what it costs: effort, compute, data and risk. Effort assumes one developer working with an AI assistant.
+
+### 9.1 Status before starting
+- **Done:**
+  - **Item 16:** guided tracing, task modes, label decluttering and in-app dialogs (B1–B6).
+  - **Item 20 (most of it):** the patient-centred home (C1). Most of the report designer also landed with the PDF report work: clinic logo and name, section choice, session comparison, preview, light/dark themes, bookmarks.
+- **Still open from Phase 1, item 10** (deferred on purpose while the model is being trained):
+  - Inference runs on the main thread (`numThreads = 1`, WASM only, no worker or WebGPU).
+  - `vercel.json` has no COOP/COEP headers.
+  - The demo detector still ships in production.
+  - Items 12 and 13 depend on the worker, because a second refinement model would double the main-thread freeze.
+
+### 9.2 Phase 2
+
+#### 12. Union-vocabulary partial-label training; drop the 4-way hypothesis search
+**How:**
+1. **Union vocabulary:** extend `scripts/ai/canonical.py` to cover Aariz (29), ISBI 2015 (19), CL-Detection 2023 (38) and PKU. Every landmark the app's analyses use stays in it, unlike the 19-landmark plan in `kaggle-multidomain.ipynb`.
+2. **Partial-label loss:** each sample carries a per-landmark mask, and the heatmap loss is multiplied by it and normalised by the mask sum. Each dataset supervises only the landmarks it annotates.
+3. **Augmentation:** flip, intensity inversion, gamma, CLAHE, noise, JPEG artefacts, cut-out, ±15 % scale, ±10° rotation, burn-out. Flip and inversion are what make the 4-way search unnecessary.
+4. **External test:** hold out one whole centre (e.g. one CL-Detection vendor) and never tune on it.
+5. **App side:**
+   - a new `union` set in `data/landmarkMap.js`;
+   - shape-model prior via `build-shape-model.py --set union`;
+   - a new manifest entry in `data/landmarkModelInfo.js`.
+   - Remove the 4-way search only after the held-out test shows flips and inversions are handled.
+
+**Burden: high, mostly compute and data.**
+- **Compute:** about 15–25 GPU-hours on Kaggle (≈30 h/week quota, 9 h sessions, checkpoint resume), so 2–4 weeks of sessions.
+- **Licences:** CL-Detection and some ISBI/PKU terms are non-commercial research. That carries over to the weights and must appear in the model card.
+- **Code:** about 1 week for the training script and 3–4 days for app integration.
+
+#### 13. Coarse-to-fine refinement; conformal uncertainty radius
+**How:**
+- **Refiner:**
+  - A small second network on 160 px full-resolution crops around each first-pass point, all 29 as one batch (`[29,1,160,160]`), predicting a correction.
+  - Train on crops with random offsets of ±3 mm.
+  - In the app, crop from the original image (the `getImagePixels` path) and map the corrections back.
+- **Conformal radius:**
+  - On a held-out calibration set, take the 90th percentile per landmark of error ÷ heatmap spread.
+  - Ship that table in the model manifest and draw a radius of *q × spread* (mm) on each AI point, using the Phase 1 review-state UI.
+  - `scripts/train-cepha29/kaggle-calibrate.ipynb` is the starting point.
+
+**Burden: medium–high, about 3–4 weeks.**
+- **Model size:** the INT8 refiner adds about 10–15 MB, so the download needs progress feedback.
+- **Ordering:** worth doing only after item 12 has fixed cross-domain robustness.
+
+#### 14. Measurement-level validation; model card
+**How:**
+1. **Expert tracings:** two experts trace about 100–150 held-out-centre images; one of them traces the set twice for intra-rater agreement. They work in the app's blinded reliability workflow.
+2. **AI vs expert:** the Reliability module gives ICC, Bland-Altman and Dahlberg on SNA, SNB, ANB, FMA, IMPA, Wits and E-line.
+3. **Class agreement:** add Cohen's κ for skeletal class and vertical pattern.
+4. **Model card:** a script writes data, licences, splits, seeds and per-centre and per-landmark errors next to the weights.
+
+**Burden: mostly human time.**
+- **Expert hours:** about 10–15 min per image × 150 images × 3 tracings ≈ 80–110 expert hours.
+- **Ethics:** approval is needed if any images are new.
+- **Code:** about 1 week.
+
+#### 15. DICOM/TIFF import, automatic calibration, ruler detection
+**How:**
+- **DICOM:**
+  - Parse with `dicom-parser`. Compressed files need lazy-loaded WASM decoders: CharLS for JPEG-LS and OpenJPEG for JPEG 2000 (~1 MB, loaded only when needed).
+  - Read `PixelSpacing`, `ImagerPixelSpacing` and `EstimatedRadiographicMagnificationFactor` into a calibration with provenance (method "DICOM"). The report's `calibrationStatement` reports it.
+- **TIFF:** UTIF.js.
+- **12/16-bit:** the image path (`canvas/imageUtils.jsx`, the processing worker, redraw, report capture) assumes 8-bit.
+  - Keep the raw 16-bit pixels, add window/level controls to the Image panel, and generate 8-bit for display.
+  - AI preprocessing reads the windowed image.
+- **Ruler:** there is almost no public labelled data for a learned model. Make it semi-automatic instead: the user drags roughly along the ruler and the tick period is found with a Fourier transform along that line.
+
+**Burden:**
+- **DICOM + 8-bit TIFF:** about 2 weeks.
+- **16-bit pipeline:** another 2–3 weeks. Many touch points, and larger originals in IndexedDB.
+- **Ruler:** a few days for the semi-automatic version.
+- **Testing:** needs real files from 2–3 vendors (Carestream, Planmeca, Sirona).
+
+#### 16. Guided tracing, task modes, decluttering, dialogs
+Done (B1–B6).
+
+#### 17. Encrypted IndexedDB storage; service worker; self-hosted fonts
+- **Fonts:**
+  - Copy the DM Sans, DM Mono and Syne woff2 files into `public/fonts`, remove the Google links from `index.html`, and tighten the CSP.
+  - Required before COOP/COEP, which would block Google Fonts.
+  - **Half a day.**
+- **Service worker** (`vite-plugin-pwa`):
+  - Precache the app shell and the ONNX runtime WASM (~11 MB); leave the model in `storage/modelCache.js`'s cache rather than storing it twice.
+  - Show a "new version available, reload" toast.
+  - **Risk:** a stale build if updates are mishandled.
+  - **2–4 days.**
+- **Storage:**
+  - Move the project JSON from localStorage (≈5 MB cap) to IndexedDB.
+  - Encrypt image blobs with the existing non-extractable AES-GCM key.
+  - One-time migration that keeps the old copy until the new one reads back, plus export/backup.
+  - **1–2 weeks. The highest-risk Phase 2 item (patient-data loss)**, so it needs migration tests.
+
+### 9.3 Phase 3
+
+#### 18. AI contour tracing → automatic silhouettes
+- **Cheap first step** (about 1–2 weeks): warp the existing `data/silhouettes.js` templates onto the detected landmarks with a thin-plate spline. This gives approximate mandible, maxilla, incisor and profile outlines straight away.
+- **True segmentation** (U-Net-style, per structure): needs about 300–500 hand-traced images because no suitable public contour dataset exists. Defer it until the correction flywheel (§4.3 item 8) supplies data.
+
+#### 19. CVM classifier; airway segmentation
+- **CVM:**
+  - Aariz includes CVM stage labels. Crop C2–C4 using the detected landmarks and train a small CS1–CS6 classifier on Kaggle.
+  - Literature accuracy is about 70–80 % for the exact stage, much higher within one stage, so present it as a suggestion with confidence.
+  - **About 2–3 weeks.**
+- **Airway:** extend the traced walls (`tracedBoundaries`) with intensity-based edge snapping (an active contour started from the airway landmarks) rather than a learned model. **About 1–2 weeks, low risk.**
+
+#### 20. Patient home and report designer
+Patient home done (C1). Report designer remainder:
+- section reordering;
+- a signature/date line;
+- saved report presets;
+- bringing the Word export in line with the PDF.
+
+**About 1 week.**
+
+#### 21. i18n (Arabic RTL first)
+**How:**
+- A small translation function with JSON dictionaries (or i18next); extract every user-facing string.
+- Convert the many inline `marginLeft` / `left` / `paddingRight` styles to logical properties (`marginInlineStart`, `insetInlineStart`).
+- Keep the canvas, numbers, formulas and measurement labels left-to-right. The PDF already renders Arabic (Amiri).
+
+**Burden: very high and permanent.**
+- **Volume:** thousands of strings; `App.jsx` alone is ~6,000 lines, and the guides are mostly prose.
+- **Translation:** clinical terms need a clinician translator.
+- **Ongoing cost:** every new feature must ship both languages.
+- **Phasing:** interface chrome and the PDF report first (about 3–4 weeks), guides later.
+
+#### 22. VTO/STO basics; photo overlay
+**How:**
+- Movable segments (maxilla, mandible, upper and lower incisors) as landmark groups with drag and rotate handles.
+- Soft tissue follows published response ratios (lip/incisor, chin/pogonion), warped with a thin-plate spline.
+- Photo overlay: align a lateral photo by 2–3 soft-tissue points, blend it with adjustable opacity, and warp it with the same spline.
+
+**Burden: high, about 6–8 weeks.**
+- **Validity:** the published ratios vary widely between studies.
+- **Liability:** predicted outcomes may be shown to patients.
+- **Fit:** the weakest fit with the research-tool positioning (§7). Last, or not at all.
+
+#### 23. Plugin format for community analyses and norms
+**How:** first build the **measurement registry** from §6. Today measurements are still identified by label plus `templateId` links.
+- **Schema:** analyses (landmarks + definitions); measurements (type, refs by `templateId`, sign convention, unit, frame); norms with DOIs and populations; interpretation rules.
+- **Validator:** no code execution; formulas go through the restricted mathjs.
+- **Distribution:** the same GitHub route as `data/communityNorms.js`.
+
+**Burden:**
+- **Registry refactor:** about 2–3 weeks. It touches how every measurement is computed, which is also its correctness value.
+- **Format, validator and gallery:** about 1–2 weeks more.
+
+### 9.4 Summary and recommended order
+
+| Item | Effort | Main burden | Risk |
+|---|---|---|---|
+| 17 fonts + service worker | ~1 week | — | Low (stale-cache handling) |
+| 10 (left over) AI runtime: worker, WebGPU, COOP/COEP, no demo in production | 1–2 weeks | Touches the AI runtime files | Medium |
+| 17 encrypted IndexedDB storage | 1–2 weeks | Migration | **High (data loss)** |
+| 15 DICOM / 16-bit / ruler | 4–5 weeks | Image pipeline, real vendor files | Medium |
+| 12 union-vocabulary training | 3–5 weeks | Kaggle compute, dataset licences | Medium |
+| 13 refiner + conformal radius | 3–4 weeks | Second model, calibration set | Medium |
+| 14 validation + model card | ~1 week of code | ~100 expert hours, ethics | Low technically |
+| 18 contours (template warp) | 1–2 weeks | — | Low |
+| 19 CVM + airway | 3–5 weeks | Labels (Aariz has CVM) | Medium |
+| 20 report leftovers | ~1 week | — | Low |
+| 23 registry + plugins | 3–5 weeks | Refactor of the measurement core | Medium |
+| 21 Arabic RTL | 3–4 weeks (chrome) + ongoing | Strings, RTL layout, translation | Ongoing cost |
+| 22 VTO/STO | 6–8 weeks | Validity, liability | High |
+
+**Order:**
+1. **Quick wins:** fonts and service worker.
+2. **Storage:** encrypted IndexedDB.
+3. **DICOM.**
+4. **AI runtime (Phase 1 left over).**
+5. **Model work:** 12 → 13 → 14, in parallel with steps 1–4, since it is mostly Kaggle and expert time.
+6. **Phase 3:** contour warp → CVM and airway → registry and plugins → Arabic → VTO/STO (optional).
+
+---
+
 ## Appendix A — Reproduction scripts
 
 Run with Node ≥ 20 from the repo root. They import the repository's own modules; nothing is modified.
