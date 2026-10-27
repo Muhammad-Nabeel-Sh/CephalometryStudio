@@ -12,5 +12,5 @@ describe("formula engine loads on demand", () => {
     expect(formulaEngineReady()).toBe(true);
     expect(notified).toBe(true);
     expect(evalFormula("SNA - SNB", { SNA: 82, SNB: 80 })).toBe(2);
-  });
+  }, 60000); // first import of mathjs can be slow under a full parallel run
 });

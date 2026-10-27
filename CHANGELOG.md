@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased] - Normogram
+
+### Fixed
+- The Table view's percentile column showed "<1%" for almost every measurement (and the CSV
+  rounded percentiles to 10%); percentiles are now correct.
+- Values carry their own unit (°, mm, mm², %, none) instead of "mm" for everything that is not
+  an angle; each markup shows one value — its primary measure, as in the PDF report.
+- Distances and areas are no longer compared with mm norms on uncalibrated images (a note says
+  how many are hidden until calibration).
+- Values beyond ±2.5 SD are marked with an arrow at the chart edge and show their z-score.
+- Downloading the radar chart produced nothing.
+
+### Changed
+- Transparent background (in the app and in PNG/SVG downloads).
+- Downloads can use print colours (dark text, default) or the screen theme, and carry a title
+  block with the case, session(s), date and norm source.
+- Measurements are grouped by category (skeletal, dental, soft tissue, airway) in the
+  analysis's order; the polygon line no longer joins different categories.
+- Neutral wording: "Within 1 SD" / "1–2 SD" / "Beyond 2 SD" instead of Normal/Mild/Severe;
+  norms with approximate SDs (Steiner, Tweed) are marked "≈".
+- Compare with another session of the case (e.g. T0 vs T1): hollow markers / dashed lines on
+  the charts, value and change columns in the table and CSV. Sealed (blinded) sessions are not
+  offered.
+- Readability: 11–12 px chart text, labels in the text colour with a dot in the markup's
+  colour; the radar chart (kept) is ordered by category and notes that its shape depends on
+  measurement order.
+
 ## [Unreleased] - PDF report and airway fixes
 
 ### Fixed - PDF report

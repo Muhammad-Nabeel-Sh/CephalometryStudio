@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **771 tests (Vitest)**
+- **No TypeScript**, **778 tests (Vitest)**
 
 ---
 
@@ -88,6 +88,7 @@ src/
 │   ├── measureConventions.js   Patient-facing frame + signed cephalometric geometry
 │   ├── distributions.js        Normal CDF / quantile (single source)
 │   ├── procrustes.js           procrustesAlign + centroid helpers (canvas overlay + superimposition)
+│   ├── normogram.js            Normogram rows (primary measure + unit, categories, bands, percentiles, comparison)
 │   └── logger.js               Logging utility
 │
 ├── model/                      Data models
@@ -205,7 +206,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (771 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (778 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -520,6 +521,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **PDF report + airway fixes**: report pages via `newPage` (reuses the empty first page; never call `doc.addPage` directly in builders), headers/footers drawn in a final pass, `measurementRows` (primary measure + unit), live airway results passed from App, Amiri font for non-Latin text (`public/fonts/`, loaded on demand), report images from `captureReportImages`. Airway: `getInterpretation(z, id)` is direction-aware, `normalizeSex`/`normalizeAge`, clinical notes only when calibrated, traced walls (`tracedBoundaries`) feed R-PAS/R-RG/Min-CSA/area, snapping uses `getImagePixels` (image coordinates). 14 tests in `src/test/reportAirwayFixes.test.js`
 
+- **Normogram**: rows from `lib/normogram.js` (`normogramRows`, `comparisonValues`, `chartLayout`); `NormogramPanel` takes `markups`, `calibration`, `facing`, `sessions` (sealed ones filtered out in App), `activeSessionId`, `caseName`; transparent charts, print-colour downloads via a hidden render (`PRINT_T`). 7 tests in `src/test/normogram.test.js`
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -528,7 +531,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 771 tests pass (48 test files, 0 failures)
+- `npm test` — 778 tests pass (49 test files, 0 failures)
 
 
 

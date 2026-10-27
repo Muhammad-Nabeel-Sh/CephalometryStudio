@@ -96,7 +96,7 @@ import AnalysisModal from "./panels/AnalysisModal.jsx";
 // first use instead of with the app.
 const ResearchWorkspace = lazy(() => import("./research/ResearchWorkspace.jsx"));
 import { useFormulaEngine } from "./hooks/useFormulaEngine.js";
-import { sessionSeal, unsealSession } from "./research/blinding.js";
+import { sessionSeal, unsealSession, sealedSessions } from "./research/blinding.js";
 import InterpretationPanel from "./panels/InterpretationPanel.jsx";
 import NormogramPanel from "./panels/NormogramPanel.jsx";
 import MobileTabBar from "./ui/MobileTabBar.jsx";
@@ -5814,10 +5814,16 @@ function Workspace({
           }
         >
           <NormogramPanel
-            allMeas={allMeas}
+            markups={markups}
             norms={norms}
             t={t}
             formatAngle={formatAngle}
+            calibration={calibration}
+            facing={facing}
+            // Sessions sealed by a blinded reliability study are not offered for comparison.
+            sessions={(project.sessions || []).filter((s) => !sealedSessions(project).has(s.id))}
+            activeSessionId={activeSession?.id}
+            caseName={project.name}
           />
         </Modal>
       )}
