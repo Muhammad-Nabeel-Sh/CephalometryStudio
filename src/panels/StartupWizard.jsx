@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { PREDEFINED } from "../data/constants.js";
-import { Btn, Tag } from "../ui/ui.jsx";
+import { Btn, Tag, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { notify } from "../ui/dialogs.js";
 
@@ -472,8 +472,7 @@ export default function StartupWizard({ t, projection, onComplete, onCancel }) {
           {step > 0 ? "← Back" : "← Cancel"}
         </button>
         {stepLabels[step] && <span style={{ fontSize: 11, color: t.tx3, fontWeight: 600 }}>{step + 1} of 3 · {stepLabels[step]}</span>}
-        <button onClick={() => setGuideKey("startup")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("startup")} />
       </div>
 
       {isOther ? (

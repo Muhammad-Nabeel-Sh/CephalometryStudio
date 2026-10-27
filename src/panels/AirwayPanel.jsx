@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { computeAirwayMeasurements, generateAirwayBoundaries, computeAirwayRiskScore, AIRWAY_LANDMARKS_CORE, AIRWAY_LANDMARKS_ADVANCED, coreLandmarksComplete } from "../research/airway.js";
-import { InfoBox, Tag, Btn } from "../ui/ui.jsx";
+import { InfoBox, Tag, Btn, GuideBtn } from "../ui/ui.jsx";
 import { PREDEFINED } from "../data/constants.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { Icon } from "../ui/icons.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -71,8 +72,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
       {/* ─── Header ─── */}
       <div style={{ fontSize: 13, fontWeight: 700, color: t.tx, marginTop: 8, display: "flex", alignItems: "center" }}>
         Airway Analysis
-        <button onClick={() => setGuideKey("airway")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, marginLeft: 6, verticalAlign: "middle" }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("airway")} style={{ marginLeft: 6 }} />
       </div>
       <InfoBox t={t}>
         Computes pharyngeal airway dimensions from placed cephalometric landmarks.
@@ -108,7 +108,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                 border: "none",
                 borderRadius: 6,
                 padding: "8px 12px",
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 700,
                 cursor: "pointer",
                 textAlign: "center",
@@ -129,7 +129,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
             border: `1px solid ${t.warn}44`,
             borderRadius: 6,
             padding: "8px 10px",
-            fontSize: 11,
+            fontSize: 12,
             color: t.warn,
             display: "flex",
             alignItems: "center",
@@ -145,7 +145,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
       <div>
         <div
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             color: t.tx2,
             textTransform: "uppercase",
@@ -170,7 +170,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   background: placed ? t.ok + "0a" : t.surf3 + "66",
                   border: `1px solid ${placed ? t.ok + "30" : t.bdr}`,
                   cursor: "default",
-                  fontSize: 10,
+                  fontSize: 12,
                   color: t.tx,
                   transition: "all 0.12s",
                   fontFamily: "'DM Mono', monospace",
@@ -198,7 +198,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
               border: "none",
               borderRadius: 5,
               padding: "6px 10px",
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               cursor: "pointer",
               fontFamily: "'DM Mono', monospace",
@@ -213,7 +213,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
       <div>
         <div
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             color: coreComplete ? t.acc : t.tx3,
             textTransform: "uppercase",
@@ -226,7 +226,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         >
           Advanced Landmarks (9 additional measurements)
           {coreComplete && (
-            <span style={{ fontSize: 8, color: t.ok, fontWeight: 600 }}>CORE COMPLETE</span>
+            <span style={{ fontSize: 12, color: t.ok, fontWeight: 600 }}>CORE COMPLETE</span>
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
@@ -245,7 +245,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   background: placed ? t.ok + "0a" : disabled ? t.surf3 + "33" : t.surf3 + "66",
                   border: `1px solid ${placed ? t.ok + "30" : disabled ? t.bdr + "66" : t.bdr}`,
                   cursor: "default",
-                  fontSize: 10,
+                  fontSize: 12,
                   color: disabled ? t.tx3 : t.tx,
                   transition: "all 0.12s",
                   fontFamily: "'DM Mono', monospace",
@@ -256,7 +256,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                 {placed ? (
                   <span style={{ color: t.ok, fontSize: 12 }}>✓</span>
                 ) : (
-                  <span style={{ color: disabled ? t.tx3 : t.warn, fontSize: 12 }}>{disabled ? "🔒" : "⚠"}</span>
+                  <span style={{ color: disabled ? t.tx3 : t.warn, fontSize: 12 }}>{disabled ? <Icon name="lock" size={12} /> : "⚠"}</span>
                 )}
                 <span style={{ flex: 1 }}>{label}</span>
               </div>
@@ -274,7 +274,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
               border: "none",
               borderRadius: 5,
               padding: "6px 10px",
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               cursor: "pointer",
               fontFamily: "'DM Mono', monospace",
@@ -308,10 +308,10 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
           onChange={onToggleOverlay}
           style={{ accentColor: t.acc, cursor: "pointer", margin: 0 }}
         />
-        <span style={{ fontSize: 11, fontWeight: 600, color: t.tx, flex: 1 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: t.tx, flex: 1 }}>
           Airway Overlay
         </span>
-        <span style={{ fontSize: 9, color: t.tx3 }}>
+        <span style={{ fontSize: 12, color: t.tx3 }}>
           {showOverlay ? "Visible" : "Hidden"}
         </span>
       </div>
@@ -325,11 +325,11 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         return (
           <div style={{ padding: 10, borderRadius: 6, background: bg, border: `1px solid ${color}44` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: 0.6 }}>OSA Risk Score</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: 0.6 }}>OSA Risk Score</span>
               <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'DM Mono',monospace" }}>{risk.risk.toUpperCase()}</span>
             </div>
-            <div style={{ fontSize: 10, color: t.tx2, lineHeight: 1.5 }}>{risk.summary}</div>
-            <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 9, color: t.tx3 }}>
+            <div style={{ fontSize: 12, color: t.tx2, lineHeight: 1.5 }}>{risk.summary}</div>
+            <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 12, color: t.tx3 }}>
               <span>Mean z: {risk.score?.toFixed(2)}</span>
               <span>Flagged: {risk.flaggedCount}/{risk.measuredCount}</span>
               <span>Critical: {risk.criticalCount}</span>
@@ -388,7 +388,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
               border: `1px solid ${t.bdr}`,
               borderRadius: 6,
               padding: "6px 10px",
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
               textAlign: "center",
@@ -403,7 +403,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
       <div>
         <div
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             color: t.tx2,
             textTransform: "uppercase",
@@ -414,7 +414,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
           Measurements
         </div>
         {measurements.length === 0 ? (
-          <div style={{ fontSize: 10, color: t.tx3, textAlign: "center", padding: "12px 0" }}>
+          <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: "12px 0" }}>
             No airway measurements available.
           </div>
         ) : (
@@ -445,7 +445,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <div
                       style={{
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: 600,
                         color: t.tx,
                         fontFamily: "'DM Mono', monospace",
@@ -455,7 +455,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                     </div>
                     <span
                       style={{
-                        fontSize: 7,
+                        fontSize: 12,
                         color: tierColor,
                         background: tier === "core" ? t.surf3 : t.acc + "18",
                         padding: "1px 4px",
@@ -470,7 +470,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   </div>
                   <div
                     style={{
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: 700,
                       color: m.value !== null ? t.tx : t.tx3,
                       textAlign: "right",
@@ -482,7 +482,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   {m.zScore !== null && (
                     <div
                       style={{
-                        fontSize: 8,
+                        fontSize: 12,
                         color: t.tx3,
                         display: "flex",
                         alignItems: "center",
@@ -504,7 +504,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   )}
                   <div
                     style={{
-                      fontSize: 8,
+                      fontSize: 12,
                       color: t.tx3,
                       textAlign: "right",
                     }}
@@ -514,7 +514,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   {m.normSource && (
                     <div
                       style={{
-                        fontSize: 7,
+                        fontSize: 12,
                         color: t.tx3,
                         fontStyle: "italic",
                         gridColumn: "1 / -1",
@@ -526,7 +526,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                   {m.value === null && (
                     <div
                       style={{
-                        fontSize: 8,
+                        fontSize: 12,
                         color: t.tx3,
                         fontStyle: "italic",
                         gridColumn: "1 / -1",
@@ -550,7 +550,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
             borderRadius: 6,
             background: t.surf3,
             border: `1px solid ${t.bdr}`,
-            fontSize: 11,
+            fontSize: 12,
             lineHeight: 1.5,
           }}
         >

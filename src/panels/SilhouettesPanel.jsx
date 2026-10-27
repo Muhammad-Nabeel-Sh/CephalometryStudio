@@ -1,3 +1,4 @@
+import { GuideBtn } from "../ui/ui.jsx";
 import { useState, useMemo } from "react";
 import { SILHOUETTES, getSilhouettesByCategory } from "../data/silhouettes.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
@@ -46,8 +47,7 @@ export function SilhouettesPanel({ t, onInsert }) {
         <div style={{ flex: 1, fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>
           Click a silhouette to place it on the canvas. Use handles to resize and rotate.
         </div>
-        <button onClick={() => setGuideKey("silhouettes")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("silhouettes")} />
       </div>
       {(hasFullTracing || hasFullTracingWithDentition) && !search && (
         <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>

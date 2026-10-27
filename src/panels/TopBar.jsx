@@ -3,6 +3,7 @@ import { THEMES } from "../data/constants.js";
 import { Btn, Tag } from "../ui/ui.jsx";
 import { useStoreDispatch } from "../state/workspaceStore.js";
 import { useToolStore, useUIStore } from "../state/workspaceStore.js";
+import { Icon } from "../ui/icons.jsx";
 
 export default function TopBar({
   t, theme, project, onHome,
@@ -45,9 +46,9 @@ export default function TopBar({
       </button>
       <div style={{ width: 1, height: 20, background: t.bdr, flexShrink: 0 }} />
       <Tag color={t.acc}>{project.projection?.toUpperCase()}</Tag>
-      {project.meta?.anonymized && <Tag color={t.ok}>🔒 Anon</Tag>}
+      {project.meta?.anonymized && <Tag color={t.ok}><Icon name="lock" size={11} /> Anon</Tag>}
       {calibration.done && <Tag color={t.ok}>⟺{"\u00A0"}{calibration.pxPerMm.toFixed(2)}px/mm</Tag>}
-      {placingMode && <Tag color={t.warn}>📍 {placingIdx + 1}/{placingQueue.length}</Tag>}
+      {placingMode && <Tag color={t.warn}><Icon name="pin" size={11} /> {placingIdx + 1}/{placingQueue.length}</Tag>}
       <div style={{ flex: 1 }} />
       <div className="hide-mobile" style={{display:"contents"}}>
         <div ref={snapRef} style={{ position: "relative" }}>

@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { MEAN_SHAPE as MEAN, MAP_OUTLINES as OUTLINES, MAP_BOX as BOX, mapSymbolFor } from "../data/landmarkReference.js";
 import { useSessionStore } from "../state/sessionStore.js";
 import { resolveFacing } from "../lib/measureConventions.js";
+import { Icon } from "../ui/icons.jsx";
 
 function LandmarkMap({ t, symbol, facing }) {
   const flip = facing === "left";
@@ -100,7 +101,7 @@ export function PlacingGuide({ t, markup, idx, total, unsure, onToggleUnsure, on
             <button onClick={onToggleUnsure} aria-pressed={unsure} title="Flag this landmark for review after you place it" style={pill(t, unsure, t.warn)}>
               {unsure ? "⚑ Unsure" : "⚐ Unsure"}
             </button>
-            <button onClick={onToggleMagnifier} aria-pressed={magnifier} title="Show a magnified view around the cursor" style={{ ...pill(t, magnifier), marginLeft: "auto" }}>🔍 Magnifier</button>
+            <button onClick={onToggleMagnifier} aria-pressed={magnifier} title="Show a magnified view around the cursor" style={{ ...pill(t, magnifier), marginLeft: "auto" }}><Icon name="search" size={13} /> Magnifier</button>
           </div>
           <div style={{ fontSize: 11, color: t.tx3 }}>Click the image to place · the next landmark follows automatically</div>
         </div>

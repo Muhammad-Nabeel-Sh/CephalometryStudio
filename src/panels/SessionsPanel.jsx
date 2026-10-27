@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { mkSession } from "../model/session.js";
 import { mkSubject, addSession, removeSession, duplicateSessionInProject, addSubject, removeSubject, updateSubject } from "../model/project.js";
-import { Btn, Tag, InfoBox } from "../ui/ui.jsx";
+import { Btn, Tag, InfoBox, GuideBtn } from "../ui/ui.jsx";
 import BatchImportModal from "./BatchImportModal.jsx";
 import SessionMetadataModal from "./SessionMetadataModal.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { sealedSessions } from "../research/blinding.js";
 import { askConfirm } from "../ui/dialogs.js";
+import { Icon } from "../ui/icons.jsx";
 
 
 export default function SessionsPanel({
@@ -83,7 +84,7 @@ export default function SessionsPanel({
         {["sessions", "subjects", "comparisons"].map(tabId => (
           <button key={tabId} onClick={() => setTab(tabId)}
             style={{
-              padding: "5px 10px", fontSize: 9, fontWeight: 600, cursor: "pointer",
+              padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
               border: "none", borderBottom: tab === tabId ? `2px solid ${t.acc}` : "2px solid transparent",
               background: "transparent", color: tab === tabId ? t.acc : t.tx3, textTransform: "uppercase",
             }}>
@@ -91,8 +92,7 @@ export default function SessionsPanel({
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        <button onClick={() => setGuideKey(tab)}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey(tab)} />
       </div>
 
       {tab === "sessions" && (
@@ -108,7 +108,7 @@ export default function SessionsPanel({
               style={{ flex: 1, background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 8px", color: t.tx, fontSize: 12, fontFamily: "inherit" }}
               onKeyDown={e => { if (e.key === "Enter") handleAdd(); }} />
             <Btn t={t} small onClick={handleAdd}>+ Add</Btn>
-            <Btn t={t} small ghost onClick={() => setShowBatchImport(true)} title="Batch import images with CSV metadata">📦</Btn>
+            <Btn t={t} small ghost onClick={() => setShowBatchImport(true)} title="Batch import images with CSV metadata"><Icon name="box" size={15} /></Btn>
             <button onClick={() => setShowMetaModal(true)} title="Edit session metadata"
               style={{
                 width: 30, height: 30, borderRadius: 6, border: `1px solid ${t.acc}44`,
@@ -140,16 +140,16 @@ export default function SessionsPanel({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                     <SessionNameEditor name={s.name || `Session ${i + 1}`} onRename={n => patchSession(s.id, { name: n })} t={t} />
-                    {s.meta?.group && <Tag color={t.acc} style={{ fontSize: 8 }}>{s.meta.group}</Tag>}
-                    {s.meta?.timepoint && <Tag color={t.warn} style={{ fontSize: 8 }}>{s.meta.timepoint}</Tag>}
+                    {s.meta?.group && <Tag color={t.acc} style={{ fontSize: 12 }}>{s.meta.group}</Tag>}
+                    {s.meta?.timepoint && <Tag color={t.warn} style={{ fontSize: 12 }}>{s.meta.timepoint}</Tag>}
                   </div>
-                  <div style={{ fontSize: 10, color: t.tx3, marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>
                     {(s.images && s.images.length > 0) ? (s.images[0].name || "Image loaded") : "No image"}{(s.images && s.images.length > 1) ? ` +${s.images.length - 1} layers` : ""}
                     {s.calibration?.done ? ` · ${s.calibration.pxPerMm.toFixed(1)}px/mm` : ""}
                     {s.markups?.length ? ` · ${s.markups.length} marks` : ""}
                   </div>
                 </div>
-                {s.id === activeId && <Tag color={t.ok} style={{ fontSize: 9 }}>Active</Tag>}
+                {s.id === activeId && <Tag color={t.ok} style={{ fontSize: 12 }}>Active</Tag>}
                 <button onClick={e => { e.stopPropagation(); handleDuplicate(s.id); }} title="Duplicate session"
                   style={{ background: "none", border: "none", cursor: "pointer", color: t.tx2, padding: 2, fontSize: 14 }}>⧉</button>
                 <button onClick={e => { e.stopPropagation(); handleRemove(s.id); }} disabled={sessionList.length <= 1} title="Remove session"
@@ -163,7 +163,7 @@ export default function SessionsPanel({
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
               {groups.map(g => {
                 const count = sessionList.filter(s => s.meta?.group === g).length;
-                return count > 0 ? <Tag key={g} color={t.acc} style={{ fontSize: 9 }}>{g}: {count}</Tag> : null;
+                return count > 0 ? <Tag key={g} color={t.acc} style={{ fontSize: 12 }}>{g}: {count}</Tag> : null;
               })}
             </div>
           )}
@@ -171,7 +171,7 @@ export default function SessionsPanel({
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
               {timepoints.map(tp => {
                 const count = sessionList.filter(s => s.meta?.timepoint === tp).length;
-                return count > 0 ? <Tag key={tp} color={t.warn} style={{ fontSize: 9 }}>{tp}: {count}</Tag> : null;
+                return count > 0 ? <Tag key={tp} color={t.warn} style={{ fontSize: 12 }}>{tp}: {count}</Tag> : null;
               })}
             </div>
           )}
@@ -187,16 +187,16 @@ export default function SessionsPanel({
             lines, and the airway overlay.
           </InfoBox>
           <div onClick={() => setShowCompare(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", marginBottom: showCompare ? 10 : 0 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: t.tx, textTransform: "uppercase", letterSpacing: 0.5 }}>Comparison</span>
-            <span style={{ fontSize: 9, color: t.tx3 }}>{compareSession ? `active` : `off`}</span>
-            <span style={{ marginLeft: "auto", color: t.tx3, fontSize: 10 }}>{showCompare ? "▾" : "▸"}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.tx, textTransform: "uppercase", letterSpacing: 0.5 }}>Comparison</span>
+            <span style={{ fontSize: 12, color: t.tx3 }}>{compareSession ? `active` : `off`}</span>
+            <span style={{ marginLeft: "auto", color: t.tx3, fontSize: 12 }}>{showCompare ? "▾" : "▸"}</span>
           </div>
           {showCompare && (
             <div>
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3 }}>Compare to</div>
+                <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3 }}>Compare to</div>
                 <select value={compareSession?.id || ""} onChange={e => { const sel = e.target.value; setCompareSession(sel ? sessionList.find(s => s.id === sel) : null); }}
-                  style={{ width: "100%", fontSize: 11, padding: "4px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf3, color: t.tx, fontFamily: "inherit" }}>
+                  style={{ width: "100%", fontSize: 12, padding: "4px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf3, color: t.tx, fontFamily: "inherit" }}>
                   <option value="">None</option>
                   {otherSessions.map(s => (
                     <option key={s.id} value={s.id}>{s.name || s.id.slice(0, 6)}{s.meta?.timepoint ? ` (${s.meta.timepoint})` : ""}{s.meta?.group ? ` [${s.meta.group}]` : ""}</option>
@@ -211,7 +211,7 @@ export default function SessionsPanel({
                   </div>
                   {displacementOverlay && (
                     <div style={{ marginBottom: 8, padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
-                      <div style={{ fontSize: 10, color: t.tx2, marginBottom: 6 }}>Alignment</div>
+                      <div style={{ fontSize: 12, color: t.tx2, marginBottom: 6 }}>Alignment</div>
                       <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
                         {[{id:"2pt",label:"2-Point"},{id:"procrustes",label:"Procrustes"}].map(m => (
                           <Btn key={m.id} t={t} small active={overlayAlignMode === m.id} onClick={() => setOverlayAlignMode(m.id)}>{m.label}</Btn>
@@ -219,21 +219,21 @@ export default function SessionsPanel({
                       </div>
                       {overlayAlignMode === "2pt" && (
                         <>
-                          <div style={{ fontSize: 9, color: t.tx3, lineHeight: 1.5, marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.5, marginBottom: 6 }}>
                             Select two landmarks as alignment anchors. The compared session is translated, rotated, and scaled to match.
                           </div>
                           <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Anchor pt 1</div>
+                            <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Anchor pt 1</div>
                             <select value={refLandmark1 || ""} onChange={e => setRefLandmark1(e.target.value || null)}
-                              style={{ width: "100%", fontSize: 10, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }}>
+                              style={{ width: "100%", fontSize: 12, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }}>
                               <option value="">Select...</option>
                               {uniquePointLabels.map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
                           </div>
                           <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Anchor pt 2</div>
+                            <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Anchor pt 2</div>
                             <select value={refLandmark2 || ""} onChange={e => setRefLandmark2(e.target.value || null)}
-                              style={{ width: "100%", fontSize: 10, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }}>
+                              style={{ width: "100%", fontSize: 12, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }}>
                               <option value="">Select...</option>
                               {uniquePointLabels.map(l => <option key={l} value={l}>{l}</option>)}
                             </select>
@@ -241,35 +241,35 @@ export default function SessionsPanel({
                         </>
                       )}
                       {overlayAlignMode === "procrustes" && (
-                        <div style={{ fontSize: 9, color: t.tx3, lineHeight: 1.5, marginBottom: 6 }}>
+                        <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.5, marginBottom: 6 }}>
                           Uses all matching landmarks to compute optimal rotation, translation, and scale via generalized Procrustes analysis.
                         </div>
                       )}
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Blend</div>
+                        <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Blend</div>
                         <input type="range" min="0.1" max="1" step="0.05" value={overlayBlend} onChange={e => setOverlayBlend(+e.target.value)}
                           style={{ width: "100%", accentColor: t.acc }} />
-                        <div style={{ fontSize: 9, color: t.tx2, textAlign: "right" }}>{Math.round(overlayBlend * 100)}%</div>
+                        <div style={{ fontSize: 12, color: t.tx2, textAlign: "right" }}>{Math.round(overlayBlend * 100)}%</div>
                       </div>
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Vector Scale</div>
+                        <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Vector Scale</div>
                         <input type="range" min="0.5" max="5" step="0.25" value={overlayVectorScale} onChange={e => setOverlayVectorScale(+e.target.value)}
                           style={{ width: "100%", accentColor: t.acc }} />
-                        <div style={{ fontSize: 9, color: t.tx2, textAlign: "right" }}>{overlayVectorScale.toFixed(1)}\u00d7</div>
+                        <div style={{ fontSize: 12, color: t.tx2, textAlign: "right" }}>{overlayVectorScale.toFixed(1)}\u00d7</div>
                       </div>
                       <div style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                         <input type="checkbox" id="trackingLines" checked={showTrackingLines} onChange={e => setShowTrackingLines(e.target.checked)}
                           style={{ accentColor: t.acc }} />
-                        <label htmlFor="trackingLines" style={{ fontSize: 9, color: t.tx2, cursor: "pointer" }}>Show tracking lines</label>
+                        <label htmlFor="trackingLines" style={{ fontSize: 12, color: t.tx2, cursor: "pointer" }}>Show tracking lines</label>
                       </div>
                       <div style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                         <input type="checkbox" id="airwayOverlay" checked={showAirwayOverlay} onChange={e => setShowAirwayOverlay(e.target.checked)}
                           style={{ accentColor: t.acc }} />
-                        <label htmlFor="airwayOverlay" style={{ fontSize: 9, color: t.tx2, cursor: "pointer" }}>Show airway overlay</label>
+                        <label htmlFor="airwayOverlay" style={{ fontSize: 12, color: t.tx2, cursor: "pointer" }}>Show airway overlay</label>
                       </div>
                     </div>
                   )}
-                  <div style={{ fontSize: 9, color: t.tx3, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.5 }}>
                     <b style={{ color: t.tx2 }}>⇝ Vec</b> draws displacement lines between matching landmarks.
                     <br /><b style={{ color: t.tx2 }}>Overlay</b> renders the compared session with alignment: <b>2-Point</b> (manual anchors) or <b>Procrustes</b> (all landmarks).
                   </div>
@@ -312,13 +312,13 @@ export default function SessionsPanel({
                 }
                 onUpdateProject(proj);
               }}
-                style={{ fontSize: 9, padding: "2px 7px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf3, color: t.tx2, cursor: "pointer" }}>
+                style={{ fontSize: 12, padding: "2px 7px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf3, color: t.tx2, cursor: "pointer" }}>
                 {p.label}
               </button>
             ))}
           </div>
           {subjects.length === 0 && (
-            <div style={{ fontSize: 11, color: t.tx3, textAlign: "center", padding: 20 }}>No subjects defined.</div>
+            <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 20 }}>No subjects defined.</div>
           )}
           {subjects.map(sub => {
             const subSessions = sessionList.filter(s => s.subjectId === sub.id);
@@ -326,11 +326,11 @@ export default function SessionsPanel({
               <div key={sub.id} style={{ marginBottom: 8, padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                   <input value={sub.label} onChange={e => onUpdateProject(updateSubject(project, sub.id, { label: e.target.value }))}
-                    style={{ flex: 1, padding: "3px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 10, fontWeight: 600 }} />
+                    style={{ flex: 1, padding: "3px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12, fontWeight: 600 }} />
                   <button onClick={async () => { if (await askConfirm({ title: "Remove subject?", message: "The subject is removed and its sessions are unlinked (the sessions themselves are kept).", confirmLabel: "Remove subject", danger: true })) onUpdateProject(removeSubject(project, sub.id)); }}
-                    style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 10, padding: 2 }}>✕</button>
+                    style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
                 </div>
-                <div style={{ display: "flex", gap: 4, fontSize: 9, color: t.tx3 }}>
+                <div style={{ display: "flex", gap: 4, fontSize: 12, color: t.tx3 }}>
                   <span>{subSessions.length} session(s)</span>
                   {sub.age && <span>· Age: {sub.age}</span>}
                   {sub.sex && <span>· Sex: {sub.sex}</span>}
@@ -338,7 +338,7 @@ export default function SessionsPanel({
                 {subSessions.length > 0 && (
                   <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {subSessions.map(ss => (
-                      <span key={ss.id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: t.surf2, color: t.tx2, border: `1px solid ${t.bdr}` }}>
+                      <span key={ss.id} style={{ fontSize: 12, padding: "1px 6px", borderRadius: 3, background: t.surf2, color: t.tx2, border: `1px solid ${t.bdr}` }}>
                         {ss.name || ss.id.slice(0, 6)}{ss.meta?.timepoint ? ` (${ss.meta.timepoint})` : ""}
                       </span>
                     ))}

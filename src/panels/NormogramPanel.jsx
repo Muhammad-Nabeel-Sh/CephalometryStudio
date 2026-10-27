@@ -6,6 +6,7 @@ import {
   formatMeasure, normogramRows, comparisonValues, chartLayout,
 } from "../lib/normogram.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { GuideBtn } from "../ui/ui.jsx";
 
 const W = 700;
 const LABEL_W = 200;
@@ -483,8 +484,7 @@ export default function NormogramPanel({ markups, norms, t, formatAngle, calibra
             </select>
           </label>
         )}
-        <button onClick={() => setGuideKey("normogram")} title="Guide" aria-label="Normogram guide"
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 20, height: 20, fontSize: 11, lineHeight: "18px", textAlign: "center", cursor: "pointer", padding: 0 }}>?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("normogram")} label="Normogram guide" />
       </div>
 
       <div style={{ width: "100%", maxWidth: 820, overflowX: "auto" }}>

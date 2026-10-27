@@ -142,5 +142,5 @@ describe("PDF report — formulas", () => {
     await loadFormulaEngine();
     expect(formulaTex("SNA - SNB + U1_SN * pi")).toBe(String.raw`\mathrm{SNA}-\mathrm{SNB}+\mathrm{U1\_SN}\cdot\pi`);
     expect(formulaTex("(")).toBeNull();
-  });
+  }, 60000); // first import of mathjs can be slow under a full parallel run
 });

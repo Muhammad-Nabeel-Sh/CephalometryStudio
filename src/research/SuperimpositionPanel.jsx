@@ -4,8 +4,9 @@
 
 import { useState } from "react";
 import { REGISTRATIONS } from "./superimposition.js";
-import { InfoBox } from "../ui/ui.jsx";
+import { InfoBox, Chip, TabBar } from "../ui/ui.jsx";
 import { DELTA_NORMS } from "./superimposition.js";
+import { LabelSelector } from "./LabelSelector.jsx";
 
 const TAB_DEFS = [
   { id: "displacement", label: "Displacements" },
@@ -19,36 +20,6 @@ const TAB_DEFS = [
 
 // ─── Shared label selector ───────────────────────────────────────────────────
 
-function LabelSelector({ sessions, selected, onToggle, t }) {
-  const labels = [...new Set((sessions || []).flatMap(s =>
-    (s.markups || []).filter(m => m.label && m.type !== "ruler" && m.type !== "silhouette").map(m => m.label)
-  ))].sort();
-  if (labels.length === 0) return <div style={{ fontSize: 10, color: t.tx3 }}>No labeled markups found.</div>;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {selected.length === 0 && <span style={{ fontSize: 10, color: t.tx3, padding: "2px 0" }}>All ({labels.length})</span>}
-      {selected.length > 0 && (
-        <button onClick={() => labels.forEach(l => { if (selected.includes(l)) onToggle(l); })}
-          style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx3, cursor: "pointer" }}>
-          Clear
-        </button>
-      )}
-      {labels.map(l => (
-        <button key={l} onClick={() => onToggle(l)}
-          style={{
-            fontSize: 9, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-            border: `1px solid ${selected.includes(l) ? t.acc : t.bdr}`,
-            background: selected.includes(l) ? t.acc + "22" : "transparent",
-            color: selected.includes(l) ? t.acc : t.tx2,
-            fontWeight: selected.includes(l) ? 700 : 400,
-            fontFamily: "'DM Mono',monospace",
-          }}>
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── Config Panel ────────────────────────────────────────────────────────────
 
@@ -85,9 +56,9 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
       </InfoBox>
 
       <div>
-        <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Base (T1 / Pre) Session *</div>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Base (T1 / Pre) Session *</div>
         <select value={baseId} onChange={e => update({ baseSessionId: e.target.value })}
-          style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }}>
+          style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 12 }}>
           <option value="">Select base session...</option>
           {sessionList.map(s => (
             <option key={s.id} value={s.id}>{s.name || s.label || s.id.slice(0, 6)}{s.meta?.timepoint ? ` (${s.meta.timepoint})` : ""}</option>
@@ -96,9 +67,9 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
       </div>
 
       <div>
-        <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Compare (T2 / Post) Session *</div>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Compare (T2 / Post) Session *</div>
         <select value={compareId} onChange={e => update({ compareSessionId: e.target.value })}
-          style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }}>
+          style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 12 }}>
           <option value="">Select compare session...</option>
           {sessionList.filter(s => s.id !== baseId).map(s => (
             <option key={s.id} value={s.id}>{s.name || s.label || s.id.slice(0, 6)}{s.meta?.timepoint ? ` (${s.meta.timepoint})` : ""}</option>
@@ -107,39 +78,33 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
       </div>
 
       <div>
-        <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Alignment Method</div>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Alignment Method</div>
         <div style={{ display: "flex", gap: 6 }}>
           {[{ id: "registration", label: "Stable structure (recommended)" }, { id: "structural", label: "Custom reference plane" }, { id: "procrustes", label: "Procrustes best-fit" }].map(opt => (
-            <button key={opt.id} onClick={() => update({ method: opt.id })}
-              style={{
-                flex: 1, padding: "6px 10px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
-                border: `1px solid ${method === opt.id ? t.acc : t.bdr}`,
-                background: method === opt.id ? t.acc + "22" : "transparent",
-                color: method === opt.id ? t.acc : t.tx2,
-              }}>
+            <Chip t={t} on={method === opt.id} key={opt.id} onClick={() => update({ method: opt.id })} style={{ flex: 1, padding: "6px 8px", textAlign: "center" }}>
               {opt.label}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
 
       {method === "registration" && (
         <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
-          <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Registration</div>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Registration</div>
           <select value={config.registration || "SN_S"} onChange={e => update({ registration: e.target.value })}
-            style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 11 }}>
+            style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 12 }}>
             {REGISTRATIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
-          <div style={{ fontSize: 9, color: t.tx3, marginTop: 4, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: t.tx3, marginTop: 4, lineHeight: 1.5 }}>
             Registers on a structure that is stable during growth (rotation + translation, no scaling), so displacements show real growth and treatment change. Use the cranial-base registration for overall change, maxillary/mandibular registrations for regional change.
           </div>
         </div>
       )}
 
       {method === "procrustes" && (
-        <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44`, fontSize: 9, color: t.tx3, lineHeight: 1.5 }}>
+        <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44`, fontSize: 12, color: t.tx3, lineHeight: 1.5 }}>
           Best-fit over all matched landmarks spreads change across stable and growing regions — use it for shape comparison, not for reading growth.
-          <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, color: t.tx2, fontSize: 10 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, color: t.tx2, fontSize: 12 }}>
             <input type="checkbox" checked={!!config.allowScale} onChange={e => update({ allowScale: e.target.checked })} />
             Scale to equal size (size-standardised shape comparison — removes growth in size)
           </label>
@@ -148,21 +113,21 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
 
       {method === "structural" && (
         <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
-          <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Reference Plane Points</div>
-          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6 }}>Select two landmarks: the first is the registration point, the line to the second sets orientation (rotation + translation, no scaling).</div>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Reference Plane Points</div>
+          <div style={{ fontSize: 12, color: t.tx3, marginBottom: 6 }}>Select two landmarks: the first is the registration point, the line to the second sets orientation (rotation + translation, no scaling).</div>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Point 1</div>
+              <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Point 1</div>
               <select value={planePt1} onChange={e => update({ planePoint1: e.target.value })}
-                style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 11 }}>
+                style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 12 }}>
                 <option value="">Select...</option>
                 {uniquePointLabels.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Point 2</div>
+              <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Point 2</div>
               <select value={planePt2} onChange={e => update({ planePoint2: e.target.value })}
-                style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 11 }}>
+                style={{ width: "100%", padding: "5px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf2, color: t.tx, fontSize: 12 }}>
                 <option value="">Select...</option>
                 {uniquePointLabels.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
@@ -172,38 +137,38 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
       )}
 
       <div>
-        <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Landmarks {labelIds.length > 0 ? `(${labelIds.length} selected)` : "(all)"}</div>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3, fontWeight: 600 }}>Landmarks {labelIds.length > 0 ? `(${labelIds.length} selected)` : "(all)"}</div>
         <LabelSelector sessions={sessionList} selected={labelIds} onToggle={toggleLabel} t={t} />
       </div>
 
       {/* Patient demographics for delta norms */}
       <div style={{ padding: 8, borderRadius: 6, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
-        <div style={{ fontSize: 10, color: t.tx2, marginBottom: 6, fontWeight: 600 }}>Patient Info (for Delta Norms)</div>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 6, fontWeight: 600 }}>Patient Info (for Delta Norms)</div>
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Sex</div>
+            <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Sex</div>
             <select value={config.sex || ""} onChange={e => update({ sex: e.target.value })}
-              style={{ width: "100%", fontSize: 10, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }}>
+              style={{ width: "100%", fontSize: 12, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }}>
               <option value="">—</option>
               <option value="M">Male</option>
               <option value="F">Female</option>
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Age at T1</div>
+            <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Age at T1</div>
             <input type="number" min="4" max="30" step="0.5" value={config.ageStart || ""} onChange={e => update({ ageStart: +e.target.value })}
-              style={{ width: "100%", fontSize: 10, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }} />
+              style={{ width: "100%", fontSize: 12, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>Age at T2</div>
+            <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>Age at T2</div>
             <input type="number" min="4" max="30" step="0.5" value={config.ageEnd || ""} onChange={e => update({ ageEnd: +e.target.value })}
-              style={{ width: "100%", fontSize: 10, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }} />
+              style={{ width: "100%", fontSize: 12, padding: "3px 5px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontFamily: "inherit" }} />
           </div>
         </div>
       </div>
 
       {baseSession && compareSession && (
-        <div style={{ fontSize: 9, color: t.tx3, padding: "6px 8px", background: t.surf2, borderRadius: 4 }}>
+        <div style={{ fontSize: 12, color: t.tx3, padding: "6px 8px", background: t.surf2, borderRadius: 4 }}>
           Base: {baseSession.markups?.filter(m => m.type === "point" && m.label).length || 0} points
           {" | "}
           Compare: {compareSession.markups?.filter(m => m.type === "point" && m.label).length || 0} points
@@ -218,8 +183,8 @@ export function SuperimpositionConfig({ study, sessions, onUpdateStudy, t }) {
 export function SuperimpositionResults({ results, t }) {
   const [tab, setTab] = useState("displacement");
 
-  if (!results) return <div style={{ fontSize: 11, color: t.tx3, padding: 16 }}>No results. Run the analysis first.</div>;
-  if (results.error) return <div style={{ fontSize: 11, color: t.err, padding: 16 }}>Error: {results.error}</div>;
+  if (!results) return <div style={{ fontSize: 12, color: t.tx3, padding: 16 }}>No results. Run the analysis first.</div>;
+  if (results.error) return <div style={{ fontSize: 12, color: t.err, padding: 16 }}>Error: {results.error}</div>;
 
   const {
     alignmentLabel, matchedCount, totalSrc, totalDst,
@@ -241,7 +206,7 @@ export function SuperimpositionResults({ results, t }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {/* Header */}
-      <div style={{ padding: "8px 12px", background: t.surf2, borderRadius: 6, fontSize: 10, color: t.tx2 }}>
+      <div style={{ padding: "8px 12px", background: t.surf2, borderRadius: 6, fontSize: 12, color: t.tx2 }}>
         <div style={{ fontWeight: 700, color: t.tx, marginBottom: 2 }}>
           {baseSession?.name || "T1"} → {compareSession?.name || "T2"}
         </div>
@@ -266,9 +231,9 @@ export function SuperimpositionResults({ results, t }) {
             { label: "SD", value: stats.sd?.toFixed(2), color: t.tx2 },
           ].map(s => (
             <div key={s.label} style={{ padding: "6px 8px", background: t.surf2, borderRadius: 4, textAlign: "center" }}>
-              <div style={{ fontSize: 9, color: t.tx3 }}>{s.label}</div>
+              <div style={{ fontSize: 12, color: t.tx3 }}>{s.label}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: s.color, fontFamily: "'DM Mono',monospace" }}>{s.value}</div>
-              <div style={{ fontSize: 8, color: t.tx3 }}>{displacements?.[0]?.unit || "mm"}</div>
+              <div style={{ fontSize: 12, color: t.tx3 }}>{displacements?.[0]?.unit || "mm"}</div>
             </div>
           ))}
         </div>
@@ -276,7 +241,7 @@ export function SuperimpositionResults({ results, t }) {
 
       {/* Centroid size */}
       {centroidSize && (
-        <div style={{ padding: "6px 10px", background: t.surf2, borderRadius: 4, fontSize: 10, display: "flex", gap: 16 }}>
+        <div style={{ padding: "6px 10px", background: t.surf2, borderRadius: 4, fontSize: 12, display: "flex", gap: 16 }}>
           <span>Centroid size: <b>{centroidSize.base?.toFixed(1)}</b> → <b>{centroidSize.compare?.toFixed(1)}</b></span>
           <span style={{ color: centroidSize.pctChange > 0 ? t.ok : centroidSize.pctChange < 0 ? t.err : t.tx2 }}>
             {centroidSize.pctChange > 0 ? "+" : ""}{centroidSize.pctChange?.toFixed(1)}%
@@ -285,23 +250,12 @@ export function SuperimpositionResults({ results, t }) {
       )}
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${t.bdr}`, paddingBottom: 0, flexWrap: "wrap" }}>
-        {activeTabs.map(tb => (
-          <button key={tb.id} onClick={() => setTab(tb.id)}
-            style={{
-              padding: "5px 10px", fontSize: 10, fontWeight: tab === tb.id ? 700 : 500, cursor: "pointer",
-              background: "transparent", border: "none", borderBottom: tab === tb.id ? `2px solid ${t.acc}` : "2px solid transparent",
-              color: tab === tb.id ? t.acc : t.tx3, transition: "all 0.15s",
-            }}>
-            {tb.label}
-          </button>
-        ))}
-      </div>
+      <TabBar t={t} tabs={activeTabs} active={tab} onChange={setTab} style={{ marginBottom: 10 }} />
 
       {/* ─── Displacement Table ─── */}
       {tab === "displacement" && (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr>
                 <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx3, borderBottom: `1px solid ${t.bdr}` }}>Landmark</th>
@@ -332,7 +286,7 @@ export function SuperimpositionResults({ results, t }) {
                   </td>
                   <td style={{ padding: "3px 6px", textAlign: "center" }}>
                     <span style={{
-                      fontSize: 9, padding: "1px 5px", borderRadius: 3, fontWeight: 600,
+                      fontSize: 12, padding: "1px 5px", borderRadius: 3, fontWeight: 600,
                       background: d.confidenceLevel === "high" ? t.ok + "22" : d.confidenceLevel === "moderate" ? t.warn + "22" : t.tx3 + "22",
                       color: d.confidenceLevel === "high" ? t.ok : d.confidenceLevel === "moderate" ? t.warn : t.tx3,
                     }}>
@@ -350,21 +304,21 @@ export function SuperimpositionResults({ results, t }) {
       {tab === "patterns" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {(!patterns || patterns.length === 0) ? (
-            <div style={{ fontSize: 10, color: t.tx3, padding: 12 }}>No clinical patterns detected.</div>
+            <div style={{ fontSize: 12, color: t.tx3, padding: 12 }}>No clinical patterns detected.</div>
           ) : (
             patterns.map((p, i) => {
               const sevColor = p.severity === "severe" ? t.err : p.severity === "moderate" ? t.warn : t.ok;
               return (
                 <div key={i} style={{ padding: 10, borderRadius: 6, background: t.surf2, borderLeft: `3px solid ${sevColor}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: t.tx }}>{p.label}</span>
-                    <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: sevColor + "22", color: sevColor, fontWeight: 600 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: t.tx }}>{p.label}</span>
+                    <span style={{ fontSize: 12, padding: "1px 6px", borderRadius: 3, background: sevColor + "22", color: sevColor, fontWeight: 600 }}>
                       {p.severity?.toUpperCase()}
                     </span>
                   </div>
-                  <div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>{p.summary}</div>
-                  {p.detail && <div style={{ fontSize: 9, color: t.tx3, lineHeight: 1.5 }}>{p.detail}</div>}
-                  <div style={{ fontSize: 8, color: t.tx3, marginTop: 2 }}>Category: {p.category}</div>
+                  <div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>{p.summary}</div>
+                  {p.detail && <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.5 }}>{p.detail}</div>}
+                  <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>Category: {p.category}</div>
                 </div>
               );
             })
@@ -378,8 +332,8 @@ export function SuperimpositionResults({ results, t }) {
           {/* Rotation tracking */}
           {rotationTracking && rotationTracking.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Plane Rotation Tracking</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Plane Rotation Tracking</div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
                     <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx3, borderBottom: `1px solid ${t.bdr}` }}>Plane</th>
@@ -400,7 +354,7 @@ export function SuperimpositionResults({ results, t }) {
                           {r.deltaDeg > 0 ? "+" : ""}{r.deltaDeg?.toFixed(1)}°
                         </span>
                       </td>
-                      <td style={{ padding: "3px 6px", fontSize: 9, color: t.tx2 }}>{r.direction}</td>
+                      <td style={{ padding: "3px 6px", fontSize: 12, color: t.tx2 }}>{r.direction}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -411,11 +365,11 @@ export function SuperimpositionResults({ results, t }) {
           {/* Plane intersections */}
           {planeIntersections && planeIntersections.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Reference Plane Angles</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Reference Plane Angles</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 {planeIntersections.map(p => (
                   <div key={p.name} style={{ padding: 8, background: t.surf2, borderRadius: 4, textAlign: "center" }}>
-                    <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>{p.name}</div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: Math.abs(p.delta) < 1 ? t.ok : t.warn, fontFamily: "'DM Mono',monospace" }}>
                       {p.delta > 0 ? "+" : ""}{p.delta?.toFixed(1)}°
                     </div>
@@ -431,7 +385,7 @@ export function SuperimpositionResults({ results, t }) {
       {tab === "deltaNorms" && (
         <div style={{ overflowX: "auto" }}>
           {(!deltaNorms || deltaNorms.length === 0) ? (
-            <div style={{ fontSize: 10, color: t.tx3, padding: 12 }}>
+            <div style={{ fontSize: 12, color: t.tx3, padding: 12 }}>
               No delta norm data available. Enter patient sex and ages at T1/T2 in the config panel.
               {DELTA_NORMS.length > 0 && (
                 <div style={{ marginTop: 6 }}>
@@ -440,7 +394,7 @@ export function SuperimpositionResults({ results, t }) {
               )}
             </div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx3, borderBottom: `1px solid ${t.bdr}` }}>Measurement</th>
@@ -468,7 +422,7 @@ export function SuperimpositionResults({ results, t }) {
                         {d.zScore > 0 ? "+" : ""}{d.zScore?.toFixed(2)}
                       </span>
                     </td>
-                    <td style={{ padding: "3px 6px", fontSize: 9, color: t.tx2 }}>{d.interpretation}</td>
+                    <td style={{ padding: "3px 6px", fontSize: 12, color: t.tx2 }}>{d.interpretation}</td>
                   </tr>
                 ))}
               </tbody>
@@ -481,9 +435,9 @@ export function SuperimpositionResults({ results, t }) {
       {tab === "angular" && (
         <div style={{ overflowX: "auto" }}>
           {(!angularChanges || angularChanges.length === 0) ? (
-            <div style={{ fontSize: 10, color: t.tx3, padding: 12 }}>No matching angular measurements found.</div>
+            <div style={{ fontSize: 12, color: t.tx3, padding: 12 }}>No matching angular measurements found.</div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx3, borderBottom: `1px solid ${t.bdr}` }}>Angle</th>
@@ -515,9 +469,9 @@ export function SuperimpositionResults({ results, t }) {
       {tab === "linear" && (
         <div style={{ overflowX: "auto" }}>
           {(!linearChanges || linearChanges.length === 0) ? (
-            <div style={{ fontSize: 10, color: t.tx3, padding: 12 }}>No matching linear measurements found.</div>
+            <div style={{ fontSize: 12, color: t.tx3, padding: 12 }}>No matching linear measurements found.</div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx3, borderBottom: `1px solid ${t.bdr}` }}>Measurement</th>
@@ -556,16 +510,16 @@ export function SuperimpositionResults({ results, t }) {
               { label: "High Confidence", value: errSummary.highConfidence, color: t.acc },
             ].map(s => (
               <div key={s.label} style={{ padding: "6px 8px", background: t.surf2, borderRadius: 4, textAlign: "center" }}>
-                <div style={{ fontSize: 9, color: t.tx3 }}>{s.label}</div>
+                <div style={{ fontSize: 12, color: t.tx3 }}>{s.label}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: s.color, fontFamily: "'DM Mono',monospace" }}>{s.value}</div>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 9, color: t.tx3, lineHeight: 1.6, padding: "6px 8px", background: t.surf2, borderRadius: 4 }}>
+          <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.6, padding: "6px 8px", background: t.surf2, borderRadius: 4 }}>
             <b style={{ color: t.tx2 }}>Significance:</b> Each displacement is compared against the typical measurement error for that landmark (0.4-0.8 mm from published literature). A displacement is flagged as "significant" when it exceeds 2x the propagated error, meaning it is likely a real anatomical change rather than measurement noise.
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx3, borderBottom: `1px solid ${t.bdr}` }}>Landmark</th>
@@ -584,7 +538,7 @@ export function SuperimpositionResults({ results, t }) {
                     <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx2 }}>{d.significanceRatio?.toFixed(1)}</td>
                     <td style={{ padding: "3px 6px", textAlign: "center" }}>
                       <span style={{
-                        fontSize: 9, padding: "1px 5px", borderRadius: 3, fontWeight: 600,
+                        fontSize: 12, padding: "1px 5px", borderRadius: 3, fontWeight: 600,
                         background: d.confidenceLevel === "high" ? t.ok + "22" : d.confidenceLevel === "moderate" ? t.warn + "22" : t.err + "22",
                         color: d.confidenceLevel === "high" ? t.ok : d.confidenceLevel === "moderate" ? t.warn : t.err,
                       }}>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { evalFormula, onEnter } from "../lib/utils.js";
-import { PanelHeader, Btn } from "../ui/ui.jsx";
+import { PanelHeader, Btn, GuideBtn } from "../ui/ui.jsx";
 import { KatexSpan, LatexFloatingPanel } from "../hooks/useKatex.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { useFormulaEngine } from "../hooks/useFormulaEngine.js";
@@ -16,8 +16,7 @@ export function FormulasPanel({ formulas, t, scope, onAdd, onEdit, onDelete, pin
     <div style={{ padding: 12 }}>
       <PanelHeader t={t}>
         Custom Formulas
-        <button onClick={() => setGuideKey("formulas")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, marginLeft: 6, verticalAlign: "middle" }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("formulas")} style={{ marginLeft: 6 }} />
       </PanelHeader>
       <div style={{ fontSize: 11, color: t.tx2, marginBottom: 12, lineHeight: 1.5 }}>Define derived measurements. Variables use landmark label names.</div>
       {formulas.map(f => {

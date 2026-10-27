@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { Modal } from "../panels/Modal.jsx";
+import { Icon } from "../ui/icons.jsx";
 
 const STEP_COLORS = {
   setup: { bg: "#3b82f6", label: "Setup" },
@@ -464,21 +465,21 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Quantifies the reproducibility and consistency of landmark identification and measurements. Determines whether repeated measurements by the same rater (intra-observer) or different raters (inter-observer) produce clinically acceptable agreement.",
-        icon: "🎯",
+        icon: "target",
       },
       {
         heading: "When to use",
         body: "Before starting a clinical study or multi-rater project. Run a reliability study to: (1) calibrate raters against a gold standard, (2) determine if a new measurement method is reproducible enough for clinical use, or (3) establish the measurement error for sample size calculations in a planned study.",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "Each case must have ≥ 2 sessions marked by the same rater (intra) or by different raters (inter). Labels must match across sessions. A minimum of 10 cases is recommended for stable ICC estimates; 30+ cases for precise confidence intervals (Walter et al. 1998).",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           {
             label: "Create reliability sessions",
@@ -522,12 +523,12 @@ const GUIDES = {
           { label: "SEM", desc: "Standard error of measurement — σ<sub>total</sub> × √(1−ICC). Differs from Dahlberg when ≥3 occasions are used." },
           { label: "MDC (95%)", desc: "Minimal detectable change = 1.96 × √2 × SEM. Changes smaller than this cannot be distinguished from measurement error" },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• ICC assumes that cases are a random sample from the population and raters are either fixed or random depending on the model.\n• With fewer than 10 cases, ICC confidence intervals will be wide — interpret as preliminary.\n• Bland-Altman with 3+ occasions: all pairwise differences are computed, which inflates the sample size for the bias CI — a variance-inflation factor is applied to compensate.\n• The landmark error map reports radial errors around the mean landmark position. Use it to identify landmarks with poor placement consistency.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -538,21 +539,21 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Computes summary statistics (mean, SD, percentiles, reference intervals) for any set of landmark measurements. Compares the sample distribution against normative reference values to compute z-scores and identify deviations from the norm.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "When to use",
         body: "At any stage of analysis — descriptive statistics are the foundation for all subsequent research. Use this module to: (1) characterize your sample (mean age, mean SNA, etc.), (2) establish reference intervals for a new population, (3) compute z-scores against published norms, or (4) screen for outliers before running comparative tests.",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "At least one session with placed and visible markups. Labels must match the normative reference labels (e.g., 'SNA', 'ANB', 'SN-MP'). For per-group analysis, sessions must have a 'group' metadata field assigned. For age/sex-stratified z-scores, patient age and sex must be set in session metadata.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           { label: "Place & label landmarks", body: "Ensure all required landmarks are placed and visible. Verify labels match the normative reference names (e.g., 'SNA' not 'Sna').", type: "setup" },
           { label: "Assign metadata (optional)", body: "For group comparisons, assign each session to a group via the Session Metadata modal. For age/sex-stratified norms, set age and sex in session metadata.", type: "setup" },
@@ -571,12 +572,12 @@ const GUIDES = {
           { label: "CI for RI limits", desc: "95% CI around the reference limits using Reed's approximation. Wide CI = imprecise limits" },
           { label: "z-scores", desc: "(Value − Norm Mean) / Norm SD. |z| ≤ 1 = normal, 1–2 = borderline, >2 = abnormal. Direction-specific notes for ANB, SNA, SNB" },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• Reference intervals computed from small samples (n < 120) are unstable for non-parametric limits — the parametric method is preferred when normality holds.\n• The D'Agostino-Pearson normality test requires n ≥ 8; for smaller samples, results are best considered exploratory.\n• z-scores against Steiner/Ricketts/Downs norms assume the patient matches the norm's population (Caucasian North American). Population mismatch is warned but not blocked.\n• The integrated reference intervals estimate where 95% of a healthy population falls — they do NOT indicate clinical abnormality thresholds.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -589,21 +590,21 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Tests whether two or more groups differ on a cephalometric measurement. Automatically selects the appropriate statistical test based on data characteristics (normality, sample size, design). Computes effect sizes and post-hoc comparisons for multi-group designs.",
-        icon: "⚖️",
+        icon: "scale",
       },
       {
         heading: "When to use",
         body: "Use when you need to compare groups: (1) treated vs untreated subjects, (2) pre-treatment vs post-treatment measurements, (3) multiple treatment modalities, (4) different age/sex groups. Supports both independent (between-subjects) and paired (within-subjects) designs.",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "At least 2 groups with ≥ 2 sessions each. Labels must match across groups. For paired designs, group sizes must be equal. Minimum 5 cases per group recommended for parametric tests (t-test, ANOVA); non-parametric alternatives (Mann-Whitney, Kruskal-Wallis) work with ≥ 2 per group.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           { label: "Assign groups to sessions", body: "In the Sessions panel, assign each session to a group (e.g., 'Treated', 'Control') via the Session Metadata modal. Alternatively define groups in the study config.", type: "setup" },
           { label: "Create & configure study", body: "Go to Research → New Study → Comparative. Choose independent or paired design. Set α level (default 0.05) and multiple comparison correction (Bonferroni or Benjamini-Hochberg).", type: "configure" },
@@ -622,12 +623,12 @@ const GUIDES = {
           { label: "Multiple comparison correction", desc: "Bonferroni: p × m (conservative). Benjamini-Hochberg: controls FDR (less conservative, more power)" },
           { label: "MANOVA", desc: "Wilks' Λ, Pillai's trace, Hotelling's trace, Roy's largest root. Box's M tests covariance homogeneity" },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• t-tests/ANOVA assume normality within each group. The Shapiro-Wilk test is used; sample size < 5 triggers non-parametric fallback.\n• Levene's test is median-based, which is robust to non-normality.\n• For 2-group independent designs with unequal variance, Welch's t-test is automatically used (no need to manually check).\n• Tukey HSD controls familywise error rate for all pairwise comparisons. The studentized range CDF is computed numerically via Simpson quadrature.\n• MANOVA requires complete data across all labels for each case. Cases with missing labels are excluded.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -640,21 +641,21 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Analyzes how cephalometric measurements change over time within the same subjects. Supports repeated measures ANOVA (with sphericity correction) and a pseudo-linear mixed model for growth trajectory analysis.",
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "When to use",
         body: "Essential for growth studies, treatment outcome tracking, and any design where the same subjects are measured at multiple timepoints. Use to: (1) assess treatment effects over time, (2) model growth curves, (3) detect when significant change occurs between visits, (4) compute individual change scores against the minimal detectable change (MDC).",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "≥ 2 timepoints, ≥ 3 subjects. Each subject must have a session at each timepoint (complete data required for RM-ANOVA). Timepoints should be separated by clinically meaningful intervals (default minimum: 30 days). Labels must match across all timepoints.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           { label: "Create timepoint sessions", body: "Create separate sessions for each subject at each timepoint (e.g., 'Subject1_T1', 'Subject1_T2', 'Subject1_T3'). Assign timepoint metadata via the Session Metadata modal.", type: "setup" },
           { label: "Define subjects & timepoints", body: "In the study config, define subjects (linked to sessions via records) and timepoints (with labels and optional target age). Map each session to the right subject and timepoint.", type: "setup" },
@@ -674,12 +675,12 @@ const GUIDES = {
           { label: "Change scores", desc: "Mean change + SD + t-test for each timepoint pair. MDC flag: |mean change| > MDC indicates real change" },
           { label: "LMM (OLS pseudo-model)", desc: "Fixed effects: Intercept + Time. Random: subject variance, slope variance, ICC. Cluster-robust SEs. Model is a simplified alternative — use a proper mixed-model tool for definitive inference" },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• RM-ANOVA requires complete data — subjects with missing timepoints are excluded. For missing data, use the LMM option which fits all available observations.\n• The LMM is a pooled OLS with cluster-robust SEs (sandwich estimator), not a full REML mixed model. The df are based on the number of subjects, not observations, to avoid anti-conservative p-values.\n• Individual MDC uses the SD of the difference scores (not the SEM of the mean), which is the correct formula for determining if an individual patient's change exceeds measurement error.\n• Time-separation violations are flagged when consecutive timepoints are too close together — this inflates the apparent stability of measurements. Respect the minimum interval.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -692,21 +693,21 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Quantifies the relationship between two or more cephalometric variables. Computes Pearson or Spearman correlation coefficients with confidence intervals, partial correlations controlling for covariates, and linear or logistic regression models with full diagnostic output.",
-        icon: "🔗",
+        icon: "link",
       },
       {
         heading: "When to use",
         body: "Use to explore associations between measurements: (1) does mandibular length correlate with facial height?, (2) can SNA predict ANB?, (3) what is the odds ratio of airway restriction given a low PAS value? Supports both continuous outcomes (linear regression) and binary outcomes (logistic regression).",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "All sessions must have the same set of labels (complete data). Minimum 3 sessions for correlation, 10 for linear regression, 10 per class for logistic regression. Labels must be numeric. For partial correlation, covariate labels must also be present in all sessions.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           { label: "Place landmarks consistently", body: "Ensure all required landmarks are placed and visible in every session. Missing labels cause the session to be excluded from that analysis.", type: "setup" },
           { label: "Create & configure study", body: "Go to Research → New Study → Correlation. Choose Pearson (parametric) or Spearman (non-parametric for ordinal/non-normal data).", type: "configure" },
@@ -725,12 +726,12 @@ const GUIDES = {
           { label: "Logistic regression", desc: "Odds ratios with 95% CI, pseudo-R², AUC with DeLong CI, Youden-optimal cutoff, sensitivity/specificity, confusion matrix" },
           { label: "VIF", desc: "Variance Inflation Factor — quantifies multicollinearity. VIF ≥ 5 indicates predictors are highly correlated" },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• Pearson correlation is sensitive to outliers — check scatter plots before interpreting. Spearman is more robust.\n• Linear regression assumes: linearity, independence, homoscedasticity, normality of residuals. Diagnostics are provided for all four.\n• Logistic regression uses Newton-Raphson optimization with step-halving. Separation (perfect prediction) causes non-convergence — reduce the model or collect more data.\n• VIF is computed by regressing each predictor on all others. A VIF of 5 means the SE of that coefficient is inflated by √5 ≈ 2.2× due to collinearity.\n• Benjamini-Hochberg adjustment controls the false discovery rate — less conservative than Bonferroni, appropriate for exploratory correlation analyses.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -743,21 +744,21 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Evaluates how well a cephalometric measurement can discriminate between two clinical conditions (e.g., airway restriction vs normal, skeletal Class II vs Class I). Computes the ROC curve, AUC with DeLong confidence intervals, optimal thresholds, and logistic regression-based composite indices.",
-        icon: "🏥",
+        icon: "hospital",
       },
       {
         heading: "When to use",
         body: "Essential for diagnostic accuracy studies: (1) determine the best cutoff value for a measurement to screen for a condition, (2) compare the diagnostic performance of multiple measurements, (3) combine multiple measurements into a composite diagnostic index, (4) estimate the cross-validated AUC for a predictive model.",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "\u2265 10 cases with \u2265 5 per class. Each case needs the gold-standard label (binary or numeric with threshold) and at least one predictor measurement. Predictors must be different from the gold standard. All cases must have complete data on all predictors and the gold standard.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           { label: "Define gold standard", body: "Identify which label and value defines the 'positive' condition. For binary labels (e.g., 'AirwayRestriction = yes'), select the matching string. For numeric labels (e.g., 'ANB > 4°'), enter the threshold value.", type: "setup" },
           { label: "Select predictor measurements", body: "Choose one or more measurements to evaluate as diagnostic tests. Each predictor is analyzed independently for ROC/AUC, and all are combined into a logistic composite index.", type: "setup" },
@@ -777,12 +778,12 @@ const GUIDES = {
           { label: "Composite index", desc: "Logistic regression combining all predictors. Includes coefficients, OR, pseudo-R², AIC/BIC, predicted probabilities, and its own ROC/AUC" },
           { label: "Cross-validated AUC", desc: "Apparent AUC minus optimism (mean per-fold train AUC − test AUC). Less biased than the apparent AUC from the full model" },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• ROC analysis requires a binary gold standard. Continuous measurements must be dichotomized with a clinically meaningful threshold.\n• Small samples (n < 50 per group) produce wide DeLong CIs — treat AUC estimates as preliminary.\n• The Hosmer-Lemeshow test for calibration has low power in small samples; groups with expected count < 5 trigger a warning.\n• Cross-validated AUC with LOOCV is nearly unbiased but has high variance. k-fold CV (k=10) reduces variance at the cost of slight bias.\n• The composite logistic index is fitted by Newton-Raphson with step-halving — if convergence fails due to separation, collect more data or use fewer predictors.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -793,17 +794,17 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Superimposes two cephalometric tracings (T1 \u2192 T2) to visualize and quantify skeletal/dental change over time. Computes per-landmark displacement vectors, angular changes, linear deltas, growth pattern classification, reference plane rotation tracking, and delta norm comparisons against normative growth data.",
-        icon: "\ud83d\udd00",
+        icon: "shuffle",
       },
       {
         heading: "When to use",
         body: "Use for: (1) Treatment outcome evaluation \u2014 quantify skeletal/dental change after orthodontic treatment or orthognathic surgery. (2) Growth monitoring \u2014 track natural growth patterns over serial cephalograms. (3) Relapse assessment \u2014 measure post-treatment stability. (4) Clinical research \u2014 compare displacement patterns between groups or against normative standards.",
-        icon: "\ud83d\udcca",
+        icon: "chart",
       },
       {
         heading: "Data requirements",
         body: "\u2265 2 sessions (T1 base, T2 comparison) with matching landmark labels. At least 2 matching point landmarks required for Procrustes or structural alignment. For 2-point alignment, select 2 anchor landmarks present in both sessions. Calibration (pxPerMm) enables mm-based analysis; without it, results are in pixel units. Patient demographics (sex, age) enable delta norm comparisons.",
-        icon: "\ud83d\udce6",
+        icon: "box",
       },
       {
         heading: "Alignment methods",
@@ -812,7 +813,7 @@ const GUIDES = {
           { label: "2-Point", desc: "Select two landmarks as anchors. Full rigid alignment (translation + rotation + scale). Simple but sensitive to landmark placement error." },
           { label: "Structural", desc: "Select any two landmarks to define a reference plane. Rotation-only alignment (no scale/translation). Use for cranial-base, palatal-plane, or mandibular-plane registration." },
         ],
-        icon: "\u2699\ufe0f",
+        icon: "gear",
       },
       {
         heading: "Output tabs",
@@ -825,12 +826,12 @@ const GUIDES = {
           { label: "Linear", desc: "Linear measurement changes (length, distance, area, perimeter)." },
           { label: "Error", desc: "Propagated typical landmark error analysis with significance ratios and confidence levels." },
         ],
-        icon: "\ud83d\udcca",
+        icon: "chart",
       },
       {
         heading: "Tips & limitations",
         body: "\u2022 Procrustes alignment is sensitive to landmark quality \u2014 ensure consistent landmark identification across sessions.\n\u2022 Structural alignment is rotation-only; use 2-point if you also need scale correction.\n\u2022 The 'Matched' count shows how many landmarks were found in both sessions \u2014 more matches give more reliable Procrustes alignment.\n\u2022 Delta norms require patient demographics (sex + age at T1/T2). Without them, delta norm comparisons are skipped.\n\u2022 Clinical patterns are derived from rotation tracking and angular changes \u2014 they depend on having the relevant reference-plane landmarks (Sella, Nasion, ANS, etc.) in both sessions.",
-        icon: "\ud83d\udca1",
+        icon: "bulb",
       },
     ],
   },
@@ -841,17 +842,17 @@ const GUIDES = {
       {
         heading: "What it measures",
         body: "Computes pharyngeal airway dimensions from lateral cephalometric landmarks. Evaluates retropalatal, retroglossal, and total airway spaces against age/sex-stratified normative data. Produces an OSA (Obstructive Sleep Apnea) risk score based on multi-measurement deviation analysis.",
-        icon: "🫁",
+        icon: "lungs",
       },
       {
         heading: "When to use",
         body: "Use for: (1) Airway assessment before orthodontic treatment or orthognathic surgery. (2) OSA screening using cephalometric measurements. (3) Evaluating airway changes after mandibular advancement, maxillary expansion, or other treatments that affect the pharyngeal space. (4) Research comparing airway dimensions across patient groups.",
-        icon: "📋",
+        icon: "clipboard",
       },
       {
         heading: "Data requirements",
         body: "A lateral cephalometric radiograph with ≥16 airway landmarks placed. Core landmarks (10): PNS, N, PH, C3, H, Me, Go, SP, Eb, TT — enables 7 core measurements. Advanced landmarks (6): Ba, Ad1, Ad3, Vallecula, Epiglottis, PAS_lowest — unlocks 9 additional measurements. Calibration (pxPerMm) is required for mm-based measurements and norm comparisons. Patient sex and age enable age/sex-stratified norms.",
-        icon: "📊",
+        icon: "chart",
       },
       {
         heading: "Required landmarks",
@@ -860,11 +861,11 @@ const GUIDES = {
           { label: "Advanced landmarks (9)", desc: "SP_mid (soft palate midpoint), Ba (basion), Ad1 (adenoid point 1), Ad2 (adenoid point 2), Ad3 (adenoid point 3), Ad4 (adenoid point 4), Vallecula, Epiglottis (tip), PAS_lowest (lowest posterior airway point)" },
           { label: "Tiered system", desc: "Core landmarks enable 5 OSA-critical measurements. Advanced landmarks unlock 9 additional measurements for detailed regional analysis. Place core landmarks first — advanced landmarks unlock when all core are placed." },
         ],
-        icon: "📍",
+        icon: "pin",
       },
       {
         heading: "Step-by-step workflow",
-        icon: "📝",
+        icon: "note",
         steps: [
           { label: "Load Airway Template", body: "Click 'Load Airway Template' in the Airway panel to place core landmarks. Alternatively, place them manually using the Landmark tool.", type: "setup" },
           { label: "Place core landmarks", body: "Click each core landmark on the lateral cephalogram. Follow the placement guide in the Core Landmarks grid — green checkmarks indicate placed landmarks.", type: "setup" },
@@ -885,12 +886,12 @@ const GUIDES = {
           { label: "OSA Risk Score", desc: "Composite risk level based on mean z-score across all measurements. High risk = mean |z| > 1.5 or ≥3 critical measurements. Moderate = mean |z| > 1.0 or ≥2 critical" },
           { label: "Normative data", desc: "Age/sex-stratified norms from Solow, McNamara, Schulhof, Pracharktam, Bibby, Lowe, Dempewolf, and Standard sources. Each measurement shows its source publication." },
         ],
-        icon: "📈",
+        icon: "trend",
       },
       {
         heading: "Tips & limitations",
         body: "• 2D cephalometric airway measurements are an approximation — CBCT provides 3D volumetric analysis for definitive airway assessment.\n• The retropalatal space (R-PAS) is the most clinically significant measurement for OSA screening — values <5mm suggest severe narrowing.\n• MP-H (hyoid position) is elevated in OSA patients — it reflects posterior tongue position and mandibular rotation.\n• Age/sex-stratified norms are important — pediatric airway dimensions differ significantly from adults.\n• The OSA risk score is a screening tool, not a diagnostic — polysomnography is the gold standard for OSA diagnosis.\n• Auto-generated boundaries are approximate — review and manually adjust curves if precise boundary definition is needed.",
-        icon: "💡",
+        icon: "bulb",
       },
     ],
   },
@@ -931,7 +932,7 @@ export default function StudyGuideModal({ t, studyType, onClose }) {
         {guide.sections.map((section, i) => (
           <div key={i}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 18 }}>{section.icon}</span>
+              <Icon name={section.icon} size={18} color={t.acc} />
               <span style={{ fontSize: 13, fontWeight: 700, color: t.tx }}>{section.heading}</span>
             </div>
 

@@ -1,8 +1,9 @@
-import { PropRow, Btn } from "../ui/ui.jsx";
+import { PropRow, Btn, GuideBtn } from "../ui/ui.jsx";
 import { anonymizeProject } from "../report/anonymize.js";
 import { useState } from "react";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { askConfirm } from "../ui/dialogs.js";
+import { Icon } from "../ui/icons.jsx";
 
 // Anonymization is now NON-destructive to the audit trail: it clears patient
 // identifiers from project.meta AND every session.meta, pseudonymizes operator
@@ -23,8 +24,7 @@ export default function AnonModal({ t, project, onUpdateProject }) {
       <div style={{ marginBottom: 16, padding: 12, background: t.surf2, borderRadius: 8, border: `1px solid ${t.bdr}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: t.tx, flex: 1 }}>Patient Metadata</span>
-          <button onClick={() => setGuideKey("anonymization")}
-            style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
+          <GuideBtn t={t} onClick={() => setGuideKey("anonymization")} />
         </div>
         {[["patientId", "Patient ID"], ["patientName", "Name"], ["dob", "DOB"], ["age", "Age"], ["gender", "Gender"], ["clinician", "Clinician"], ["facility", "Facility"]].map(([k, label]) => (
           <PropRow key={k} label={label} t={t}><input type="text" value={project.meta[k] || ""} onChange={e => onUpdateProject({ ...project, meta: { ...project.meta, [k]: e.target.value } })} style={{ background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 8px", color: t.tx, fontSize: 12, width: 240, fontFamily: "inherit" }} /></PropRow>
@@ -34,7 +34,7 @@ export default function AnonModal({ t, project, onUpdateProject }) {
       {project.meta.anonymized ? (
         <div style={{ padding: 10, background: t.ok + "11", border: `1px solid ${t.ok}33`, borderRadius: 6, fontSize: 12, color: t.ok, marginBottom: 16 }}>✓ Case is anonymized.</div>
       ) : (
-        <Btn t={t} danger onClick={anonymize} style={{ width: "100%" }}>🔏 Anonymize <br/>(clears patient IDs, keeps research labels)</Btn>
+        <Btn t={t} danger onClick={anonymize} style={{ width: "100%" }}><Icon name="shield" size={14} /> Anonymize <br/>(clears patient IDs, keeps research labels)</Btn>
       )}
 
       {/* Audit trail (P3): who/when/what was cleared, with salted provenance hashes. */}

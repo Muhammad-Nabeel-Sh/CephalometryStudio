@@ -39,7 +39,8 @@ import {
   FloatingHistogram,
 } from "./canvas/imageUtils.jsx";
 import { KatexSpan, LatexFloatingPanel } from "./hooks/useKatex.jsx";
-import { Btn, Tag, Sld, PropRow, Inp } from "./ui/ui.jsx";
+import { Btn, Tag, Sld, PropRow, Inp, GuideBtn } from "./ui/ui.jsx";
+import { BACKDROP } from "./ui/tokens.js";
 import ToolBtn from "./ui/ToolBtn.jsx";
 import {
   drawMarkup,
@@ -57,6 +58,7 @@ import {
 } from "./canvas/drawMarkups.js";
 import { MarkupsPanel } from "./panels/MarkupsPanel.jsx";
 import { MeasurementsPanel } from "./panels/MeasurementsPanel.jsx";
+import { Icon } from "./ui/icons.jsx";
 import { FormulasPanel } from "./panels/FormulasPanel.jsx";
 import { ImagePanel } from "./panels/ImagePanel.jsx";
 import { LayersPanel } from "./panels/LayersPanel.jsx";
@@ -408,27 +410,7 @@ function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount }) {
             {m === "ruler" ? "From Ruler" : "Manual px/mm"}
           </Btn>
         ))}
-        <button
-          onClick={() => setGuideKey("calibration")}
-          style={{
-            background: "none",
-            border: `1px solid ${t.tx3}55`,
-            color: t.tx3,
-            borderRadius: 10,
-            width: 18,
-            height: 18,
-            fontSize: 10,
-            lineHeight: "16px",
-            textAlign: "center",
-            cursor: "pointer",
-            padding: 0,
-            marginLeft: "auto",
-            flexShrink: 0,
-          }}
-          title="Guide"
-        >
-          ?
-        </button>
+        <GuideBtn t={t} onClick={() => setGuideKey("calibration")} style={{ marginLeft: "auto" }} />
       </div>
       {mode === "ruler" ? (
         <>
@@ -1278,7 +1260,7 @@ function SealedSessionCover({ t, seal, onOpenResearch, onUnseal }) {
       style={{ position: "fixed", inset: 0, zIndex: 50, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
     >
       <div style={{ maxWidth: 460, padding: 24, borderRadius: 12, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>🔒 Sealed for blinding</div>
+        <div style={{ fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}><Icon name="lock" size={18} color={t.acc} /> Sealed for blinding</div>
         <div style={{ fontSize: 13, color: t.tx2, lineHeight: 1.6 }}>
           {seal.reason.replace(/\.$/, "")} (study “{seal.studyName}”). Continue with the next tracing from the study’s workflow.
         </div>
@@ -5502,25 +5484,7 @@ function Workspace({
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setGuideKey("export")}
-                style={{
-                  background: "none",
-                  border: `1px solid ${t.tx3}55`,
-                  color: t.tx3,
-                  borderRadius: 10,
-                  width: 18,
-                  height: 18,
-                  fontSize: 10,
-                  lineHeight: "16px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-                title="Guide"
-              >
-                ?
-              </button>
+              <GuideBtn t={t} onClick={() => setGuideKey("export")} />
             </div>
             <Btn
               t={t}
@@ -5829,8 +5793,11 @@ function Workspace({
         </Modal>
       )}
       {reportBusy && (
-        <div role="status" aria-live="polite" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0008", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14 }}>
-          Creating the PDF report…
+        <div role="status" aria-live="polite" style={{ position: "fixed", inset: 0, zIndex: 3000, background: BACKDROP, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 22px", borderRadius: 12, background: t.surf, border: `1px solid ${t.bdr}`, color: t.tx, fontSize: 14, boxShadow: "0 24px 60px rgba(0,0,0,0.4)" }}>
+            <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${t.bdr}`, borderTopColor: t.acc, animation: "spin 0.8s linear infinite" }} />
+            Creating the PDF report…
+          </div>
         </div>
       )}
       {reportPreview && (

@@ -1,7 +1,9 @@
+import { GuideBtn } from "../ui/ui.jsx";
 import { useMemo, useState, useRef, useCallback } from "react";
 import { generateInterpretation } from "../lib/interpretation.js";
 import { deviationColor } from "../lib/utils.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
+import { Icon } from "../ui/icons.jsx";
 
 const CATEGORY_ORDER = ["skeletal", "dental", "soft-tissue", "airway", "other"];
 const CATEGORY_LABELS = {
@@ -9,7 +11,7 @@ const CATEGORY_LABELS = {
   airway: "Airway", other: "Other",
 };
 const CATEGORY_ICONS = {
-  skeletal: "🦴", dental: "🦷", "soft-tissue": "👤", airway: "🫁", other: "◈",
+  skeletal: "bone", dental: "tooth", "soft-tissue": "person", airway: "lungs", other: "layers",
 };
 
 export default function InterpretationPanel({ allMeas, norms, t, formatAngle, calibration }) {
@@ -50,14 +52,13 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: t.tx, flex: 1 }}>Clinical Interpretation</span>
-        <button onClick={() => setGuideKey("interpretation")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("interpretation")} />
       </div>
       {!calibration?.done && <div style={{ background: t.warn + "22", border: `1px solid ${t.warn}44`, borderRadius: 8, padding: 12, fontSize: 12, color: t.warn }}>⚠ Calibrate your image ⟺ to enable linear norms comparison. Angle norms are still shown below.</div>}
       {/* Pattern recognition section */}
       {patterns.length > 0 && (
         <div style={{ background: t.acc + "10", borderRadius: 8, border: `1px solid ${t.acc}30`, padding: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.acc, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.acc, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
             Combined Findings
           </div>
           {patterns.map(p => {
@@ -65,11 +66,11 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
             return (
               <div key={p.id} style={{ marginBottom: 10, padding: 10, background: t.surf2, borderRadius: 6, border: `1px solid ${t.bdr}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: t.tx }}>{p.label}</span>
-                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: sevColor + "20", color: sevColor, fontWeight: 600 }}>{p.severity}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.tx }}>{p.label}</span>
+                  <span style={{ fontSize: 12, padding: "1px 6px", borderRadius: 4, background: sevColor + "20", color: sevColor, fontWeight: 600 }}>{p.severity}</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: t.tx, marginBottom: 2 }}>{p.summary}</div>
-                <div style={{ fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>{p.detail}</div>
+                <div style={{ fontSize: 12, color: t.tx2, lineHeight: 1.5 }}>{p.detail}</div>
               </div>
             );
           })}
@@ -83,11 +84,11 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
         return (
           <div key={cat}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-              <span style={{ fontSize: 14 }}>{CATEGORY_ICONS[cat]}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: t.tx, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <Icon name={CATEGORY_ICONS[cat]} size={15} color={t.tx2} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.tx, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {CATEGORY_LABELS[cat]}
               </span>
-              <span style={{ fontSize: 9, color: t.tx3, background: t.surf2, padding: "1px 6px", borderRadius: 4 }}>
+              <span style={{ fontSize: 12, color: t.tx3, background: t.surf2, padding: "1px 6px", borderRadius: 4 }}>
                 {items.length}
               </span>
             </div>
@@ -105,25 +106,25 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
                       <span style={{ fontSize: 13, fontWeight: 700, color: t.tx, fontFamily: "'DM Mono',monospace" }}>
                         {d.label}
                       </span>
-                      <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: sevColor + "20", color: sevColor, fontWeight: 600 }}>
+                      <span style={{ fontSize: 12, padding: "1px 6px", borderRadius: 4, background: sevColor + "20", color: sevColor, fontWeight: 600 }}>
                         {sevLabel}
                       </span>
                     </div>
-                    <span style={{ fontSize: 11, fontFamily: "'DM Mono',monospace", fontWeight: 600, color: sevColor }}>
+                    <span style={{ fontSize: 12, fontFamily: "'DM Mono',monospace", fontWeight: 600, color: sevColor }}>
                       {d.delta > 0 ? "+" : ""}{d.delta.toFixed(2)} ({d.zScore > 0 ? "+" : ""}{d.zScore.toFixed(1)}σ)
                     </span>
                   </div>
                   {d.description && (
-                    <div style={{ fontSize: 10, color: t.tx3, marginBottom: 4, lineHeight: 1.4 }}>{d.description}</div>
+                    <div style={{ fontSize: 12, color: t.tx3, marginBottom: 4, lineHeight: 1.4 }}>{d.description}</div>
                   )}
-                  <div style={{ fontSize: 11, color: t.tx2, fontWeight: 500, lineHeight: 1.5, display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <div style={{ fontSize: 12, color: t.tx2, fontWeight: 500, lineHeight: 1.5, display: "flex", gap: 6, alignItems: "flex-start" }}>
                     {editingKey === d.label + d.measureType ? (
                       <textarea ref={editRef}
                         defaultValue={userEdits[d.label + d.measureType] || d.interpretation}
                         onBlur={e => handleEdit(d.label + d.measureType, e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleEdit(d.label + d.measureType, e.target.value); } }}
                         autoFocus
-                        style={{ flex: 1, fontSize: 11, lineHeight: 1.5, background: t.surf3, color: t.tx, border: `1px solid ${t.acc}`, borderRadius: 4, padding: "4px 6px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+                        style={{ flex: 1, fontSize: 12, lineHeight: 1.5, background: t.surf3, color: t.tx, border: `1px solid ${t.acc}`, borderRadius: 4, padding: "4px 6px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
                       />
                     ) : (
                       <>
@@ -134,7 +135,7 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
                       </>
                     )}
                   </div>
-                  <div style={{ fontSize: 9, color: t.tx3, marginTop: 4 }}>
+                  <div style={{ fontSize: 12, color: t.tx3, marginTop: 4 }}>
                     Patient: {d.measureType === "angle" && formatAngle ? formatAngle(d.value) : d.value.toFixed(2)} &nbsp;|&nbsp; Norm: {d.mean.toFixed(1)} ± {d.sd.toFixed(1)}
                     {d.normSource && <> &nbsp;—&nbsp; {d.normSource}</>}
                     {d.sdApproximate && <span title="The source published no SD for this norm; the SD is a conventional approximation, so the deviation grade is indicative." style={{ marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px solid ${t.warn}`, color: t.warn }}>SD approx.</span>}
@@ -152,13 +153,13 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
         const items = grouped[cat];
         return (
           <div key={cat}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: t.tx3, textTransform: "uppercase", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: t.tx3, textTransform: "uppercase", marginBottom: 8 }}>
               {cat}
             </div>
             {items.map(d => (
               <div key={d.label} style={{ marginBottom: 8, padding: 10, background: t.surf2, borderRadius: 8, border: `1px solid ${t.bdr}` }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: t.tx }}>{d.label}</div>
-                <div style={{ fontSize: 10, color: t.tx2 }}>{d.interpretation}</div>
+                <div style={{ fontSize: 12, color: t.tx2 }}>{d.interpretation}</div>
               </div>
             ))}
           </div>

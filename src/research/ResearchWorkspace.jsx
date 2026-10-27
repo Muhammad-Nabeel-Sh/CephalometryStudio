@@ -28,6 +28,7 @@ import { assignmentReport, addSessionsToGroup, buildLongitudinalFromPatients } f
 import { ALL_SESSION_TYPES } from "./dataPreview.js";
 import { saveStudyDefaults, copySettings } from "./studyDefaults.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
+import { Icon } from "../ui/icons.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -191,7 +192,7 @@ function Stepper({ t, step, setStep, status, blocked }) {
               cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.45 : 1,
               border: `1px solid ${active ? t.acc : t.bdr}`, background: active ? t.acc + "22" : "transparent", color: active ? t.acc : t.tx2 }}>
             <span style={{ width: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, background: active ? t.acc : t.surf3, color: active ? t.bg : t.tx2 }}>{i + 1}</span>
-            {s.label}{doneMark}{s.id === "run" && blocked ? " 🔒" : ""}
+            {s.label}{doneMark}{s.id === "run" && blocked ? <> <Icon name="lock" size={12} /></> : ""}
           </button>
         );
       })}

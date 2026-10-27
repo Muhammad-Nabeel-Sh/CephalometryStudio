@@ -1,48 +1,11 @@
 import { useState, useMemo } from "react";
 import PlotlyChart from "./PlotlyChart.jsx";
 import { computeClinicalThreshold } from "./diagnostic.js";
+import { Chip, TabBar } from "../ui/ui.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB BAR (shared with other panels)
 // ═══════════════════════════════════════════════════════════════════════════════
-function TabBar({ tabs, active, onChange, t }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 2,
-        borderBottom: `1px solid ${t.bdr}44`,
-        marginBottom: 10,
-        overflowX: "auto",
-      }}
-    >
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onChange(tab.id)}
-          style={{
-            padding: "5px 10px",
-            fontSize: 9,
-            fontWeight: 700,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            border: "none",
-            borderBottom:
-              active === tab.id
-                ? `2px solid ${t.acc}`
-                : "2px solid transparent",
-            background: "transparent",
-            color: active === tab.id ? t.acc : t.tx,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
-          }}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONFIG
@@ -80,21 +43,19 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
   };
 
   return (
-    <div style={{ fontSize: 11 }}>
+    <div style={{ fontSize: 12 }}>
       <div
         style={{
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: 600,
-          color: t.tx3,
-          textTransform: "uppercase",
-          letterSpacing: 0.3,
+          color: t.tx2,
           marginBottom: 6,
         }}
       >
         Gold Standard
       </div>
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>
           Label (binary classifier)
         </div>
         <select
@@ -112,7 +73,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
             border: `1px solid ${t.bdr}`,
             background: t.surf,
             color: t.tx,
-            fontSize: 11,
+            fontSize: 12,
             fontFamily: "'DM Mono',monospace",
           }}
         >
@@ -128,7 +89,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
       </div>
       {c.goldStandardLabel && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>
             Positive class value
           </div>
           <input
@@ -147,7 +108,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
               border: `1px solid ${t.bdr}`,
               background: t.surf,
               color: t.tx,
-              fontSize: 11,
+              fontSize: 12,
               fontFamily: "'DM Mono',monospace",
             }}
           />
@@ -156,11 +117,9 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
 
       <div
         style={{
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: 600,
-          color: t.tx3,
-          textTransform: "uppercase",
-          letterSpacing: 0.3,
+          color: t.tx2,
           marginBottom: 6,
           marginTop: 12,
         }}
@@ -201,7 +160,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
                 <span
                   style={{
                     flex: 1,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontFamily: "'DM Mono',monospace",
                     color: selected ? t.acc : t.tx2,
                   }}
@@ -211,7 +170,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
                 {selected && (
                   <label
                     style={{
-                      fontSize: 9,
+                      fontSize: 12,
                       color: t.tx3,
                       display: "flex",
                       alignItems: "center",
@@ -239,11 +198,9 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
 
       <div
         style={{
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: 600,
-          color: t.tx3,
-          textTransform: "uppercase",
-          letterSpacing: 0.3,
+          color: t.tx2,
           marginBottom: 6,
           marginTop: 8,
         }}
@@ -259,7 +216,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
         }}
       >
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>Alpha</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>Alpha</div>
           <select
             value={c.alpha ?? 0.05}
             onChange={(e) =>
@@ -274,7 +231,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
               border: `1px solid ${t.bdr}`,
               background: t.surf,
               color: t.tx,
-              fontSize: 10,
+              fontSize: 12,
             }}
           >
             <option value={0.05}>0.05</option>
@@ -283,7 +240,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
           </select>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>CV Method</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>CV Method</div>
           <select
             value={c.cvMethod || "loocv"}
             onChange={(e) =>
@@ -298,7 +255,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
               border: `1px solid ${t.bdr}`,
               background: t.surf,
               color: t.tx,
-              fontSize: 10,
+              fontSize: 12,
             }}
           >
             <option value="loocv">LOOCV</option>
@@ -307,7 +264,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
         </div>
         {c.cvMethod === "kfold" && (
           <div>
-            <div style={{ fontSize: 9, color: t.tx3 }}>K</div>
+            <div style={{ fontSize: 12, color: t.tx3 }}>K</div>
             <input
               type="number"
               min={3}
@@ -329,7 +286,7 @@ export function DiagnosticConfig({ study, sessions, onUpdateStudy, t }) {
                 border: `1px solid ${t.bdr}`,
                 background: t.surf,
                 color: t.tx,
-                fontSize: 10,
+                fontSize: 12,
               }}
             />
           </div>
@@ -352,7 +309,7 @@ export function DiagnosticResults({ results, t }) {
   if (!results || results.note) {
     return (
       <div
-        style={{ fontSize: 11, color: t.tx2, padding: 16, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx2, padding: 16, textAlign: "center" }}
       >
         {results?.note || "No results available. Run the analysis first."}
       </div>
@@ -380,44 +337,19 @@ export function DiagnosticResults({ results, t }) {
         style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}
       >
         {predictorNames.map((name) => (
-          <button
-            key={name}
-            onClick={() => setSelectedPred(name)}
-            style={{
-              padding: "3px 8px",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 10,
-              fontWeight: 600,
-              border: `1px solid ${currentPred === name ? t.acc : t.bdr}`,
-              background: currentPred === name ? t.acc + "22" : "transparent",
-              color: currentPred === name ? t.acc : t.tx2,
-              fontFamily: "'DM Mono',monospace",
-            }}
-          >
+          <Chip t={t} mono on={currentPred === name} key={name}
+            onClick={() => setSelectedPred(name)}>
             {name}
-          </button>
+          </Chip>
         ))}
         {predictorNames.length > 1 && (
-          <button
-            onClick={() => setSelectedPred(null)}
-            style={{
-              padding: "3px 8px",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 10,
-              fontWeight: 600,
-              border: `1px solid ${currentPred == null ? t.warn : t.bdr}`,
-              background: currentPred == null ? t.warn + "22" : "transparent",
-              color: currentPred == null ? t.warn : t.tx2,
-            }}
-          >
+          <Chip t={t} on={currentPred == null} onClick={() => setSelectedPred(null)} style={{ ...(currentPred == null ? { color: t.warn, border: `1px solid ${t.warn}`, background: t.warn + "22" } : {}) }}>
             All
-          </button>
+          </Chip>
         )}
       </div>
 
-      <TabBar tabs={tabs} active={tab} onChange={setTab} t={t} />
+      <TabBar style={{ marginBottom: 10 }} tabs={tabs} active={tab} onChange={setTab} t={t} />
 
       <div style={{ overflow: "auto" }}>
         {tab === "roc" && (
@@ -475,7 +407,7 @@ function ROCCurveView({
   if (!result)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         Select a predictor.
       </div>
@@ -485,7 +417,7 @@ function ROCCurveView({
   if (!roc || !auc)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         Insufficient data for ROC.
       </div>
@@ -656,7 +588,7 @@ function ROCCurveView({
         <div style={{ marginTop: 10 }}>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               color: t.tx,
               marginBottom: 4,
@@ -678,7 +610,7 @@ function ROCCurveView({
           />
         </div>
         <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: 11, color: t.tx2, marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 4 }}>
             Clinical cost weighting
           </div>
           <Slider
@@ -718,28 +650,28 @@ function AUCSummaryCard({ auc, t }) {
     >
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
         <div>
-          <span style={{ fontSize: 9, color: t.tx3 }}>AUC</span>
+          <span style={{ fontSize: 12, color: t.tx3 }}>AUC</span>
           <div style={{ fontSize: 14, fontWeight: 700, color: t.acc }}>
             {fmt(auc.auc)}
           </div>
         </div>
         <div>
-          <span style={{ fontSize: 9, color: t.tx3 }}>SE</span>
+          <span style={{ fontSize: 12, color: t.tx3 }}>SE</span>
           <div style={{ fontSize: 14, fontWeight: 700, color: t.tx2 }}>
             {fmt(auc.seAUC)}
           </div>
         </div>
         <div>
-          <span style={{ fontSize: 9, color: t.tx3 }}>95% CI</span>
-          <div style={{ fontSize: 11, color: t.tx }}>
+          <span style={{ fontSize: 12, color: t.tx3 }}>95% CI</span>
+          <div style={{ fontSize: 12, color: t.tx }}>
             [{fmt(auc.ci95?.[0])}, {fmt(auc.ci95?.[1])}]
           </div>
         </div>
         <div>
-          <span style={{ fontSize: 9, color: t.tx3 }}>p (vs. 0.5)</span>
+          <span style={{ fontSize: 12, color: t.tx3 }}>p (vs. 0.5)</span>
           <div
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               color: (auc.p || 1) < 0.05 ? t.ok : t.tx2,
             }}
@@ -764,8 +696,8 @@ function ThresholdCard({ label, pt, color, t }) {
         borderLeft: `3px solid ${color}`,
       }}
     >
-      <div style={{ fontSize: 8, color: t.tx3, marginBottom: 2 }}>{label}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 9 }}>
+      <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>{label}</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
         <span style={{ color }}>Thr={pt.threshold?.toFixed(2) || "—"}</span>
         <span style={{ color: t.tx2 }}>Se={pt.sensitivity?.toFixed(3)}</span>
         <span style={{ color: t.tx2 }}>Sp={pt.specificity?.toFixed(3)}</span>
@@ -781,7 +713,7 @@ function Slider({ label, value, min, max, step, onChange, t }) {
     <div
       style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
     >
-      <span style={{ fontSize: 9, color: t.tx2, minWidth: 50 }}>{label}</span>
+      <span style={{ fontSize: 12, color: t.tx2, minWidth: 50 }}>{label}</span>
       <input
         type="range"
         min={min}
@@ -793,7 +725,7 @@ function Slider({ label, value, min, max, step, onChange, t }) {
       />
       <span
         style={{
-          fontSize: 9,
+          fontSize: 12,
           color: t.tx,
           minWidth: 30,
           textAlign: "right",
@@ -813,7 +745,7 @@ function MetricsTableView({ result, highlightPt, t }) {
   if (!result)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         No data.
       </div>
@@ -853,10 +785,10 @@ function MetricsTableView({ result, highlightPt, t }) {
               border: `1px solid ${t.bdr}`,
             }}
           >
-            <div style={{ fontSize: 8, color: t.tx3 }}>{label}</div>
+            <div style={{ fontSize: 12, color: t.tx3 }}>{label}</div>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 color: t.tx,
                 fontFamily: "'DM Mono',monospace",
@@ -872,7 +804,7 @@ function MetricsTableView({ result, highlightPt, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 9,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
         }}
       >
@@ -897,9 +829,7 @@ function MetricsTableView({ result, highlightPt, t }) {
                   padding: "3px 4px",
                   textAlign: "right",
                   color: t.tx,
-                  fontSize: 7,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  fontSize: 12,
                 }}
               >
                 {h}
@@ -998,7 +928,7 @@ function CompareROCView({ results, t }) {
   if (!comparisons?.length)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         Need at least 2 predictors for comparison.
       </div>
@@ -1024,7 +954,7 @@ function CompareROCView({ results, t }) {
             <div key={name} style={{ textAlign: "center" }}>
               <div
                 style={{
-                  fontSize: 8,
+                  fontSize: 12,
                   color: t.tx2,
                   marginBottom: 2,
                   fontFamily: "'DM Mono',monospace",
@@ -1077,7 +1007,7 @@ function CompareROCView({ results, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 10,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
         }}
       >
@@ -1100,9 +1030,7 @@ function CompareROCView({ results, t }) {
                   padding: "4px 6px",
                   textAlign: "left",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  fontSize: 12,
                 }}
               >
                 {h}
@@ -1156,7 +1084,7 @@ function CompareROCView({ results, t }) {
               >
                 {fmtP(c.pAdj)}
               </td>
-              <td style={{ padding: "4px 6px", color: t.tx2, fontSize: 9 }}>
+              <td style={{ padding: "4px 6px", color: t.tx2, fontSize: 12 }}>
                 [{c.ci95[0].toFixed(3)}, {c.ci95[1].toFixed(3)}]
               </td>
             </tr>
@@ -1174,7 +1102,7 @@ function CalibrationView({ result, t }) {
   if (!result?.roc)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         No calibration data.
       </div>
@@ -1183,7 +1111,7 @@ function CalibrationView({ result, t }) {
   if (!cal?.groups?.length)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         Calibration data not available for individual predictors. Use Composite
         Index tab for calibration.
@@ -1265,7 +1193,7 @@ function CalibrationView({ result, t }) {
         >
           <div
             style={{
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               color: t.tx,
               marginBottom: 6,
@@ -1278,7 +1206,7 @@ function CalibrationView({ result, t }) {
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
               gap: 4,
-              fontSize: 10,
+              fontSize: 12,
             }}
           >
             <div>
@@ -1331,7 +1259,7 @@ function CompositeView({ composite, t }) {
   if (!composite)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         Need at least 2 predictors and 5 cases to build composite index.
       </div>
@@ -1376,10 +1304,10 @@ function CompositeView({ composite, t }) {
               border: `1px solid ${t.bdr}`,
             }}
           >
-            <div style={{ fontSize: 8, color: t.tx3 }}>{label}</div>
+            <div style={{ fontSize: 12, color: t.tx3 }}>{label}</div>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 color: t.tx,
                 fontFamily: "'DM Mono',monospace",
@@ -1395,7 +1323,7 @@ function CompositeView({ composite, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 10,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
           marginBottom: 10,
         }}
@@ -1409,9 +1337,7 @@ function CompositeView({ composite, t }) {
                   padding: "4px 6px",
                   textAlign: "left",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  fontSize: 12,
                 }}
               >
                 {h}
@@ -1446,7 +1372,7 @@ function CompositeView({ composite, t }) {
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
                 {(composite.OR[i] || 0).toFixed(3)}
               </td>
-              <td style={{ padding: "4px 6px", color: t.tx2, fontSize: 9 }}>
+              <td style={{ padding: "4px 6px", color: t.tx2, fontSize: 12 }}>
                 [{(composite.OR_CI[i]?.[0] || 0).toFixed(2)},{" "}
                 {(composite.OR_CI[i]?.[1] || 0).toFixed(2)}]
               </td>
@@ -1465,7 +1391,7 @@ function CrossValidationView({ crossVal, t }) {
   if (!crossVal)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         Cross-validation requires 5+ cases with 2+ predictors.
       </div>
@@ -1481,7 +1407,7 @@ function CrossValidationView({ crossVal, t }) {
       }}
     >
       <div
-        style={{ fontSize: 10, fontWeight: 700, color: t.tx, marginBottom: 8 }}
+        style={{ fontSize: 12, fontWeight: 700, color: t.tx, marginBottom: 8 }}
       >
         Cross-Validation Results
       </div>
@@ -1489,25 +1415,25 @@ function CrossValidationView({ crossVal, t }) {
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}
       >
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>Method</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>Method</div>
           <div style={{ fontSize: 12, fontWeight: 700, color: t.tx }}>
             {crossVal.method === "loocv" ? "LOOCV" : `K-Fold (k=${crossVal.k})`}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>Apparent AUC</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>Apparent AUC</div>
           <div style={{ fontSize: 12, fontWeight: 700, color: t.tx2 }}>
             {crossVal.apparentAUC?.toFixed(4) || "—"}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>CV AUC</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>CV AUC</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: t.acc }}>
             {crossVal.cvAUC?.auc?.toFixed(4) || "—"}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>Optimism</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>Optimism</div>
           <div
             style={{
               fontSize: 12,
@@ -1519,15 +1445,15 @@ function CrossValidationView({ crossVal, t }) {
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>CV AUC 95% CI</div>
-          <div style={{ fontSize: 10, color: t.tx }}>
+          <div style={{ fontSize: 12, color: t.tx3 }}>CV AUC 95% CI</div>
+          <div style={{ fontSize: 12, color: t.tx }}>
             {crossVal.cvAUC?.ci95
               ? `[${crossVal.cvAUC.ci95[0].toFixed(3)}, ${crossVal.cvAUC.ci95[1].toFixed(3)}]`
               : "—"}
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 9, color: t.tx3 }}>Folds</div>
+          <div style={{ fontSize: 12, color: t.tx3 }}>Folds</div>
           <div style={{ fontSize: 12, fontWeight: 700, color: t.tx2 }}>
             {crossVal.nFolds || "—"}
           </div>
@@ -1554,7 +1480,7 @@ function DiagnosticReport({ results, t }) {
   } = results;
 
   return (
-    <div style={{ fontSize: 10, maxWidth: 600 }}>
+    <div style={{ fontSize: 12, maxWidth: 600 }}>
       <div style={{ marginBottom: 12 }}>
         <div
           style={{
@@ -1602,7 +1528,7 @@ function DiagnosticReport({ results, t }) {
               &nbsp;|&nbsp; Optimal threshold (Youden):{" "}
               {p.optimalYouden?.threshold?.toFixed(2) || "—"}
             </div>
-            <div style={{ color: t.tx3, marginTop: 1, fontSize: 9 }}>
+            <div style={{ color: t.tx3, marginTop: 1, fontSize: 12 }}>
               Se = {p.optimalYouden?.sensitivity?.toFixed(3)}, Sp ={" "}
               {p.optimalYouden?.specificity?.toFixed(3)}, PPV ={" "}
               {p.optimalYouden?.ppv?.toFixed(3)}, NPV ={" "}
@@ -1618,7 +1544,7 @@ function DiagnosticReport({ results, t }) {
             ROC Comparisons
           </div>
           {comparisons.map((c, i) => (
-            <div key={i} style={{ color: t.tx2, fontSize: 9, marginBottom: 2 }}>
+            <div key={i} style={{ color: t.tx2, fontSize: 12, marginBottom: 2 }}>
               {c.A} vs {c.B}: &Delta;AUC = {c.diff > 0 ? "+" : ""}
               {c.diff.toFixed(3)}, z = {c.z.toFixed(2)}, p = {fmtP(c.p)}{" "}
               {c.significant ? "*" : ""}

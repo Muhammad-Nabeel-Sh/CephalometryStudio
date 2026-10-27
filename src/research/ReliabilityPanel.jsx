@@ -3,46 +3,17 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState } from "react";
-import { InfoBox } from "../ui/ui.jsx";
+import { InfoBox, Btn, Chip, RemoveBtn, TabBar } from "../ui/ui.jsx";
 import { mkReliabilitySession } from "../model/session.js";
 import { addSession } from "../model/project.js";
 import { ICC_MODELS } from "./reliability.js";
+import { LabelSelector } from "./LabelSelector.jsx";
+import { SMALL_BTN } from "../ui/tokens.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// ─── Label Selector (reused from ResearchPanel) ─────────────────────────
-function LabelSelector({ sessions, selected, onToggle, t }) {
-  const labels = [...new Set((sessions || []).flatMap(s =>
-    (s.markups || []).filter(m => m.label && m.type !== "ruler" && m.type !== "silhouette").map(m => m.label)
-  ))].sort();
-  if (labels.length === 0) return <div style={{ fontSize: 10, color: t.tx3 }}>No labeled markups found.</div>;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {selected.length === 0 && <span style={{ fontSize: 10, color: t.tx3, padding: "2px 0" }}>All ({labels.length})</span>}
-      {selected.length > 0 && (
-        <button onClick={() => labels.forEach(l => { if (selected.includes(l)) onToggle(l); })}
-          style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx3, cursor: "pointer" }}>
-          Clear
-        </button>
-      )}
-      {labels.map(l => (
-        <button key={l} onClick={() => onToggle(l)}
-          style={{
-            fontSize: 9, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-            border: `1px solid ${selected.includes(l) ? t.acc : t.bdr}`,
-            background: selected.includes(l) ? t.acc + "22" : "transparent",
-            color: selected.includes(l) ? t.acc : t.tx2,
-            fontWeight: selected.includes(l) ? 700 : 400,
-            fontFamily: "'DM Mono',monospace",
-          }}>
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── Config Panel ────────────────────────────────────────────────────────
 export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, onUpdateProject }) {
@@ -174,7 +145,7 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 11 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 12 }}>
 
       <InfoBox t={t}>
         Each <b>case</b> represents one subject at one timepoint. Pick a <b>session</b> (image) for the case;
@@ -184,21 +155,15 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
 
       {/* Design selector */}
       <div>
-        <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>Study Design</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>Study Design</div>
         <div style={{ display: "flex", gap: 4 }}>
           {["intra", "inter", "method_comparison"].map(d => (
-            <button key={d} onClick={() => update({ design: d })}
-              style={{
-                flex: 1, padding: "5px 6px", borderRadius: 4, fontSize: 9, fontWeight: 600, cursor: "pointer",
-                border: `1px solid ${config.design === d ? t.acc : t.bdr}`,
-                background: config.design === d ? t.acc + "22" : "transparent",
-                color: config.design === d ? t.acc : t.tx2,
-              }}>
+            <Chip t={t} on={config.design === d} key={d} onClick={() => update({ design: d })} style={{ flex: 1, padding: "6px 8px", textAlign: "center" }}>
               {d === "intra" ? "Intra-operator" : d === "inter" ? "Inter-operator" : "Method Comparison"}
-            </button>
+            </Chip>
           ))}
         </div>
-        <div style={{ fontSize: 9, color: t.tx3, marginTop: 2 }}>
+        <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>
           {config.design === "intra" ? "Same operator, repeated measurements on each case" :
            config.design === "inter" ? "Different operators measuring the same cases" :
            "Comparing two measurement methods on the same cases"}
@@ -207,14 +172,14 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
 
       {/* ICC model (Koo & Li 2016: report model, type and definition) */}
       <div>
-        <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>ICC Model</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>ICC Model</div>
         <select value={config.iccModel || "icc2"} onChange={e => update({ iccModel: e.target.value })}
-          style={{ width: "100%", padding: "4px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 10 }}>
+          style={{ width: "100%", padding: "4px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}>
           {Object.entries(ICC_MODELS).map(([id, m]) => (
             <option key={id} value={id}>{m.label} — {m.description}</option>
           ))}
         </select>
-        <div style={{ fontSize: 9, color: t.tx3, marginTop: 2, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 12, color: t.tx3, marginTop: 2, lineHeight: 1.4 }}>
           {config.design === "intra"
             ? "Intra-rater: ICC(3,1) (consistency) is common when one rater repeats measurements; ICC(2,1) also penalises systematic shifts between occasions."
             : "Inter-rater / method agreement: ICC(2,1) (absolute agreement) generalises to other raters; use the k-forms only if the mean of k ratings is the reported measurement."}
@@ -224,22 +189,21 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
       {/* Operators / Methods */}
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3 }}>{agentLabelPl}</span>
-          <button onClick={addOperator}
-            style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, border: `1px solid ${t.acc}`, background: "transparent", color: t.acc, cursor: "pointer" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: t.tx2 }}>{agentLabelPl}</span>
+          <Btn t={t} small onClick={addOperator} style={{ ...SMALL_BTN, color: t.acc }}>
             + Add
-          </button>
+          </Btn>
         </div>
-        {operators.length === 0 && <div style={{ fontSize: 10, color: t.tx3 }}>No {agentLabel.toLowerCase()}s defined.</div>}
+        {operators.length === 0 && <div style={{ fontSize: 12, color: t.tx3 }}>No {agentLabel.toLowerCase()}s defined.</div>}
         {operators.map(o => (
           <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
             <input value={o.name} onChange={e => renameOperator(o.id, e.target.value)}
               style={{
                 flex: 1, padding: "4px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`,
-                background: t.surf, color: t.tx, fontSize: 10,
+                background: t.surf, color: t.tx, fontSize: 12,
               }} />
             <select value={o.role} onChange={e => update({ operators: operators.map(op => op.id === o.id ? { ...op, role: e.target.value } : op) })}
-              style={{ padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+              style={{ padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}>
               {isMethod ? (
                 <>
                   <option value="reference">Reference</option>
@@ -253,23 +217,22 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
                 </>
               )}
             </select>
-            <button onClick={() => removeOperator(o.id)}
-              style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 11, padding: 2 }}>✕</button>
+            <RemoveBtn t={t} onClick={() => removeOperator(o.id)} />
           </div>
         ))}
       </div>
 
       {/* Protocol */}
       <div>
-        <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>Protocol</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>Protocol</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 10, color: t.tx2 }}>Occasions:</span>
+          <span style={{ fontSize: 12, color: t.tx2 }}>Occasions:</span>
           <select value={config.protocol?.occasions || 2}
             onChange={e => update({ protocol: { ...config.protocol, occasions: Number(e.target.value) } })}
-            style={{ padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+            style={{ padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}>
             {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <label style={{ fontSize: 10, color: t.tx2, display: "flex", alignItems: "center", gap: 4 }}>
+          <label style={{ fontSize: 12, color: t.tx2, display: "flex", alignItems: "center", gap: 4 }}>
             <input type="checkbox" checked={config.protocol?.blindingEnforced || false}
               onChange={e => update({ protocol: { ...config.protocol, blindingEnforced: e.target.checked } })} />
             Blinding
@@ -277,10 +240,10 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
         </div>
         {config.design === "intra" && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 10, color: t.tx2 }}>Min separation (days):</span>
+            <span style={{ fontSize: 12, color: t.tx2 }}>Min separation (days):</span>
             <input type="number" min={1} value={config.minTimeSeparation || 14}
               onChange={e => update({ minTimeSeparation: Math.max(1, Number(e.target.value)) })}
-              style={{ width: 50, padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }} />
+              style={{ width: 50, padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }} />
           </div>
         )}
       </div>
@@ -288,9 +251,9 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
       {/* Cases / Session mapping */}
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3 }}>Cases</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: t.tx2 }}>Cases</span>
           <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={() => {
+            <Btn t={t} small onClick={() => {
               const subjects = project?.subjects || [];
               if (subjects.length === 0) return;
               const managedOps = project?.operators || [];
@@ -318,18 +281,16 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
                 };
               });
               update({ operators: opList, cases: newCases });
-            }}
-              style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, border: `1px solid ${t.acc}`, background: "transparent", color: t.acc, cursor: "pointer" }}>
+            }} style={{ ...SMALL_BTN, color: t.acc }}>
               From Subjects
-            </button>
-            <button onClick={addCase}
-              style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, cursor: "pointer" }}>
+            </Btn>
+            <Btn t={t} small onClick={addCase} style={SMALL_BTN}>
               + Add Case
-            </button>
+            </Btn>
           </div>
         </div>
         {cases.length === 0 && (
-          <div style={{ fontSize: 10, color: t.tx3, padding: "6px 0" }}>No cases defined. Add a case and assign a session to it.</div>
+          <div style={{ fontSize: 12, color: t.tx3, padding: "6px 0" }}>No cases defined. Add a case and assign a session to it.</div>
         )}
         {cases.map(c => {
           const ses = c.sessionId ? sessions.find(s => s.id === c.sessionId) : null;
@@ -337,17 +298,16 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
           <div key={c.id} style={{ marginBottom: 8, padding: 8, borderRadius: 4, background: t.surf3, border: `1px solid ${t.bdr}44` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
               <input value={c.name} onChange={e => update({ cases: cases.map(c2 => c2.id === c.id ? { ...c2, name: e.target.value } : c2) })}
-                style={{ flex: 1, padding: "3px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 10, fontWeight: 600 }} />
-              <button onClick={() => removeCase(c.id)}
-                style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 10, padding: 2 }}>✕</button>
+                style={{ flex: 1, padding: "3px 6px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12, fontWeight: 600 }} />
+              <RemoveBtn t={t} onClick={() => removeCase(c.id)} />
             </div>
 
             {/* Single session picker */}
             <div style={{ marginBottom: 6 }}>
-              <label style={{ fontSize: 9, color: t.tx3, display: "block", marginBottom: 2 }}>Session (image):</label>
+              <label style={{ fontSize: 12, color: t.tx3, display: "block", marginBottom: 2 }}>Session (image):</label>
               <div style={{ display: "flex", gap: 3 }}>
                 <select value={c.sessionId || ""} onChange={e => setCaseSession(c.id, e.target.value)}
-                  style={{ flex: 1, padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+                  style={{ flex: 1, padding: "3px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}>
                   <option value="">Select session...</option>
                   {sessions.map(s => (
                     <option key={s.id} value={s.id}>{s.name || s.label || s.id.slice(0, 8)}</option>
@@ -359,7 +319,7 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
             {/* Operator × Trial auto-generated grid */}
             {c.sessionId && (c.sessions || []).length > 0 && (
               <div>
-                <div style={{ fontSize: 8, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 3 }}>
+                <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3 }}>
                   {operators.length} {agentLabel.toLowerCase()}{operators.length !== 1 ? "s" : ""} × {occasions} trial{occasions !== 1 ? "s" : ""} — {c.sessions.length} entries
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -367,13 +327,13 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
                     const op = operators.find(o => o.id === cs.operatorId);
                     return (
                       <div key={`${cs.operatorId}-${cs.occasion}`}
-                        style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px", background: t.surf2, borderRadius: 2, fontSize: 9 }}>
-                        <span style={{ color: t.acc, fontWeight: 600, minWidth: 80, fontSize: 8 }}>{op?.name || cs.operatorId}</span>
+                        style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px", background: t.surf2, borderRadius: 2, fontSize: 12 }}>
+                        <span style={{ color: t.acc, fontWeight: 600, minWidth: 80, fontSize: 12 }}>{op?.name || cs.operatorId}</span>
                         <span style={{ color: t.tx3 }}>Trial {cs.occasion}:</span>
                         <span style={{ color: t.tx, fontFamily: "'DM Mono',monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {ses?.name || ses?.label || cs.sessionId.slice(0, 8)}
                         </span>
-                        <span style={{ color: t.ok, fontSize: 8 }}>✓ auto</span>
+                        <span style={{ color: t.ok, fontSize: 12 }}>✓ auto</span>
                       </div>
                     );
                   })}
@@ -383,10 +343,10 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
 
             {/* No session selected */}
             {!c.sessionId && sessions.length > 0 && (
-              <div style={{ fontSize: 9, color: t.tx3, fontStyle: "italic" }}>Select a session above to auto-generate operator × trial entries.</div>
+              <div style={{ fontSize: 12, color: t.tx3, fontStyle: "italic" }}>Select a session above to auto-generate operator × trial entries.</div>
             )}
             {!c.sessionId && sessions.length === 0 && (
-              <div style={{ fontSize: 9, color: t.tx3, fontStyle: "italic" }}>No sessions available. Import an image first.</div>
+              <div style={{ fontSize: 12, color: t.tx3, fontStyle: "italic" }}>No sessions available. Import an image first.</div>
             )}
           </div>
           );
@@ -395,12 +355,12 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
 
       {/* Measurement labels */}
       <div>
-        <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>Measurements</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>Measurements</div>
         <LabelSelector sessions={sessions} selected={labelIds} onToggle={toggleLabel} t={t} />
       </div>
 
       {/* Ready indicator */}
-      <div style={{ fontSize: 10, color: t.tx2, textAlign: "center", padding: 6, background: t.surf3, borderRadius: 4 }}>
+      <div style={{ fontSize: 12, color: t.tx2, textAlign: "center", padding: 6, background: t.surf3, borderRadius: 4 }}>
         {cases.length === 0 ? "⚠ Add at least one case with a session assigned" :
          cases.every(c => !c.sessionId) ? "⚠ Assign a session to each case" :
          operators.length < (config.design === "intra" ? 1 : 2) ? `⚠ Define enough ${agentLabel.toLowerCase()}s for this design` :
@@ -408,15 +368,10 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
       </div>
 
       {/* Run Study button */}
-      <button onClick={startWorkflow}
-        disabled={cases.length === 0 || cases.every(c => !c.sessionId) || operators.length === 0}
-        style={{
-          padding: "8px 12px", borderRadius: 6, border: "none", cursor: "pointer",
-          background: t.ok, color: t.bg, fontSize: 12, fontWeight: 700,
-          opacity: cases.length > 0 && cases.some(c => c.sessionId) && operators.length > 0 ? 1 : 0.4,
-        }}>
-        ▶ Run Study
-      </button>
+      <Btn t={t} active onClick={startWorkflow}
+        disabled={cases.length === 0 || cases.every(c => !c.sessionId) || operators.length === 0}>
+        Start data collection
+      </Btn>
     </div>
   );
 }
@@ -539,25 +494,22 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
 
   if (!current && !workflow.complete) {
     return (
-      <div style={{ fontSize: 10, color: t.tx3, textAlign: "center", padding: 20 }}>No workflow steps available.</div>
+      <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 20 }}>No workflow steps available.</div>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 11 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12 }}>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: t.tx }}>Study Workflow</span>
-        <button onClick={exitWorkflow}
-          style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 9, textDecoration: "underline" }}>
-          Exit
-        </button>
+        <Btn t={t} small ghost onClick={exitWorkflow} style={SMALL_BTN}>Exit workflow</Btn>
       </div>
 
       {/* Progress bar */}
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: t.tx2, marginBottom: 3 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: t.tx2, marginBottom: 3 }}>
           <span>{doneCount}/{total} steps done</span>
           <span>{pct}%</span>
         </div>
@@ -570,58 +522,50 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
       {workflow.complete && (
         <div style={{ padding: 12, background: t.ok + "18", borderRadius: 6, border: `1px solid ${t.ok}44`, textAlign: "center" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: t.ok, marginBottom: 4 }}>✓ All steps complete!</div>
-          <div style={{ fontSize: 10, color: t.tx2 }}>All operators have completed their trials. Ready for analysis.</div>
+          <div style={{ fontSize: 12, color: t.tx2 }}>All operators have completed their trials. Ready for analysis.</div>
         </div>
       )}
 
       {/* Current step */}
       {!workflow.complete && current && (
         <div style={{ padding: 10, background: t.surf3, borderRadius: 6, border: `1px solid ${t.bdr}44` }}>
-          <div style={{ fontSize: 8, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 6 }}>
             Step {currentStep + 1} of {total}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 8 }}>
-            <div style={{ display: "flex", gap: 6, fontSize: 10 }}>
+            <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
               <span style={{ color: t.tx3, minWidth: 60 }}>Operator:</span>
               <span style={{ color: t.acc, fontWeight: 700 }}>{current.operatorName}</span>
             </div>
-            <div style={{ display: "flex", gap: 6, fontSize: 10 }}>
+            <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
               <span style={{ color: t.tx3, minWidth: 60 }}>Trial:</span>
               <span style={{ color: t.tx, fontWeight: 600 }}>{current.trialNum} of {occasions}</span>
             </div>
-            <div style={{ display: "flex", gap: 6, fontSize: 10 }}>
+            <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
               <span style={{ color: t.tx3, minWidth: 60 }}>Case:</span>
               <span style={{ color: t.tx, fontWeight: 600 }}>{current.caseName}</span>
             </div>
-            <div style={{ display: "flex", gap: 6, fontSize: 10 }}>
+            <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
               <span style={{ color: t.tx3, minWidth: 60 }}>Session:</span>
               <span style={{ color: t.tx2, fontFamily: "'DM Mono',monospace" }}>{current.baseSessionName}</span>
             </div>
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={openSession}
-              style={{
-                flex: 1, padding: "6px 8px", borderRadius: 4, border: "none", cursor: "pointer",
-                background: t.acc, color: t.bg, fontSize: 10, fontWeight: 700,
-              }}>
-              {current.cloneSessionId ? "Open Session" : "▶ Open & Create"}
-            </button>
-            <button onClick={completeAndNext}
-              style={{
-                flex: 1, padding: "6px 8px", borderRadius: 4, border: `1px solid ${t.ok}`, cursor: "pointer",
-                background: t.ok + "18", color: t.ok, fontSize: 10, fontWeight: 700,
-              }}>
-              {currentStep + 1 >= total ? "Finish ✓" : "Complete & Next →"}
-            </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Btn t={t} small active onClick={openSession} style={{ flex: 1 }}>
+              {current.cloneSessionId ? "Open session" : "Create and open session"}
+            </Btn>
+            <Btn t={t} small onClick={completeAndNext} style={{ flex: 1, color: t.ok, border: `1px solid ${t.ok}` }}>
+              {currentStep + 1 >= total ? "Finish" : "Complete and next →"}
+            </Btn>
           </div>
         </div>
       )}
 
       {/* Operator progress summary */}
       <div>
-        <div style={{ fontSize: 8, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>Operator Progress</div>
+        <div style={{ fontSize: 12, color: t.tx2, marginBottom: 4 }}>Operator Progress</div>
         {(() => {
           const opSteps = {};
           for (const s of steps) {
@@ -630,7 +574,7 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
             if (s.done) opSteps[s.operatorName].done++;
           }
           return Object.entries(opSteps).map(([name, stats]) => (
-            <div key={name} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 4px", marginBottom: 2, background: t.surf2, borderRadius: 3, fontSize: 9 }}>
+            <div key={name} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 4px", marginBottom: 2, background: t.surf2, borderRadius: 3, fontSize: 12 }}>
               <span style={{ color: t.acc, fontWeight: 600, minWidth: 80 }}>{name}</span>
               <div style={{ flex: 1, height: 4, background: t.surf3, borderRadius: 2, overflow: "hidden" }}>
                 <div style={{ height: "100%", width: (stats.done / stats.total * 100) + "%", background: stats.done === stats.total ? t.ok : t.acc2, borderRadius: 2 }} />
@@ -643,7 +587,7 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
       </div>
 
       {workflow.complete && (
-        <div style={{ fontSize: 9, color: t.tx3, textAlign: "center", padding: 4 }}>
+        <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 4 }}>
           All data collected. Run analysis below.
         </div>
       )}
@@ -667,21 +611,10 @@ export function ReliabilityResults({ results, t }) {
   return (
     <div>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 2, marginBottom: 8, borderBottom: `1px solid ${t.bdr}44` }}>
-        {tabs.map(tabItem => (
-          <button key={tabItem.id} onClick={() => setTab(tabItem.id)}
-            style={{
-              padding: "5px 10px", fontSize: 9, fontWeight: 600, cursor: "pointer",
-              border: "none", borderBottom: tab === tabItem.id ? `2px solid ${t.acc}` : "2px solid transparent",
-              background: "transparent", color: tab === tabItem.id ? t.acc : t.tx3,
-            }}>
-            {tabItem.label}
-          </button>
-        ))}
-      </div>
+      <TabBar t={t} tabs={tabs} active={tab} onChange={setTab} style={{ marginBottom: 10 }} />
 
       {results.note && !results.details?.length && (
-        <div style={{ fontSize: 11, color: t.tx2, padding: 12, textAlign: "center" }}>{results.note}</div>
+        <div style={{ fontSize: 12, color: t.tx2, padding: 12, textAlign: "center" }}>{results.note}</div>
       )}
 
       {tab === "icc" && <ICCView details={details} t={t} />}
@@ -702,15 +635,15 @@ function ICCView({ details, t }) {
   return (
     <div style={{ overflowX: "auto" }}>
       {m0.iccModelLabel && (
-        <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, color: t.tx3, marginBottom: 6 }}>
           <b style={{ color: t.tx2 }}>{m0.iccModelLabel}</b> — {m0.iccModelDescription}. 95% CI; interpretation per Koo &amp; Li (2016) — judge reliability by the CI, not only the point estimate.
         </div>
       )}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
             {["Label", "ICC", "95% CI", "Interp.", "F", "df1", "df2", "p"].map(h => (
-              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
+              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx2, fontSize: 12 }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -727,7 +660,7 @@ function ICCView({ details, t }) {
                 </td>
                 <td style={{ padding: "5px 6px" }}>
                   <span style={{
-                    padding: "1px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700,
+                    padding: "1px 6px", borderRadius: 3, fontSize: 12, fontWeight: 700,
                     background: intColor + "22", border: `1px solid ${intColor}44`, color: intColor,
                   }}>{intLabel}</span>
                 </td>
@@ -751,11 +684,11 @@ function BlandAltmanView({ details, t }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
             {["Label", "Unit", "Mean Diff", "SD Diff", "LoA Lower", "LoA Upper", "Prop. Bias", "p"].map(h => (
-              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
+              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx2, fontSize: 12 }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -787,11 +720,11 @@ function MethodErrorView({ details, t }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
             {["Label", "Unit", "Dahlberg", "SEM", "MDC (95%)", "CV (%)", "N"].map(h => (
-              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
+              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx2, fontSize: 12 }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -820,11 +753,11 @@ function ErrorMapView({ results, t }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "'DM Mono',monospace" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>
         <thead>
           <tr style={{ background: t.surf2 }}>
             {["Landmark", "Unit", "N", "Mean Error", "SD Error", "Max Error", "Ellipse Major", "Ellipse Minor"].map(h => (
-              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx3, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3 }}>{h}</th>
+              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx2, fontSize: 12 }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -857,8 +790,8 @@ function SummaryView({ results, t }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ padding: 10, background: t.surf3, borderRadius: 6, border: `1px solid ${t.bdr}44` }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Study Summary</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", fontSize: 10, color: t.tx2 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Study Summary</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", fontSize: 12, color: t.tx2 }}>
           <span>Design:</span><span style={{ color: t.tx, fontWeight: 600 }}>{s.design || "—"}</span>
           <span>Operators:</span><span style={{ color: t.tx }}>{s.operators || "—"}</span>
           <span>Cases:</span><span style={{ color: t.tx }}>{s.cases || "—"}</span>
@@ -870,8 +803,8 @@ function SummaryView({ results, t }) {
 
       {valid.length > 0 && (
         <div style={{ padding: 10, background: t.surf3, borderRadius: 6, border: `1px solid ${t.bdr}44` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.tx, marginBottom: 6 }}>ICC Summary</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", fontSize: 10, color: t.tx2 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.tx, marginBottom: 6 }}>ICC Summary</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px", fontSize: 12, color: t.tx2 }}>
             <span>Excellent (≥0.90):</span><span style={{ color: t.ok, fontWeight: 600 }}>{valid.filter(d => d.icc >= 0.9).length}</span>
             <span>Good (0.75–0.90):</span><span style={{ color: "#60a5fa", fontWeight: 600 }}>{valid.filter(d => d.icc >= 0.75 && d.icc < 0.9).length}</span>
             <span>Moderate (0.50–0.75):</span><span style={{ color: t.warn, fontWeight: 600 }}>{valid.filter(d => d.icc >= 0.5 && d.icc < 0.75).length}</span>
@@ -882,9 +815,9 @@ function SummaryView({ results, t }) {
 
       {skipped.length > 0 && (
         <div style={{ padding: 10, background: t.err + "0a", borderRadius: 6, border: `1px solid ${t.err}33` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.err, marginBottom: 4 }}>Skipped ({skipped.length})</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.err, marginBottom: 4 }}>Skipped ({skipped.length})</div>
           {skipped.map(d => (
-            <div key={d.label} style={{ fontSize: 9, color: t.tx2, marginBottom: 2 }}>
+            <div key={d.label} style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>
               <span style={{ color: t.tx, fontWeight: 600 }}>{d.label}</span>: {d.reason}
             </div>
           ))}
@@ -896,7 +829,7 @@ function SummaryView({ results, t }) {
 
 // ─── Shared helpers ──────────────────────────────────────────────────────
 function EmptyDetail({ message, t }) {
-  return <div style={{ fontSize: 11, color: t.tx3, textAlign: "center", padding: 16 }}>{message}</div>;
+  return <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 16 }}>{message}</div>;
 }
 
 function iccInterpretation(val) {

@@ -6,6 +6,7 @@ import { useStoreDispatch, useSessionStore } from "../state/workspaceStore.js";
 import { useToolStore, useUIStore } from "../state/workspaceStore.js";
 import { TOOL_MODES, NAV_TOOLS, TOOL_INFO, toolKey, toolTitle, modeOfTool } from "../data/toolModes.js";
 import { UndoHistoryButton } from "./UndoHistory.jsx";
+import { Icon } from "../ui/icons.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tool icons (shared by the desktop rail and the mobile sheet)
@@ -220,7 +221,7 @@ export default function Toolbar({
         )}
         {/* Spotlight mode */}
         <div style={{ display: "flex", justifyContent: "center", marginTop: 2 }}>
-          <button onClick={() => { const next = !spotlightMode; dispatch({ type: "SET", payload: { spotlightMode: next } }); if (sessionImage.length > 0) { const img = sessionImage[0]; const upd = next ? { ...img, opacityBeforeSpotlight: img.opacity || 1, opacity: 0.5 } : { ...img, opacity: img.opacityBeforeSpotlight || 1 }; updSession({ images: sessionImage.map((x, i) => i === 0 ? upd : x) }); } }} title="Spotlight (reduce image opacity)" aria-label="Spotlight" style={{ width: 42, height: 42, borderRadius: 8, border: "none", background: spotlightMode ? t.acc : t.surf2, color: spotlightMode ? (theme === "light" ? "#fff" : t.bg) : t.tx, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: spotlightMode ? `0 0 0 2px ${t.acc}` : "none" }}>💡</button>
+          <button onClick={() => { const next = !spotlightMode; dispatch({ type: "SET", payload: { spotlightMode: next } }); if (sessionImage.length > 0) { const img = sessionImage[0]; const upd = next ? { ...img, opacityBeforeSpotlight: img.opacity || 1, opacity: 0.5 } : { ...img, opacity: img.opacityBeforeSpotlight || 1 }; updSession({ images: sessionImage.map((x, i) => i === 0 ? upd : x) }); } }} title="Spotlight (reduce image opacity)" aria-label="Spotlight" style={{ width: 42, height: 42, borderRadius: 8, border: "none", background: spotlightMode ? t.acc : t.surf2, color: spotlightMode ? (theme === "light" ? "#fff" : t.bg) : t.tx, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: spotlightMode ? `0 0 0 2px ${t.acc}` : "none" }}><Icon name="bulb" size={18} /></button>
         </div>
         {/* Separator */}
         <div style={{ width: "100%", height: 1, background: t.bdr, margin: "4px 0" }} />

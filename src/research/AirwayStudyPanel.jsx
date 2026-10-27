@@ -24,7 +24,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
       </InfoBox>
 
       <div>
-        <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>
           Session
         </div>
         <select
@@ -32,7 +32,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
           onChange={e => update({ sessionId: e.target.value })}
           style={{
             width: "100%", padding: "6px 8px", borderRadius: 4, border: `1px solid ${t.bdr}`,
-            background: t.surf3, color: t.tx, fontSize: 11, fontFamily: "inherit",
+            background: t.surf3, color: t.tx, fontSize: 12, fontFamily: "inherit",
           }}>
           {sessions.map(s => (
             <option key={s.id} value={s.id}>{s.name || s.id}</option>
@@ -42,7 +42,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <div>
-          <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>
             Sex
           </div>
           <select
@@ -50,7 +50,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
             onChange={e => update({ sex: e.target.value })}
             style={{
               width: "100%", padding: "6px 8px", borderRadius: 4, border: `1px solid ${t.bdr}`,
-              background: t.surf3, color: t.tx, fontSize: 11, fontFamily: "inherit",
+              background: t.surf3, color: t.tx, fontSize: 12, fontFamily: "inherit",
             }}>
             <option value="">—</option>
             <option value="M">Male</option>
@@ -59,7 +59,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
         </div>
 
         <div>
-          <div style={{ fontSize: 9, fontWeight: 600, color: t.tx3, textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>
             Age
           </div>
           <input
@@ -69,7 +69,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
             placeholder="years"
             style={{
               width: "100%", padding: "6px 8px", borderRadius: 4, border: `1px solid ${t.bdr}`,
-              background: t.surf3, color: t.tx, fontSize: 11, fontFamily: "inherit",
+              background: t.surf3, color: t.tx, fontSize: 12, fontFamily: "inherit",
               boxSizing: "border-box",
             }}
           />
@@ -84,7 +84,7 @@ export function AirwayStudyConfig({ study, sessions, onUpdateStudy, t }) {
 export function AirwayStudyResults({ results, t }) {
   if (!results) {
     return (
-      <div style={{ fontSize: 11, color: t.tx3, textAlign: "center", padding: 20 }}>
+      <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 20 }}>
         Run analysis to see airway measurements.
       </div>
     );
@@ -92,7 +92,7 @@ export function AirwayStudyResults({ results, t }) {
 
   if (results.error) {
     return (
-      <div style={{ fontSize: 11, color: t.err, padding: 8, background: t.err + "12", borderRadius: 4 }}>
+      <div style={{ fontSize: 12, color: t.err, padding: 8, background: t.err + "12", borderRadius: 4 }}>
         {results.error}
       </div>
     );
@@ -101,7 +101,7 @@ export function AirwayStudyResults({ results, t }) {
   const measurements = results.measurements || [];
   if (measurements.length === 0) {
     return (
-      <div style={{ fontSize: 11, color: t.tx3, textAlign: "center", padding: 20 }}>
+      <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 20 }}>
         No airway measurements computed.
       </div>
     );
@@ -117,14 +117,14 @@ export function AirwayStudyResults({ results, t }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {results.sessionName && (
-        <div style={{ fontSize: 10, color: t.tx3, marginBottom: 4, fontStyle: "italic" }}>
+        <div style={{ fontSize: 12, color: t.tx3, marginBottom: 4, fontStyle: "italic" }}>
           Session: {results.sessionName}
           {results.sex ? `  |  Sex: ${results.sex}` : ""}
           {results.age ? `  |  Age: ${results.age}` : ""}
         </div>
       )}
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr style={{ background: t.surf3, borderBottom: `1px solid ${t.bdr}` }}>
               <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 600, color: t.tx }}>Measurement</th>
@@ -160,7 +160,7 @@ export function AirwayStudyResults({ results, t }) {
                   <td style={{ padding: "4px 6px", textAlign: "center", color: m.interpretation ? t.tx2 : t.tx3 }}>
                     {m.interpretation || "—"}
                   </td>
-                  <td style={{ padding: "4px 6px", fontSize: 9, color: t.tx2, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <td style={{ padding: "4px 6px", fontSize: 12, color: t.tx2, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {m.clinicalNote || (isSummary ? m.interpretation : "") || "—"}
                   </td>
                 </tr>

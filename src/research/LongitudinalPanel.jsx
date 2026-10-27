@@ -1,78 +1,13 @@
 import { useState } from "react";
 import { mean } from "../lib/utils.js";
-import { InfoBox } from "../ui/ui.jsx";
+import { InfoBox, Btn, Chip, RemoveBtn, TabBar } from "../ui/ui.jsx";
+import { LabelSelector } from "./LabelSelector.jsx";
+import { SMALL_BTN } from "../ui/tokens.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function LabelSelector({ sessions, selected, onToggle, t }) {
-  const labels = [
-    ...new Set(
-      (sessions || []).flatMap((s) =>
-        (s.markups || [])
-          .filter(
-            (m) => m.label && m.type !== "ruler" && m.type !== "silhouette",
-          )
-          .map((m) => m.label),
-      ),
-    ),
-  ].sort();
-  if (labels.length === 0)
-    return (
-      <div style={{ fontSize: 10, color: t.tx3 }}>
-        No labeled markups found.
-      </div>
-    );
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {selected.length === 0 && (
-        <span style={{ fontSize: 10, color: t.tx3, padding: "2px 0" }}>
-          All ({labels.length})
-        </span>
-      )}
-      {selected.length > 0 && (
-        <button
-          onClick={() =>
-            labels.forEach((l) => {
-              if (selected.includes(l)) onToggle(l);
-            })
-          }
-          style={{
-            fontSize: 9,
-            padding: "1px 5px",
-            borderRadius: 3,
-            border: `1px solid ${t.bdr}`,
-            background: "transparent",
-            color: t.tx3,
-            cursor: "pointer",
-          }}
-        >
-          Clear
-        </button>
-      )}
-      {labels.map((l) => (
-        <button
-          key={l}
-          onClick={() => onToggle(l)}
-          style={{
-            fontSize: 9,
-            padding: "2px 6px",
-            borderRadius: 3,
-            cursor: "pointer",
-            border: `1px solid ${selected.includes(l) ? t.acc : t.bdr}`,
-            background: selected.includes(l) ? t.acc + "22" : "transparent",
-            color: selected.includes(l) ? t.acc : t.tx2,
-            fontWeight: selected.includes(l) ? 700 : 400,
-            fontFamily: "'DM Mono',monospace",
-          }}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── Config Panel ──────────────────────────────────────────────────────────
 export function LongitudinalConfig({
@@ -180,7 +115,7 @@ export function LongitudinalConfig({
         display: "flex",
         flexDirection: "column",
         gap: 12,
-        fontSize: 11,
+        fontSize: 12,
       }}
     >
       <InfoBox t={t}>
@@ -195,11 +130,9 @@ export function LongitudinalConfig({
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -207,24 +140,10 @@ export function LongitudinalConfig({
         </div>
         <div style={{ display: "flex", gap: 4 }}>
           {["rm_anova", "mixed_model"].map((m) => (
-            <button
-              key={m}
-              onClick={() => update({ modelType: m })}
-              style={{
-                flex: 1,
-                padding: "5px 6px",
-                borderRadius: 4,
-                fontSize: 9,
-                fontWeight: 600,
-                cursor: "pointer",
-                border: `1px solid ${config.modelType === m ? t.acc : t.bdr}`,
-                background:
-                  config.modelType === m ? t.acc + "22" : "transparent",
-                color: config.modelType === m ? t.acc : t.tx2,
-              }}
-            >
+            <Chip t={t} on={config.modelType === m} key={m}
+              onClick={() => update({ modelType: m })} style={{ flex: 1, padding: "6px 8px", textAlign: "center" }}>
               {m === "rm_anova" ? "RM-ANOVA" : "Mixed Model (REML)"}
-            </button>
+            </Chip>
           ))}
         </div>
         {config.modelType === "mixed_model" && (
@@ -235,7 +154,7 @@ export function LongitudinalConfig({
               borderRadius: 4,
               background: t.warn + "18",
               border: `1px solid ${t.warn}44`,
-              fontSize: 10,
+              fontSize: 12,
               color: t.tx2,
               lineHeight: 1.5,
             }}
@@ -250,7 +169,7 @@ export function LongitudinalConfig({
               <select
                 value={config.timeAxis || "auto"}
                 onChange={(e) => update({ timeAxis: e.target.value })}
-                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}
+                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}
               >
                 <option value="auto">Auto (age → target age → visit)</option>
                 <option value="age">Session age (years)</option>
@@ -261,13 +180,13 @@ export function LongitudinalConfig({
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
               <span>Growth curve:</span>
               <select value={config.growthCurve || "linear"} onChange={(e) => update({ growthCurve: e.target.value })}
-                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}>
                 <option value="linear">Linear</option>
                 <option value="quadratic">Quadratic (needs ≥ 3 visits)</option>
               </select>
               <span>Compare by:</span>
               <select value={config.covariate || "none"} onChange={(e) => update({ covariate: e.target.value })}
-                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 9 }}>
+                style={{ padding: "2px 4px", borderRadius: 3, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 12 }}>
                 <option value="none">—</option>
                 <option value="sex">Sex</option>
                 <option value="group">Group</option>
@@ -281,11 +200,9 @@ export function LongitudinalConfig({
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -301,7 +218,7 @@ export function LongitudinalConfig({
             border: `1px solid ${t.bdr}`,
             background: t.surf,
             color: t.tx,
-            fontSize: 10,
+            fontSize: 12,
           }}
         >
           <option value="none">None (assume sphericity)</option>
@@ -315,11 +232,9 @@ export function LongitudinalConfig({
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -339,10 +254,10 @@ export function LongitudinalConfig({
             border: `1px solid ${t.bdr}`,
             background: t.surf,
             color: t.tx,
-            fontSize: 10,
+            fontSize: 12,
           }}
         />
-        <div style={{ fontSize: 8, color: t.tx3, marginTop: 2 }}>
+        <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>
           Subjects whose consecutive timepoints are closer than this are flagged
           at run time.
         </div>
@@ -360,29 +275,16 @@ export function LongitudinalConfig({
         >
           <span
             style={{
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 600,
-              color: t.tx3,
-              textTransform: "uppercase",
-              letterSpacing: 0.3,
+              color: t.tx2,
             }}
           >
             Timepoints
           </span>
-          <button
-            onClick={addTimepoint}
-            style={{
-              fontSize: 9,
-              padding: "2px 8px",
-              borderRadius: 3,
-              border: `1px solid ${t.acc}`,
-              background: "transparent",
-              color: t.acc,
-              cursor: "pointer",
-            }}
-          >
+          <Btn t={t} small onClick={addTimepoint} style={{ ...SMALL_BTN, color: t.acc }}>
             + Add
-          </button>
+          </Btn>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {timepoints.map((tp, idx) => (
@@ -399,7 +301,7 @@ export function LongitudinalConfig({
             >
               <span
                 style={{
-                  fontSize: 9,
+                  fontSize: 12,
                   color: t.tx3,
                   fontWeight: 600,
                   minWidth: 16,
@@ -417,24 +319,12 @@ export function LongitudinalConfig({
                   border: `1px solid ${t.bdr}`,
                   background: t.surf,
                   color: t.tx,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: 600,
                 }}
               />
               {timepoints.length > 2 && (
-                <button
-                  onClick={() => removeTimepoint(tp.id)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: t.tx3,
-                    cursor: "pointer",
-                    fontSize: 10,
-                    padding: 2,
-                  }}
-                >
-                  ✕
-                </button>
+                <RemoveBtn t={t} onClick={() => removeTimepoint(tp.id)} />
               )}
             </div>
           ))}
@@ -453,18 +343,15 @@ export function LongitudinalConfig({
         >
           <span
             style={{
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 600,
-              color: t.tx3,
-              textTransform: "uppercase",
-              letterSpacing: 0.3,
+              color: t.tx2,
             }}
           >
             Subjects ({subjects.length})
           </span>
           <div style={{ display: "flex", gap: 4 }}>
-            <button
-              onClick={() => {
+            <Btn t={t} small onClick={() => {
                 const managedTps = project?.timepoints || [];
                 const managedSubjects = project?.subjects || [];
                 if (managedTps.length < 2 || managedSubjects.length < 1) return;
@@ -491,21 +378,10 @@ export function LongitudinalConfig({
                 if (newTps.length >= 2 && newSubjects.length >= 1) {
                   update({ timepoints: newTps, subjects: newSubjects });
                 }
-              }}
-              style={{
-                fontSize: 9,
-                padding: "2px 8px",
-                borderRadius: 3,
-                border: `1px solid ${t.acc}`,
-                background: "transparent",
-                color: t.acc,
-                cursor: "pointer",
-              }}
-            >
+              }} style={{ ...SMALL_BTN, color: t.acc }}>
               From Managed
-            </button>
-            <button
-              onClick={() => {
+            </Btn>
+            <Btn t={t} small onClick={() => {
                 const uniqueTpLabels = [
                   ...new Set(
                     sessions.map((s) => s.meta?.timepoint).filter(Boolean),
@@ -539,38 +415,17 @@ export function LongitudinalConfig({
                 if (newTps.length >= 2 && newSubjects.length >= 1) {
                   update({ timepoints: newTps, subjects: newSubjects });
                 }
-              }}
-              style={{
-                fontSize: 9,
-                padding: "2px 8px",
-                borderRadius: 3,
-                border: `1px solid ${t.acc}`,
-                background: "transparent",
-                color: t.acc,
-                cursor: "pointer",
-              }}
-            >
+              }} style={{ ...SMALL_BTN, color: t.acc }}>
               From Sessions
-            </button>
-            <button
-              onClick={addSubject}
-              style={{
-                fontSize: 9,
-                padding: "2px 8px",
-                borderRadius: 3,
-                border: `1px solid ${t.bdr}`,
-                background: "transparent",
-                color: t.tx2,
-                cursor: "pointer",
-              }}
-            >
+            </Btn>
+            <Btn t={t} small onClick={addSubject} style={SMALL_BTN}>
               + Add
-            </button>
+            </Btn>
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
           <table
-            style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}
+            style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
           >
             <thead>
               <tr>
@@ -616,7 +471,7 @@ export function LongitudinalConfig({
                         border: `1px solid ${t.bdr}`,
                         background: t.surf,
                         color: t.tx,
-                        fontSize: 9,
+                        fontSize: 12,
                       }}
                     />
                   </td>
@@ -648,7 +503,7 @@ export function LongitudinalConfig({
                               border: `1px solid ${t.bdr}`,
                               background: t.surf,
                               color: t.tx,
-                              fontSize: 8,
+                              fontSize: 12,
                             }}
                           >
                             <option value="">—</option>
@@ -659,19 +514,7 @@ export function LongitudinalConfig({
                             ))}
                           </select>
                           {sessionId && (
-                            <button
-                              onClick={() => setRecord(s.id, tp.id, null)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                color: t.tx3,
-                                cursor: "pointer",
-                                fontSize: 8,
-                                padding: 1,
-                              }}
-                            >
-                              ✕
-                            </button>
+                            <RemoveBtn t={t} onClick={() => setRecord(s.id, tp.id, null)} />
                           )}
                         </div>
                       </td>
@@ -679,19 +522,7 @@ export function LongitudinalConfig({
                   })}
                   <td style={{ padding: "3px 4px", textAlign: "center" }}>
                     {subjects.length > 3 && (
-                      <button
-                        onClick={() => removeSubject(s.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: t.tx3,
-                          cursor: "pointer",
-                          fontSize: 9,
-                          padding: 2,
-                        }}
-                      >
-                        ✕
-                      </button>
+                      <RemoveBtn t={t} onClick={() => removeSubject(s.id)} />
                     )}
                   </td>
                 </tr>
@@ -699,7 +530,7 @@ export function LongitudinalConfig({
             </tbody>
           </table>
         </div>
-        <div style={{ fontSize: 8, color: t.tx3, marginTop: 2 }}>
+        <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>
           {totalAssigned} session assignment{totalAssigned !== 1 ? "s" : ""}{" "}
           across {subjects.length} subject{subjects.length !== 1 ? "s" : ""}
         </div>
@@ -709,11 +540,9 @@ export function LongitudinalConfig({
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -730,7 +559,7 @@ export function LongitudinalConfig({
       {/* Ready indicator */}
       <div
         style={{
-          fontSize: 10,
+          fontSize: 12,
           color: t.tx2,
           textAlign: "center",
           padding: 6,
@@ -766,7 +595,7 @@ export function LongitudinalResults({ results, t }) {
   if (results.error) {
     return (
       <div
-        style={{ fontSize: 11, color: t.err, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.err, padding: 12, textAlign: "center" }}
       >
         {results.error}
       </div>
@@ -775,38 +604,7 @@ export function LongitudinalResults({ results, t }) {
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          gap: 2,
-          marginBottom: 8,
-          borderBottom: `1px solid ${t.bdr}44`,
-          overflowX: "auto",
-        }}
-      >
-        {tabs.map((tabItem) => (
-          <button
-            key={tabItem.id}
-            onClick={() => setTab(tabItem.id)}
-            style={{
-              padding: "5px 10px",
-              fontSize: 9,
-              fontWeight: 600,
-              cursor: "pointer",
-              border: "none",
-              borderBottom:
-                tab === tabItem.id
-                  ? `2px solid ${t.acc}`
-                  : "2px solid transparent",
-              background: "transparent",
-              color: tab === tabItem.id ? t.acc : t.tx3,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {tabItem.label}
-          </button>
-        ))}
-      </div>
+      <TabBar t={t} tabs={tabs} active={tab} onChange={setTab} style={{ marginBottom: 10 }} />
 
       {tab === "trajectories" && <TrajectoryView results={results} t={t} />}
       {tab === "sphericity" && <SphericityView results={results} t={t} />}
@@ -856,7 +654,7 @@ function TrajectoryView({ results, t }) {
           >
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 color: t.tx,
                 marginBottom: 6,
@@ -994,7 +792,7 @@ function SphericityView({ results, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 10,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
         }}
       >
@@ -1018,9 +816,7 @@ function SphericityView({ results, t }) {
                   padding: "4px 6px",
                   textAlign: "left",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  fontSize: 12,
                 }}
               >
                 {h}
@@ -1102,7 +898,7 @@ function ANOVAView({ results, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 10,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
         }}
       >
@@ -1126,9 +922,7 @@ function ANOVAView({ results, t }) {
                   padding: "4px 6px",
                   textAlign: "left",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  fontSize: 12,
                 }}
               >
                 {h}
@@ -1177,7 +971,7 @@ function ANOVAView({ results, t }) {
                     color: t.tx,
                     fontWeight: 700,
                     fontFamily: "'DM Mono',monospace",
-                    fontSize: 10,
+                    fontSize: 12,
                   }}
                   colSpan={9}
                 >
@@ -1239,7 +1033,7 @@ function ANOVAView({ results, t }) {
               </tr>
             ));
             const note = (
-              <tr key={`${label}-note`} style={{ fontSize: 8, color: t.tx3 }}>
+              <tr key={`${label}-note`} style={{ fontSize: 12, color: t.tx3 }}>
                 <td style={{ padding: "2px 6px" }} colSpan={9}>
                   Correction: {r.correctionUsed || "none"} (ε ={" "}
                   {r.eps?.toFixed(4)}), N = {r.n}, k = {r.k}
@@ -1274,7 +1068,7 @@ function PairwiseView({ results, t }) {
         <div key={label} style={{ marginBottom: 12 }}>
           <div
             style={{
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               color: t.tx,
               marginBottom: 4,
@@ -1284,14 +1078,14 @@ function PairwiseView({ results, t }) {
             {label}
             {lr.unit ? ` (${lr.unit})` : ""}
           </div>
-          <div style={{ fontSize: 9, color: t.tx3, marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: t.tx3, marginBottom: 4 }}>
             Bonferroni-corrected paired t-tests
           </div>
           <table
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              fontSize: 10,
+              fontSize: 12,
               fontFamily: "'DM Mono',monospace",
             }}
           >
@@ -1314,9 +1108,7 @@ function PairwiseView({ results, t }) {
                       padding: "3px 6px",
                       textAlign: "left",
                       color: t.tx,
-                      fontSize: 8,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.3,
+                      fontSize: 12,
                     }}
                   >
                     {h}
@@ -1394,7 +1186,7 @@ function MixedModelView({ results, t }) {
           borderRadius: 4,
           background: t.acc + "12",
           border: `1px solid ${t.acc}33`,
-          fontSize: 10,
+          fontSize: 12,
           color: t.tx2,
           lineHeight: 1.5,
         }}
@@ -1410,7 +1202,7 @@ function MixedModelView({ results, t }) {
           <div key={label} style={{ marginBottom: 16 }}>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 color: t.tx,
                 marginBottom: 6,
@@ -1419,7 +1211,7 @@ function MixedModelView({ results, t }) {
             >
               {label}
             </div>
-            <div style={{ fontSize: 9, color: t.tx3, marginBottom: 6, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, color: t.tx3, marginBottom: 6, lineHeight: 1.5 }}>
               Time axis: <b style={{ color: t.tx2 }}>{m.timeAxis === "age" ? "patient age (years)" : m.timeAxis === "targetAge" ? "timepoint target age (years)" : "visit number"}</b>
               {" · "}{m.randomSlope ? "random intercept + slope" : "random intercept"}
               {m.slopeTest ? ` (slope variance LRT p = ${m.slopeTest.pValue < 0.001 ? "<0.001" : m.slopeTest.pValue.toFixed(3)})` : ""}
@@ -1433,11 +1225,9 @@ function MixedModelView({ results, t }) {
             <div style={{ marginBottom: 8 }}>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: t.tx3,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  color: t.tx2,
                   marginBottom: 4,
                 }}
               >
@@ -1447,7 +1237,7 @@ function MixedModelView({ results, t }) {
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
-                  fontSize: 10,
+                  fontSize: 12,
                   fontFamily: "'DM Mono',monospace",
                 }}
               >
@@ -1461,9 +1251,7 @@ function MixedModelView({ results, t }) {
                             padding: "3px 6px",
                             textAlign: "left",
                             color: t.tx,
-                            fontSize: 8,
-                            textTransform: "uppercase",
-                            letterSpacing: 0.3,
+                            fontSize: 12,
                           }}
                         >
                           {h}
@@ -1523,11 +1311,9 @@ function MixedModelView({ results, t }) {
             <div style={{ marginBottom: 8 }}>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: t.tx3,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  color: t.tx2,
                   marginBottom: 4,
                 }}
               >
@@ -1537,7 +1323,7 @@ function MixedModelView({ results, t }) {
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
-                  fontSize: 10,
+                  fontSize: 12,
                   fontFamily: "'DM Mono',monospace",
                 }}
               >
@@ -1550,9 +1336,7 @@ function MixedModelView({ results, t }) {
                           padding: "3px 6px",
                           textAlign: "left",
                           color: t.tx,
-                          fontSize: 8,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.3,
+                          fontSize: 12,
                         }}
                       >
                         {h}
@@ -1596,11 +1380,9 @@ function MixedModelView({ results, t }) {
             <div style={{ padding: 8, background: t.surf2, borderRadius: 4 }}>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: t.tx3,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  color: t.tx2,
                   marginBottom: 4,
                 }}
               >
@@ -1610,7 +1392,7 @@ function MixedModelView({ results, t }) {
                 style={{
                   display: "flex",
                   gap: 16,
-                  fontSize: 10,
+                  fontSize: 12,
                   color: t.tx2,
                   fontFamily: "'DM Mono',monospace",
                 }}
@@ -1643,7 +1425,7 @@ function ChangeView({ results, t }) {
         <div key={label} style={{ marginBottom: 12 }}>
           <div
             style={{
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 700,
               color: t.tx,
               marginBottom: 4,
@@ -1657,7 +1439,7 @@ function ChangeView({ results, t }) {
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              fontSize: 10,
+              fontSize: 12,
               fontFamily: "'DM Mono',monospace",
             }}
           >
@@ -1680,9 +1462,7 @@ function ChangeView({ results, t }) {
                       padding: "3px 6px",
                       textAlign: "left",
                       color: t.tx,
-                      fontSize: 8,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.3,
+                      fontSize: 12,
                     }}
                   >
                     {h}
@@ -1749,7 +1529,7 @@ function Badge({ value, ok, t }) {
       style={{
         padding: "1px 6px",
         borderRadius: 3,
-        fontSize: 8,
+        fontSize: 12,
         fontWeight: 700,
         background: ok ? t.ok + "22" : t.err + "22",
         border: `1px solid ${ok ? t.ok + "44" : t.err + "44"}`,
@@ -1764,7 +1544,7 @@ function Badge({ value, ok, t }) {
 function EmptyDetail({ message, t }) {
   return (
     <div
-      style={{ fontSize: 11, color: t.tx3, textAlign: "center", padding: 16 }}
+      style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 16 }}
     >
       {message}
     </div>

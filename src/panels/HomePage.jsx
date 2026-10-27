@@ -6,6 +6,8 @@ import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import StartupWizard from "./StartupWizard.jsx";
 import { groupByPatient, searchPatients } from "../model/patients.js";
 import { useDialogA11y } from "../hooks/useDialogA11y.js";
+import { Icon } from "../ui/icons.jsx";
+import { BACKDROP } from "../ui/tokens.js";
 
 function NewCaseForm({t,onSubmit,onCancel,initial,pickProjection}){
   const[proj,setProj]=useState("lateral");
@@ -81,7 +83,7 @@ function PatientRow({t,g,onOpen,onNewCase}){
             {g.kind==="patient"&&g.patientId&&!g.anonymized&&<Tag color={t.acc}>ID {g.patientId}</Tag>}
             {g.kind==="study"&&<Tag color={t.warn}>Study</Tag>}
             {g.kind==="case"&&<span style={{fontSize:12,fontWeight:500,color:t.tx3}}>no patient details</span>}
-            {g.anonymized&&<Tag color={t.ok}>🔒 anonymized</Tag>}
+            {g.anonymized&&<Tag color={t.ok}><Icon name="lock" size={11} /> anonymized</Tag>}
           </div>
           <div style={{fontSize:12,color:t.tx2,marginTop:2}}>
             {g.kind==="study"
@@ -233,7 +235,7 @@ export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onIm
         onNewCase={g=>{const src=g.cases[0]?.meta||{};setFlow({proj:"pick",phase:"form",initial:{name:`Case ${g.cases.length+1}`,patientId:src.patientId||"",patientName:src.name||"",dob:src.dob||"",gender:src.gender||"",ethnicity:src.ethnicity||"",clinician:src.clinician||"",facility:src.facility||""}});}}/>}
 
       {/* OVERLAY: New Case Form → Startup Wizard */}
-      {flow&&<div ref={flowRef} role="dialog" aria-modal="true" aria-label={flow.phase==="form"?"New case":"Case setup"} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:50,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"14px 12px":"24px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={e=>e.target===e.currentTarget&&setFlow(null)}>
+      {flow&&<div ref={flowRef} role="dialog" aria-modal="true" aria-label={flow.phase==="form"?"New case":"Case setup"} style={{position:"fixed",inset:0,background:BACKDROP,zIndex:50,display:"flex",alignItems:isMobile?"flex-start":"center",justifyContent:"center",padding:isMobile?"14px 12px":"24px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={e=>e.target===e.currentTarget&&setFlow(null)}>
         {flow.phase==="form"&&<div style={{background:t.surf,border:`1px solid ${t.bdr}`,borderRadius:14,padding:isMobile?18:28,width:"100%",maxWidth:620,flexShrink:0,boxSizing:"border-box"}}>
           <NewCaseForm t={t} initial={flow.initial} pickProjection={flow.proj==="pick"} onSubmit={(name,meta,proj)=>setFlow({...flow,proj:proj||flow.proj,phase:"wizard",caseData:{name,meta}})} onCancel={()=>setFlow(null)}/>
         </div>}

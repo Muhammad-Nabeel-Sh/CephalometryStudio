@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { uid, normDeviation, deviationColor } from "../lib/utils.js";
 import { DEFAULT_NORMS } from "../data/norms.js";
-import { Btn, Tag, Inp } from "../ui/ui.jsx";
+import { Btn, Tag, Inp, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { NormsReferenceModal } from "./NormsReferenceModal.jsx";
 
@@ -15,13 +15,12 @@ export function MeasurementsPanel({ allMeas, formulaMeas, t, calibration, norms,
   const hasMeas = allMeas.length > 0 || (formulaMeas && formulaMeas.length > 0);
   return (
     <div style={{ padding: 12 }}>
-      {!calibration.done && <div style={{ background: t.warn + "22", border: `1px solid ${t.warn}44`, borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12, color: t.warn }}>⚠ Calibrate for mm values.<button onClick={onOpenCalib} style={{ display: "block", marginTop: 6, background: t.warn, color: "#000", border: "none", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Open Calibration</button></div>}
-      {calibration.done && <div style={{ background: t.ok + "11", border: `1px solid ${t.ok}33`, borderRadius: 6, padding: 8, marginBottom: 10, fontSize: 11, color: t.ok, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {!calibration.done && <div style={{ background: t.warn + "22", border: `1px solid ${t.warn}44`, borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12, color: t.warn }}>⚠ Calibrate for mm values.<button onClick={onOpenCalib} style={{ display: "block", marginTop: 6, background: t.warn, color: "#000", border: "none", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Open Calibration</button></div>}
+      {calibration.done && <div style={{ background: t.ok + "11", border: `1px solid ${t.ok}33`, borderRadius: 6, padding: 8, marginBottom: 10, fontSize: 12, color: t.ok, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span>⟺ {calibration.pxPerMm.toFixed(3)} px/mm</span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <button onClick={() => setGuideKey("measurements")}
-            style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
-          <button onClick={onOpenCalib} style={{ background: "none", border: `1px solid ${t.ok}55`, color: t.ok, borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 10 }}>Edit</button>
+          <GuideBtn t={t} onClick={() => setGuideKey("measurements")} />
+          <button onClick={onOpenCalib} style={{ background: "none", border: `1px solid ${t.ok}55`, color: t.ok, borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 12 }}>Edit</button>
         </div>
       </div>}
 
@@ -62,17 +61,17 @@ export function MeasurementsPanel({ allMeas, formulaMeas, t, calibration, norms,
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontFamily: "'DM Mono',monospace", color: t.tx, fontWeight: 600 }}>{k === "angle" ? formatAngle(v) : v.toFixed(2) + (k === "area" ? (calibration.done ? " mm²" : " px²") : (calibration.done ? " mm" : " px"))}</span>
                           <button onClick={() => setEditingNorm({ markupLabel: m.label, measureType: k, existing: norm })}
-                            style={{ background: "none", border: `1px solid ${norm ? t.ok + "55" : t.bdr}`, color: norm ? t.ok : t.tx3, borderRadius: 3, padding: "0 4px", cursor: "pointer", fontSize: 9, fontWeight: 700, lineHeight: "16px" }}>
+                            style={{ background: "none", border: `1px solid ${norm ? t.ok + "55" : t.bdr}`, color: norm ? t.ok : t.tx3, borderRadius: 3, padding: "0 4px", cursor: "pointer", fontSize: 12, fontWeight: 700, lineHeight: "16px" }}>
                             {norm ? "N" : "±N"}
                           </button>
                         </div>
                       </div>
                       {dev && <div style={{ marginTop: 4, padding: "5px 8px", borderRadius: 5, background: deviationColor(dev.sdUnits, t) + "18", border: `1px solid ${deviationColor(dev.sdUnits, t)}44` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                           <span style={{ color: t.tx2 }}>Norm: {norm.mean} ± {norm.sd}</span>
                           <span style={{ fontWeight: 700, color: deviationColor(dev.sdUnits, t) }}>{dev.delta > 0 ? "+" : ""}{dev.delta.toFixed(2)} ({dev.sdUnits > 0 ? "+" : ""}{dev.sdUnits.toFixed(1)} SD)</span>
                         </div>
-                        {norm.source && <div style={{ fontSize: 9, color: t.tx3, marginTop: 2 }}>{norm.source}</div>}
+                        {norm.source && <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>{norm.source}</div>}
                       </div>}
                     </div>
                   );
@@ -93,21 +92,21 @@ export function MeasurementsPanel({ allMeas, formulaMeas, t, calibration, norms,
                   return (
                     <div key={k} style={{ marginBottom: dev ? 10 : 4 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: t.tx2, alignItems: "center" }}>
-                        <span style={{ fontSize: 10, color: t.tx3 }}>{k}{unitLabel ? " (" + unitLabel + ")" : ""}</span>
+                        <span style={{ fontSize: 12, color: t.tx3 }}>{k}{unitLabel ? " (" + unitLabel + ")" : ""}</span>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontFamily: "'DM Mono',monospace", color: t.tx, fontWeight: 600 }}>{v.toFixed(2)}</span>
                           <button onClick={() => setEditingNorm({ markupLabel: m.label, measureType: k, existing: norm })}
-                            style={{ background: "none", border: `1px solid ${norm ? t.ok + "55" : t.bdr}`, color: norm ? t.ok : t.tx3, borderRadius: 3, padding: "0 4px", cursor: "pointer", fontSize: 9, fontWeight: 700, lineHeight: "16px" }}>
+                            style={{ background: "none", border: `1px solid ${norm ? t.ok + "55" : t.bdr}`, color: norm ? t.ok : t.tx3, borderRadius: 3, padding: "0 4px", cursor: "pointer", fontSize: 12, fontWeight: 700, lineHeight: "16px" }}>
                             {norm ? "N" : "±N"}
                           </button>
                         </div>
                       </div>
                       {dev && <div style={{ marginTop: 4, padding: "5px 8px", borderRadius: 5, background: deviationColor(dev.sdUnits, t) + "18", border: `1px solid ${deviationColor(dev.sdUnits, t)}44` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                           <span style={{ color: t.tx2 }}>Norm: {norm.mean} ± {norm.sd}</span>
                           <span style={{ fontWeight: 700, color: deviationColor(dev.sdUnits, t) }}>{dev.delta > 0 ? "+" : ""}{dev.delta.toFixed(2)} ({dev.sdUnits > 0 ? "+" : ""}{dev.sdUnits.toFixed(1)} SD)</span>
                         </div>
-                        {norm.source && <div style={{ fontSize: 9, color: t.tx3, marginTop: 2 }}>{norm.source}</div>}
+                        {norm.source && <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>{norm.source}</div>}
                       </div>}
                     </div>
                   );
@@ -132,15 +131,15 @@ function InlineNormEditor({ t, markupLabel, measureType, existing, onSave, onDel
   const [sex, setSex] = useState(existing?.sex || "");
   return (
     <div style={{ background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 8, padding: 12, marginBottom: 12, overflow: "hidden" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: t.acc, marginBottom: 8 }}>Norm for {markupLabel} &middot; {measureType}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: t.acc, marginBottom: 8 }}>Norm for {markupLabel} &middot; {measureType}</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
-        <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Mean</div><Inp value={mean} onChange={setMean} t={t} type="number" placeholder="e.g. 82" style={{ width: "100%" }} /></div>
-        <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>SD</div><Inp value={sd} onChange={setSd} t={t} type="number" placeholder="e.g. 3" style={{ width: "100%" }} /></div>
+        <div><div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>Mean</div><Inp value={mean} onChange={setMean} t={t} type="number" placeholder="e.g. 82" style={{ width: "100%" }} /></div>
+        <div><div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>SD</div><Inp value={sd} onChange={setSd} t={t} type="number" placeholder="e.g. 3" style={{ width: "100%" }} /></div>
       </div>
-      <div style={{ marginBottom: 6 }}><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Source</div><Inp value={source} onChange={setSource} t={t} placeholder="e.g. Steiner 1953, Caucasian adults" style={{ width: "100%" }} /></div>
+      <div style={{ marginBottom: 6 }}><div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>Source</div><Inp value={source} onChange={setSource} t={t} placeholder="e.g. Steiner 1953, Caucasian adults" style={{ width: "100%" }} /></div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-        <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Age Range</div><Inp value={ageRange} onChange={setAgeRange} t={t} placeholder="e.g. Adult / 12-17y" style={{ width: "100%" }} /></div>
-        <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Sex</div><Inp value={sex} onChange={setSex} t={t} placeholder="e.g. Pooled / Male / Female" style={{ width: "100%" }} /></div>
+        <div><div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>Age Range</div><Inp value={ageRange} onChange={setAgeRange} t={t} placeholder="e.g. Adult / 12-17y" style={{ width: "100%" }} /></div>
+        <div><div style={{ fontSize: 12, color: t.tx2, marginBottom: 2 }}>Sex</div><Inp value={sex} onChange={setSex} t={t} placeholder="e.g. Pooled / Male / Female" style={{ width: "100%" }} /></div>
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         <Btn t={t} small onClick={() => onSave({ markupLabel, measureType, mean: parseFloat(mean), sd: parseFloat(sd), source, ageRange, sex })} disabled={!mean || !sd} style={{ flex: 1 }}>Save</Btn>

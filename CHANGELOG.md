@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased] - Consistent design
+
+### Changed
+- Norms reference, Session metadata (and its Groups/Timepoints/Operators and Parse filenames
+  dialogs) use the same dialog look as the rest of the app: surface panel, title, × close.
+  Built-in norm presets show their names (they showed "?"); approximate-SD presets are tagged.
+- One "?" guide button style everywhere (`GuideBtn`).
+- Colour emoji replaced by line icons (`ui/icons.jsx`) in panels, tags, guides and the
+  sealed-session cover.
+- Research study setup and results: shared measurement picker, chips, tabs, buttons and
+  remove (×) controls; normal-case field labels; no text under 12 px.
+- Templates and Examples use the standard buttons; side panels have no text under 12 px
+  even with "Readable text" off.
+- Every dialog backdrop has the same darkness; the "Creating the PDF report…" overlay uses
+  the theme.
+
 ## [Unreleased] - PDF report: research results and themes
 
 ### Fixed

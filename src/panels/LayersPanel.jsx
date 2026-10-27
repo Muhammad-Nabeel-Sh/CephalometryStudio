@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sld, PanelHeader, Btn } from "../ui/ui.jsx";
+import { Sld, PanelHeader, Btn, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { Modal } from "./Modal.jsx";
 import { alignTwoPoints } from "../lib/utils.js";
@@ -18,8 +18,7 @@ export function LayersPanel({ t, images, markups, onUpdateImages, onAddImage }) 
     <div style={{ padding: 12 }}>
       <PanelHeader t={t}>
         Image Stack ({images.length})
-        <button onClick={() => setGuideKey("layers")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, marginLeft: 6, verticalAlign: "middle" }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("layers")} style={{ marginLeft: 6 }} />
       </PanelHeader>
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
         <Btn t={t} small onClick={() => setAlignOpen(true)}>⊕ Align</Btn>
@@ -32,23 +31,23 @@ export function LayersPanel({ t, images, markups, onUpdateImages, onAddImage }) 
             <button onClick={() => updImg(img.id, { visible: !img.visible })} title="Toggle visibility" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: img.visible ? t.acc : t.tx3 }}>{img.visible ? "◎" : "○"}</button>
             <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: t.tx, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{img.name || `Img ${idx + 1}`}</span>
             <div style={{ display: "flex", gap: 2 }}>
-              {idx > 0 && <button onClick={() => move(idx, -1)} title="Move up" style={{ background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: 3, padding: "1px 4px", cursor: "pointer", fontSize: 10 }}>↑</button>}
-              {idx < images.length - 1 && <button onClick={() => move(idx, 1)} title="Move down" style={{ background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: 3, padding: "1px 4px", cursor: "pointer", fontSize: 10 }}>↓</button>}
+              {idx > 0 && <button onClick={() => move(idx, -1)} title="Move up" style={{ background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: 3, padding: "1px 4px", cursor: "pointer", fontSize: 12 }}>↑</button>}
+              {idx < images.length - 1 && <button onClick={() => move(idx, 1)} title="Move down" style={{ background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: 3, padding: "1px 4px", cursor: "pointer", fontSize: 12 }}>↓</button>}
             </div>
             <button onClick={() => onUpdateImages(images.filter(i => i.id !== img.id))} title="Remove image" style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 14 }}>×</button>
           </div>
           <Sld label="Opacity" value={Math.round((img.opacity || 1) * 100)} min={0} max={100} onChange={v => updImg(img.id, { opacity: v / 100 })} t={t} unit="%" />
           <div style={{ marginBottom: 6 }}>
-            <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3 }}>Blend mode</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{["normal", "multiply", "screen", "overlay", "difference", "luminosity"].map(bm => (<button key={bm} onClick={() => updImg(img.id, { blendMode: bm })} style={{ padding: "2px 4px", fontSize: 9, border: `1px solid ${t.bdr}`, borderRadius: 4, background: img.blendMode === bm ? t.acc : t.surf3, color: img.blendMode === bm ? (t.id === "light" ? "#fff" : t.bg) : t.tx2, cursor: "pointer", fontWeight: 600 }}>{bm}</button>))}</div>
+            <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3 }}>Blend mode</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>{["normal", "multiply", "screen", "overlay", "difference", "luminosity"].map(bm => (<button key={bm} onClick={() => updImg(img.id, { blendMode: bm })} style={{ padding: "2px 4px", fontSize: 12, border: `1px solid ${t.bdr}`, borderRadius: 4, background: img.blendMode === bm ? t.acc : t.surf3, color: img.blendMode === bm ? (t.id === "light" ? "#fff" : t.bg) : t.tx2, cursor: "pointer", fontWeight: 600 }}>{bm}</button>))}</div>
           </div>
           <div style={{ marginBottom: 6 }}>
-            <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3 }}>Serial color</div>
-            <div style={{ display: "flex", gap: 4 }}>{SCOLS.map(c => (<button key={c} onClick={() => updImg(img.id, { color: c })} style={{ width: 20, height: 20, borderRadius: 4, background: c === "none" ? "transparent" : c, border: `2px solid ${img.color === c ? t.acc : t.bdr}`, cursor: "pointer", fontSize: 8, color: t.tx3, display: "flex", alignItems: "center", justifyContent: "center" }}>{c === "none" ? "✕" : ""}</button>))}</div>
+            <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3 }}>Serial color</div>
+            <div style={{ display: "flex", gap: 4 }}>{SCOLS.map(c => (<button key={c} onClick={() => updImg(img.id, { color: c })} style={{ width: 20, height: 20, borderRadius: 4, background: c === "none" ? "transparent" : c, border: `2px solid ${img.color === c ? t.acc : t.bdr}`, cursor: "pointer", fontSize: 12, color: t.tx3, display: "flex", alignItems: "center", justifyContent: "center" }}>{c === "none" ? "✕" : ""}</button>))}</div>
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            {["X", "Y"].map((ax, ai) => (<div key={ax} style={{ flex: 1 }}><div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>{ax} offset</div><input type="number" value={ai === 0 ? img.dx || 0 : img.dy || 0} onChange={e => updImg(img.id, { [ai === 0 ? "dx" : "dy"]: +e.target.value })} style={{ width: "100%", background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "3px 5px", color: t.tx, fontSize: 11, fontFamily: "'DM Mono',monospace", boxSizing: "border-box" }} /></div>))}
-            <button onClick={() => updImg(img.id, { dx: 0, dy: 0 })} title="Reset offset" style={{ alignSelf: "flex-end", background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: 4, padding: "3px 5px", cursor: "pointer", fontSize: 10, height: 24 }}>⊙</button>
+            {["X", "Y"].map((ax, ai) => (<div key={ax} style={{ flex: 1 }}><div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>{ax} offset</div><input type="number" value={ai === 0 ? img.dx || 0 : img.dy || 0} onChange={e => updImg(img.id, { [ai === 0 ? "dx" : "dy"]: +e.target.value })} style={{ width: "100%", background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "3px 5px", color: t.tx, fontSize: 12, fontFamily: "'DM Mono',monospace", boxSizing: "border-box" }} /></div>))}
+            <button onClick={() => updImg(img.id, { dx: 0, dy: 0 })} title="Reset offset" style={{ alignSelf: "flex-end", background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: 4, padding: "3px 5px", cursor: "pointer", fontSize: 12, height: 24 }}>⊙</button>
           </div>
         </div>
       ))}
@@ -77,16 +76,16 @@ function ImageTransformModal({ t, images, onApply, onClose }) {
   const apply = patch => onApply(img.id, patch);
   const num = (v, label, onChange, step) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-      <div style={{ fontSize: 11, color: t.tx2, width: 70, flexShrink: 0 }}>{label}</div>
+      <div style={{ fontSize: 12, color: t.tx2, width: 70, flexShrink: 0 }}>{label}</div>
       <input type="number" value={v} step={step} onChange={e => onChange(+e.target.value)}
         style={{ flex: 1, background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 6px", color: t.tx, fontSize: 12, fontFamily: "'DM Mono',monospace" }} />
     </div>
   );
   return (
     <Modal t={t} title="Transform Image" onClose={onClose}>
-      <div style={{ fontSize: 11, color: t.tx2, marginBottom: 10 }}>Position, rotation and scale applied to the selected image.</div>
+      <div style={{ fontSize: 12, color: t.tx2, marginBottom: 10 }}>Position, rotation and scale applied to the selected image.</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: t.tx2, width: 70, flexShrink: 0 }}>Image</div>
+        <div style={{ fontSize: 12, color: t.tx2, width: 70, flexShrink: 0 }}>Image</div>
         <select value={img.id} onChange={e => setTargetId(e.target.value)}
           style={{ flex: 1, background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 6px", color: t.tx, fontSize: 12 }}>
           {images.map((im, i) => <option key={im.id} value={im.id}>{im.name || `Img ${i + 1}`}</option>)}
@@ -198,11 +197,11 @@ function ImageAlignModal({ t, images, markups, onApply, onClose }) {
 
   return (
     <Modal t={t} title="Align Images" onClose={onClose} customWidth={520}>
-      <div style={{ fontSize: 11, color: t.tx2, lineHeight: 1.5, marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: t.tx2, lineHeight: 1.5, marginBottom: 12 }}>
         Match the selected image to the base image using two reference landmarks. The landmarks must already be placed as point markups on the base image.
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: t.tx2, width: 70, flexShrink: 0 }}>Align image</div>
+        <div style={{ fontSize: 12, color: t.tx2, width: 70, flexShrink: 0 }}>Align image</div>
         <select value={img.id} onChange={e => { setTargetId(e.target.value); setP1(null); setP2(null); }}
           style={{ flex: 1, background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 6px", color: t.tx, fontSize: 12 }}>
           {images.map((im, i) => <option key={im.id} value={im.id}>{im.name || `Img ${i + 1}`}</option>)}
@@ -210,33 +209,33 @@ function ImageAlignModal({ t, images, markups, onApply, onClose }) {
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3 }}>Landmark 1 (base)</div>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3 }}>Landmark 1 (base)</div>
           <select value={l1} onChange={e => { setL1(e.target.value); setP1(null); setP2(null); }}
             style={{ width: "100%", background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 6px", color: t.tx, fontSize: 12 }}>
             {labels.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 10, color: t.tx2, marginBottom: 3 }}>Landmark 2 (base)</div>
+          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 3 }}>Landmark 2 (base)</div>
           <select value={l2} onChange={e => { setL2(e.target.value); setP1(null); setP2(null); }}
             style={{ width: "100%", background: t.surf3, border: `1px solid ${t.bdr}`, borderRadius: 4, padding: "4px 6px", color: t.tx, fontSize: 12 }}>
             {labels.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
       </div>
-      {labels.length === 0 && <div style={{ fontSize: 10, color: t.warn, marginBottom: 8 }}>No point landmarks found. Place two point markups on the base image first.</div>}
-      <div style={{ fontSize: 10, color: t.tx3, marginBottom: 4 }}>
+      {labels.length === 0 && <div style={{ fontSize: 12, color: t.warn, marginBottom: 8 }}>No point landmarks found. Place two point markups on the base image first.</div>}
+      <div style={{ fontSize: 12, color: t.tx3, marginBottom: 4 }}>
         {!p1 ? "Click landmark 1 on the preview" : !p2 ? "Click landmark 2 on the preview" : "Both landmarks set — click a point to redo."}
       </div>
       <div style={{ border: `1px solid ${t.bdr}`, borderRadius: 8, overflow: "hidden", marginBottom: 10, background: "#111" }}>
         <canvas ref={canvasRef} onClick={handleClick} style={{ display: "block", width: "100%", cursor: "crosshair" }} />
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, fontSize: 11, color: t.tx2 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, fontSize: 12, color: t.tx2 }}>
         <span>{p1 ? `L1: (${Math.round(p1.x)}, ${Math.round(p1.y)})` : "L1: —"}</span>
         <span>{p2 ? `L2: (${Math.round(p2.x)}, ${Math.round(p2.y)})` : "L2: —"}</span>
         {computed && <span>Rot {(computed.rot * 180 / Math.PI).toFixed(1)}° · Scale {computed.scale.toFixed(3)}×</span>}
       </div>
-      {err && <div style={{ fontSize: 11, color: t.err, marginBottom: 8 }}>{err}</div>}
+      {err && <div style={{ fontSize: 12, color: t.err, marginBottom: 8 }}>{err}</div>}
       <div style={{ display: "flex", gap: 8 }}>
         <Btn t={t} small onClick={apply}>Align</Btn>
         <Btn t={t} small onClick={onClose}>Cancel</Btn>

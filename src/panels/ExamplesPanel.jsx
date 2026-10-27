@@ -12,6 +12,9 @@ import {
   getRepoURL,
 } from "../data/communityExamples.js";
 import { drawMarkup } from "../canvas/drawMarkups.js";
+import { Icon } from "../ui/icons.jsx";
+import { Btn } from "../ui/ui.jsx";
+import { SMALL_BTN } from "../ui/tokens.js";
 
 function titleCase(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -148,7 +151,7 @@ function ExampleCard({ ex, t, onOpen }) {
           </div>
           <div
             style={{
-              fontSize: 10,
+              fontSize: 12,
               color: t.tx2,
               whiteSpace: "nowrap",
               overflow: "hidden",
@@ -158,31 +161,18 @@ function ExampleCard({ ex, t, onOpen }) {
             {subtitle}
           </div>
         </div>
-        <button
-          onClick={(e) => {
+        <Btn t={t} small onClick={(e) => {
             e.stopPropagation();
             onOpen();
-          }}
-          style={{
-            padding: "4px 10px",
-            borderRadius: 6,
-            border: `1px solid ${hover ? t.acc : t.bdr}`,
-            background: hover ? `${t.acc}22` : t.surf3,
-            color: hover ? t.acc : t.tx,
-            fontSize: 10,
-            fontWeight: 700,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
+          }} style={{ ...SMALL_BTN, flexShrink: 0 }}>
           View
-        </button>
+        </Btn>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {ex.analysisName && (
           <span
             style={{
-              fontSize: 9,
+              fontSize: 12,
               color: t.acc,
               background: `${t.acc}22`,
               padding: "2px 8px",
@@ -196,7 +186,7 @@ function ExampleCard({ ex, t, onOpen }) {
         {ex.ptCount ? (
           <span
             style={{
-              fontSize: 9,
+              fontSize: 12,
               color: t.tx2,
               background: t.surf3,
               padding: "2px 8px",
@@ -211,7 +201,7 @@ function ExampleCard({ ex, t, onOpen }) {
       {ex.description && (
         <div
           style={{
-            fontSize: 10,
+            fontSize: 12,
             color: t.tx2,
             lineHeight: 1.45,
             display: "-webkit-box",
@@ -293,7 +283,7 @@ export function ExamplesPanel({ t }) {
       )}
       <div
         style={{
-          fontSize: 11,
+          fontSize: 12,
           color: t.tx2,
           marginBottom: 12,
           lineHeight: 1.5,
@@ -336,7 +326,7 @@ export function ExamplesPanel({ t }) {
         >
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               color: t.tx2,
               letterSpacing: 0.4,
@@ -346,38 +336,24 @@ export function ExamplesPanel({ t }) {
             Community examples
           </span>
           {community.updated && (
-            <span style={{ fontSize: 9, color: t.tx3 }}>
+            <span style={{ fontSize: 12, color: t.tx3 }}>
               updated {community.updated}
             </span>
           )}
           <span style={{ flex: 1 }} />
-          <button
-            onClick={() => loadCommunity(true)}
-            disabled={community.state === "loading"}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              border: `1px solid ${t.bdr}`,
-              background: t.surf3,
-              color: t.tx,
-              fontSize: 10,
-              fontWeight: 700,
-              cursor: community.state === "loading" ? "not-allowed" : "pointer",
-              opacity: community.state === "loading" ? 0.5 : 1,
-              flexShrink: 0,
-            }}
-          >
+          <Btn t={t} small onClick={() => loadCommunity(true)}
+            disabled={community.state === "loading"} style={SMALL_BTN}>
             {community.state === "loading" ? "Loading…" : "↻ Refresh"}
-          </button>
+          </Btn>
         </div>
         {community.stale && (
-          <div style={{ gridColumn: "1 / -1", fontSize: 10, color: t.warn }}>
+          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: t.warn }}>
             Offline — showing cached list
             {community.error ? ` (${community.error})` : ""}.
           </div>
         )}
         {commErr && (
-          <div style={{ gridColumn: "1 / -1", fontSize: 10, color: t.err }}>
+          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: t.err }}>
             {commErr}
           </div>
         )}
@@ -385,7 +361,7 @@ export function ExamplesPanel({ t }) {
           <div
             style={{
               gridColumn: "1 / -1",
-              fontSize: 11,
+              fontSize: 12,
               color: t.tx3,
               padding: "6px 2px",
             }}
@@ -397,7 +373,7 @@ export function ExamplesPanel({ t }) {
           <div
             style={{
               gridColumn: "1 / -1",
-              fontSize: 11,
+              fontSize: 12,
               color: t.err,
               padding: "6px 2px",
             }}
@@ -409,7 +385,7 @@ export function ExamplesPanel({ t }) {
           <div
             style={{
               gridColumn: "1 / -1",
-              fontSize: 11,
+              fontSize: 12,
               color: t.tx3,
               padding: "6px 2px",
             }}
@@ -429,7 +405,7 @@ export function ExamplesPanel({ t }) {
         <div
           style={{
             gridColumn: "1 / -1",
-            fontSize: 10,
+            fontSize: 12,
             color: t.tx3,
             marginTop: 8,
             lineHeight: 1.6,
@@ -1087,19 +1063,19 @@ function ExampleViewerModal({ t, data, onClose }) {
           userSelect: "none",
         }}
       >
-        <span style={{ fontSize: 16 }}>&#x1F4CB;</span>
+        <Icon name="clipboard" size={16} color={t.tx2} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.tx }}>
             Example: {data?.name || "Template Preview"}
           </div>
-          <div style={{ fontSize: 10, color: t.tx2 }}>
+          <div style={{ fontSize: 12, color: t.tx2 }}>
             {data?.markups?.length || 0} markups · {data?.projection || ""}{" "}
             projection{data?.author ? ` · by ${data.author}` : ""}
           </div>
         </div>
         <span
           style={{
-            fontSize: 9,
+            fontSize: 12,
             color: t.tx3,
             fontFamily: "'DM Mono',monospace",
           }}
@@ -1164,7 +1140,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                     background: mode === m ? t.acc : "transparent",
                     color: mode === m ? "#fff" : t.tx2,
                     border: "none",
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: 700,
                     height: 26,
                     padding: "0 10px",
@@ -1184,7 +1160,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             style={{
               background: t.surf3,
               border: `1px solid ${t.bdr}`,
-              borderRadius: 4,
+              borderRadius: 6,
               color: t.tx2,
               cursor: "pointer",
               fontSize: 14,
@@ -1199,7 +1175,7 @@ function ExampleViewerModal({ t, data, onClose }) {
           </button>
           <span
             style={{
-              fontSize: 10,
+              fontSize: 12,
               color: t.tx3,
               fontFamily: "'DM Mono',monospace",
               minWidth: 32,
@@ -1214,7 +1190,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             style={{
               background: t.surf3,
               border: `1px solid ${t.bdr}`,
-              borderRadius: 4,
+              borderRadius: 6,
               color: t.tx2,
               cursor: "pointer",
               fontSize: 14,
@@ -1233,7 +1209,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             style={{
               background: t.surf3,
               border: `1px solid ${t.bdr}`,
-              borderRadius: 4,
+              borderRadius: 6,
               color: t.tx2,
               cursor: "pointer",
               fontSize: 12,
@@ -1267,7 +1243,7 @@ function ExampleViewerModal({ t, data, onClose }) {
         <div
           style={{
             padding: "8px 16px",
-            fontSize: 11,
+            fontSize: 12,
             color: t.tx2,
             lineHeight: 1.5,
             borderBottom: `1px solid ${t.bdr}`,
@@ -1294,7 +1270,7 @@ function ExampleViewerModal({ t, data, onClose }) {
               style={{
                 background: t.surf3,
                 border: `1px solid ${t.bdr}`,
-                borderRadius: 4,
+                borderRadius: 6,
                 color: t.tx2,
                 cursor: guideIdx === 0 ? "not-allowed" : "pointer",
                 fontSize: 13,
@@ -1317,7 +1293,7 @@ function ExampleViewerModal({ t, data, onClose }) {
               style={{
                 background: t.surf3,
                 border: `1px solid ${t.bdr}`,
-                borderRadius: 4,
+                borderRadius: 6,
                 color: t.tx2,
                 cursor:
                   guideIdx === guideSteps.length - 1
@@ -1336,7 +1312,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             </button>
             <span
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontFamily: "'DM Mono',monospace",
                 color: t.tx3,
                 minWidth: 74,
@@ -1379,7 +1355,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             />
             <span
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: t.tx2,
                 fontWeight: 700,
                 whiteSpace: "nowrap",
@@ -1407,7 +1383,7 @@ function ExampleViewerModal({ t, data, onClose }) {
               {currentStep.label}
             </span>
             {currentStep.definition && (
-              <span style={{ fontSize: 11, color: t.tx, lineHeight: 1.4 }}>
+              <span style={{ fontSize: 12, color: t.tx, lineHeight: 1.4 }}>
                 {currentStep.definition}
               </span>
             )}
@@ -1416,7 +1392,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             <div
               style={{
                 marginTop: 6,
-                fontSize: 11,
+                fontSize: 12,
                 color: t.tx3,
                 lineHeight: 1.45,
                 background: `${groupColor(currentStep.group)}14`,
@@ -1457,7 +1433,7 @@ function ExampleViewerModal({ t, data, onClose }) {
               style={{
                 background: t.surf3,
                 border: `1px solid ${t.bdr}`,
-                borderRadius: 4,
+                borderRadius: 6,
                 color: t.tx2,
                 cursor: buildStage === 0 ? "not-allowed" : "pointer",
                 fontSize: 13,
@@ -1478,10 +1454,10 @@ function ExampleViewerModal({ t, data, onClose }) {
               style={{
                 background: effectivePlaying ? t.acc : t.surf3,
                 border: `1px solid ${t.bdr}`,
-                borderRadius: 4,
+                borderRadius: 6,
                 color: effectivePlaying ? "#fff" : t.tx2,
                 cursor: buildStage >= buildMax ? "not-allowed" : "pointer",
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 width: 34,
                 height: 26,
@@ -1503,7 +1479,7 @@ function ExampleViewerModal({ t, data, onClose }) {
               style={{
                 background: t.surf3,
                 border: `1px solid ${t.bdr}`,
-                borderRadius: 4,
+                borderRadius: 6,
                 color: t.tx2,
                 cursor: buildStage >= buildMax ? "not-allowed" : "pointer",
                 fontSize: 13,
@@ -1519,7 +1495,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             </button>
             <span
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontFamily: "'DM Mono',monospace",
                 color: t.tx3,
                 minWidth: 66,
@@ -1546,7 +1522,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             {currentBuildStage && (
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                   color: t.tx2,
                   fontWeight: 700,
                   whiteSpace: "nowrap",
@@ -1564,7 +1540,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             <div
               style={{
                 marginTop: 8,
-                fontSize: 11,
+                fontSize: 12,
                 color: t.tx2,
                 lineHeight: 1.4,
               }}
@@ -1615,7 +1591,7 @@ function ExampleViewerModal({ t, data, onClose }) {
           >
             <div
               style={{
-                fontSize: 8,
+                fontSize: 12,
                 fontWeight: 700,
                 color: t.tx2,
                 letterSpacing: 0.6,
@@ -1638,7 +1614,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    fontSize: 10,
+                    fontSize: 12,
                     color: t.tx,
                     cursor: "pointer",
                     padding: "3px 5px",
@@ -1670,7 +1646,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                   >
                     {titleCase(g.id)}
                   </span>
-                  <span style={{ color: t.tx3, fontSize: 9 }}>{g.count}</span>
+                  <span style={{ color: t.tx3, fontSize: 12 }}>{g.count}</span>
                 </div>
               );
             })}
@@ -1696,7 +1672,7 @@ function ExampleViewerModal({ t, data, onClose }) {
           >
             <div
               style={{
-                fontSize: 8,
+                fontSize: 12,
                 fontWeight: 700,
                 color: t.tx2,
                 letterSpacing: 0.6,
@@ -1708,7 +1684,7 @@ function ExampleViewerModal({ t, data, onClose }) {
             </div>
             <div
               style={{
-                fontSize: 9,
+                fontSize: 12,
                 color: t.tx3,
                 lineHeight: 1.4,
                 margin: "0 2px 8px",
@@ -1745,7 +1721,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                   >
                     <span
                       style={{
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: 700,
                         color: on ? t.acc : t.tx,
                       }}
@@ -1755,7 +1731,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                     {mm.formula && (
                       <span
                         style={{
-                          fontSize: 9,
+                          fontSize: 12,
                           color: t.tx3,
                           fontFamily: "'DM Mono',monospace",
                         }}
@@ -1766,7 +1742,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                   </div>
                   <div
                     style={{
-                      fontSize: 9.5,
+                      fontSize: 12,
                       color: t.tx2,
                       lineHeight: 1.4,
                       marginTop: 3,
@@ -1776,7 +1752,7 @@ function ExampleViewerModal({ t, data, onClose }) {
                   </div>
                   <div
                     style={{
-                      fontSize: 8.5,
+                      fontSize: 12,
                       color: t.tx3,
                       fontFamily: "'DM Mono',monospace",
                       marginTop: 3,
@@ -1801,7 +1777,7 @@ function ExampleViewerModal({ t, data, onClose }) {
           flexShrink: 0,
         }}
       >
-        <div style={{ flex: 1, fontSize: 10, color: t.tx3, lineHeight: 1.4 }}>
+        <div style={{ flex: 1, fontSize: 12, color: t.tx3, lineHeight: 1.4 }}>
           {mode === "guide"
             ? "Follow the steps to place landmarks in clinical order. Use the arrow buttons or ← / → keys to move; Esc returns to browse view."
             : mode === "measure"
@@ -1810,21 +1786,9 @@ function ExampleViewerModal({ t, data, onClose }) {
                 ? "Reveal the tracing in stages with the slider or ▶ play. Use ← / → to step, Space to play/pause, Esc to return to browse view."
                 : "Drag to pan · scroll to zoom · double-click to fit. Hover any point to read its definition and highlight its group; click a group to isolate it."}
         </div>
-        <button
-          onClick={onClose}
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            border: `1px solid ${t.bdr}`,
-            background: t.surf3,
-            color: t.tx,
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
+        <Btn t={t} small onClick={onClose}>
           Close
-        </button>
+        </Btn>
       </div>
       <div
         onMouseDown={(e) => {

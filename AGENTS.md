@@ -164,6 +164,7 @@ src/
 │   ├── DiagnosticPanel.jsx     Diagnostic config + results
 │   ├── SuperimpositionPanel.jsx Superimposition config + results (7 tabs)
 │   ├── AirwayStudyPanel.jsx    Airway study config + results
+│   ├── LabelSelector.jsx       Measurement picker shared by every study setup
 │   ├── ResearchWorkspace.jsx   Full-screen studies workspace (list, stepper, run, blinding lock)
 │   ├── StudyResultsView.jsx    Summary, caveats, APA text, glossary, tables/charts, exports
 │   ├── studyState.js           Data fingerprint + study status (stale / current / …)
@@ -196,6 +197,8 @@ src/
 │   ├── ToolBtn.jsx             Toolbar button
 │   ├── ContextMenu.jsx         Right-click context menu
 │   ├── dialogs.js              askConfirm / askText / showInfo / notify (no window.alert/confirm/prompt)
+│   ├── icons.jsx               Line icons (<Icon name=…/>) — use instead of emoji
+│   ├── tokens.js               BACKDROP (dialog overlay), SMALL_BTN (compact Btn style)
 │   ├── DialogHost.jsx          Renders dialogs + toasts (mounted once at the app root)
 │   └── ErrorBoundary.jsx       React error boundary
 │
@@ -524,6 +527,8 @@ Recommended settings for `.vscode/settings.json`:
 - **PDF report + airway fixes**: report pages via `newPage` (reuses the empty first page; never call `doc.addPage` directly in builders), headers/footers drawn in a final pass, `measurementRows` (primary measure + unit), live airway results passed from App, Amiri font for non-Latin text (`public/fonts/`, loaded on demand), report images from `captureReportImages`. Airway: `getInterpretation(z, id)` is direction-aware, `normalizeSex`/`normalizeAge`, clinical notes only when calibrated, traced walls (`tracedBoundaries`) feed R-PAS/R-RG/Min-CSA/area, snapping uses `getImagePixels` (image coordinates). 14 tests in `src/test/reportAirwayFixes.test.js`
 
 - **Normogram**: rows from `lib/normogram.js` (`normogramRows`, `comparisonValues`, `chartLayout`); `NormogramPanel` takes `markups`, `calibration`, `facing`, `sessions` (sealed ones filtered out in App), `activeSessionId`, `caseName`; transparent charts, print-colour downloads via a hidden render (`PRINT_T`). 7 tests in `src/test/normogram.test.js`
+
+- **Design consistency**: shared controls in `ui/ui.jsx` — `Btn` (with `SMALL_BTN` from `ui/tokens.js` for compact ones), `Chip` (toggle/segmented choices), `TabBar` (underlined tabs), `GuideBtn` ("?"), `RemoveBtn` (×), `FieldLabel`; dialogs use `Modal` or `DialogShell` (`panels/Modal.jsx`, same overlay/panel/header, `BACKDROP`); icons come from `ui/icons.jsx`, not emoji; no inline font size under 12 px in panels/research setup (the readable-text CSS floor is only a fallback).
 
 - **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`. Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. Formulas are drawn as equations via the injected `renderLatex` (`report/latexCapture.js`) from `f.latex` or `formulaTex(expression)` (`lib/utils.js`, mathjs `toTex`, multi-letter names as `\mathrm`). 13 tests in `src/test/reportGaps.test.js`.
 

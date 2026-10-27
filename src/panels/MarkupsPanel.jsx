@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { computeMeasurements, normDeviation, deviationColor, onEnter } from "../lib/utils.js";
-import { Btn } from "../ui/ui.jsx";
+import { Btn, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { MarkupGearSettings } from "./MarkupGearSettings.jsx";
 import { useSessionStore } from "../state/sessionStore.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 import { aiReviewSummary, confidenceTier, markReviewed } from "../workspace/aiReview.js";
+import { Icon } from "../ui/icons.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUPS PANEL
@@ -42,8 +43,8 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
     { id: "polygon", label: "Polygons", types: ["polygon"], icon: "⬡", color: "#4ade80" },
     { id: "ellipse", label: "Ellipses & Circles", types: ["ellipse", "circle", "arc", "concentric"], icon: "◯", color: "#60a5fa" },
     { id: "other", label: "Measurements", types: ["perp","ratio","sum","difference","percentage","projDist"], icon: "⊥", color: "#a78bfa" },
-    { id: "annotation", label: "Annotations", types: ["arrow", "text"], icon: "📝", color: "#fbbf24" },
-    { id: "silhouette", label: "Silhouettes", types: ["silhouette"], icon: "🧑", color: "#f59e0b" },
+    { id: "annotation", label: "Annotations", types: ["arrow", "text"], icon: <Icon name="note" size={13} />, color: "#fbbf24" },
+    { id: "silhouette", label: "Silhouettes", types: ["silhouette"], icon: <Icon name="person" size={13} />, color: "#f59e0b" },
   ];
 
   // Clear is one undo step; the "Cleared N markups · Undo" toast replaces a
@@ -65,8 +66,8 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
         )}
         {!placingMode && placingQueue.length === 0 && <Btn t={t} small onClick={onResumePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>▶ Start</Btn>}
         {!placingMode && placingQueue.length > 0 && <Btn t={t} small onClick={onResumePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>▶ Resume</Btn>}
-        {placingMode && <Btn t={t} small onClick={onPausePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0, background: t.warn + "22", color: t.warn, border: `1px solid ${t.warn}` }}>⏸</Btn>}
-        {(placingMode || placingQueue.length > 0) && <Btn t={t} small danger onClick={onStopPlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>⏹ End</Btn>}
+        {placingMode && <Btn t={t} small onClick={onPausePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0, background: t.warn + "22", color: t.warn, border: `1px solid ${t.warn}` }} title="Pause placing"><Icon name="pause" size={14} /></Btn>}
+        {(placingMode || placingQueue.length > 0) && <Btn t={t} small danger onClick={onStopPlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}><Icon name="stop" size={13} /> End</Btn>}
         <Btn t={t} small danger onClick={handleClear} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>Clear</Btn>
         <MarkupGearSettings
           t={t} theme={theme} dispatch={dispatch} markups={markups}
@@ -88,12 +89,11 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
           snapTolerance={snapTolerance} setSnapTolerance={setSnapTolerance}
           onLockAll={onLockAll} onUnlockAll={onUnlockAll}
         />
-        <button onClick={() => setGuideKey("markups")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("markups")} />
       </div>
       {autoTraceInfo && (
         <div style={{ padding: "6px 10px", background: autoTraceInfo.tone === "err" ? t.err + "18" : autoTraceInfo.tone === "warn" ? t.warn + "18" : t.accMuted, borderBottom: `1px solid ${t.bdr}`, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ flex: 1, fontSize: 11, color: t.tx2 }}>{autoTraceInfo.message}</span>
+          <span style={{ flex: 1, fontSize: 12, color: t.tx2 }}>{autoTraceInfo.message}</span>
           {onAutoTraceDismiss && <button onClick={onAutoTraceDismiss} style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 13, flexShrink: 0 }}>×</button>}
         </div>
       )}
@@ -131,18 +131,18 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
       )}
       {autoTraceQuality && autoTraceQuality.level !== "high" && (
         <div style={{ padding: "8px 10px", background: autoTraceQuality.level === "low" ? t.err + "14" : t.warn + "14", borderBottom: `1px solid ${t.bdr}`, display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 11, color: autoTraceQuality.level === "low" ? t.err : t.warn, fontWeight: 700 }}>
+          <div style={{ fontSize: 12, color: autoTraceQuality.level === "low" ? t.err : t.warn, fontWeight: 700 }}>
             {autoTraceQuality.level === "low" ? "Low-confidence trace" : "Check these landmarks"}
           </div>
-          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: t.tx2, lineHeight: 1.5 }}>
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: t.tx2, lineHeight: 1.5 }}>
             {autoTraceQuality.reasons.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
           {autoTraceQuality.notes?.length > 0 && (
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 10, color: t.tx3, lineHeight: 1.5, fontStyle: "italic" }}>
+            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: t.tx3, lineHeight: 1.5, fontStyle: "italic" }}>
               {autoTraceQuality.notes.map((r, i) => <li key={i}>{r}</li>)}
             </ul>
           )}
-          <div style={{ fontSize: 10, color: t.tx3 }}>
+          <div style={{ fontSize: 12, color: t.tx3 }}>
             Measurements and norms derived from these points may be wrong — verify before use.
           </div>
           {onAutoTraceRetry && (
@@ -164,9 +164,9 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
             <div style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 6, background: t.surf2, borderBottom: `1px solid ${t.bdr}`, borderTop: `1px solid ${t.bdr}`, userSelect: "none" }}>
               <div role="button" tabIndex={0} onClick={() => toggle(sec.id)} onKeyDown={onEnter(() => toggle(sec.id))} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", flex: 1, minWidth: 0 }}>
                 <span style={{ color: sec.color, fontSize: 12 }}>{sec.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: t.tx, textTransform: "uppercase", letterSpacing: 0.5 }}>{sec.label}</span>
-                <span style={{ fontSize: 10, color: t.tx3, fontFamily: "'DM Mono',monospace" }}>{items.length}</span>
-                <span style={{ color: t.tx3, fontSize: 10, transition: "transform 0.15s", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: t.tx, textTransform: "uppercase", letterSpacing: 0.5 }}>{sec.label}</span>
+                <span style={{ fontSize: 12, color: t.tx3, fontFamily: "'DM Mono',monospace" }}>{items.length}</span>
+                <span style={{ color: t.tx3, fontSize: 12, transition: "transform 0.15s", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
               </div>
               <button onClick={(e) => { e.stopPropagation(); onToggleGroupVisible && onToggleGroupVisible(sec.types); }} title={allVisible ? `Hide all ${sec.label}` : `Show all ${sec.label}`} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0, display: "flex", alignItems: "center" }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: allVisible ? sec.color : "transparent", border: `2px solid ${sec.color}`, opacity: allVisible ? 1 : 0.3, transition: "all 0.15s" }} />
@@ -185,26 +185,26 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
                       <div style={{ width: 10, height: 10, borderRadius: "50%", background: isHidden ? "transparent" : m.color || m.strokeColor || t.acc, border: `2px solid ${m.color || m.strokeColor || t.acc}`, opacity: isHidden ? 0.35 : 1, transition: "all 0.15s" }} />
                     </button>
                     <button onClick={() => onToggleLock(m.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, flexShrink: 0 }} title={isLocked ? "Unlock" : "Lock"}>
-                      <span style={{ fontSize: 11, color: isLocked ? t.warn : t.tx3 }}>{isLocked ? "🔒" : "🔓"}</span>
+                      <span style={{ fontSize: 12, color: isLocked ? t.warn : t.tx3 }}><Icon name={isLocked ? "lock" : "unlock"} size={13} /></span>
                     </button>
                     <button onClick={() => onToggleLabel(m.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, flexShrink: 0 }} title={m.noLabel ? "Show label" : "Hide label"}>
                       <span style={{ fontSize: 12, color: m.noLabel ? t.tx3 : t.acc }}>{m.noLabel ? "Aa" : "Aa"}</span>
                     </button>
                     {m.type !== "text" && <button onClick={() => onReplace && onReplace(m.type, m.id)} style={{ background: replacingId === m.id ? t.accMuted : "none", border: "none", cursor: "pointer", padding: 2, flexShrink: 0 }} title="Replace mode">
-                      <span style={{ fontSize: 16, color: replacingId === m.id ? t.acc : t.tx2 }}>⚙</span>
+                      <Icon name="gear" size={15} color={replacingId === m.id ? t.acc : t.tx2} />
                     </button>}
                     <div role="button" tabIndex={0} onClick={() => onSelect(m.id === selectedId ? null : m.id)} onKeyDown={onEnter(() => onSelect(m.id === selectedId ? null : m.id))} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: isHidden ? t.tx3 : t.tx, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {isPlacing && <span style={{ color: t.warn, marginRight: 4 }}>📍</span>}
+                        {isPlacing && <span style={{ color: t.warn, marginRight: 4 }}><Icon name="pin" size={13} /></span>}
                         {unplaced && !isPlacing && <span style={{ color: t.tx3, marginRight: 4 }}>○</span>}
                         {m.label || m.type}
-                        {(m.type === "curve" || m.type === "polyline") && m.curveStyle === "bspline" && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>[spline]</span>}
-                        {m.type === "polygon" && m.curveStyle === "bspline" && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>[spline]</span>}
-                        {m.type === "text" && m.text && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>"{m.text.slice(0, 15)}{m.text.length > 15 ? "…" : ""}"</span>}
-                        {m.type === "arrow" && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>→</span>}
-                        {isLocked && <span style={{ fontSize: 9, color: t.warn, marginLeft: 4 }}>[locked]</span>}
+                        {(m.type === "curve" || m.type === "polyline") && m.curveStyle === "bspline" && <span style={{ fontSize: 12, color: t.tx3, marginLeft: 4 }}>[spline]</span>}
+                        {m.type === "polygon" && m.curveStyle === "bspline" && <span style={{ fontSize: 12, color: t.tx3, marginLeft: 4 }}>[spline]</span>}
+                        {m.type === "text" && m.text && <span style={{ fontSize: 12, color: t.tx3, marginLeft: 4 }}>"{m.text.slice(0, 15)}{m.text.length > 15 ? "…" : ""}"</span>}
+                        {m.type === "arrow" && <span style={{ fontSize: 12, color: t.tx3, marginLeft: 4 }}>→</span>}
+                        {isLocked && <span style={{ fontSize: 12, color: t.warn, marginLeft: 4 }}>[locked]</span>}
                         {m.type === "point" && m.unsure === true && (
-                          <span title="Marked unsure while tracing — check it, then confirm" style={{ fontSize: 10, marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px dotted ${t.warn}`, color: t.warn }}>unsure</span>
+                          <span title="Marked unsure while tracing — check it, then confirm" style={{ fontSize: 12, marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px dotted ${t.warn}`, color: t.warn }}>unsure</span>
                         )}
                         {m.type === "point" && m.aiPlaced === true && (() => {
                           const tier = confidenceTier(m.aiConfidence);
@@ -215,7 +215,7 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
                             <span title={pending ? "AI-placed, not yet reviewed — click to confirm" : m.aiAdjusted ? "AI-placed, adjusted by you" : "AI-placed, confirmed"}
                               role={pending ? "button" : undefined}
                               onClick={pending ? (e => { e.stopPropagation(); confirmAiPoints([m.id]); }) : undefined}
-                              style={{ fontSize: 10, marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px ${pending ? "dashed" : "solid"} ${col}`, color: col, cursor: pending ? "pointer" : "default" }}>
+                              style={{ fontSize: 12, marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px ${pending ? "dashed" : "solid"} ${col}`, color: col, cursor: pending ? "pointer" : "default" }}>
                               AI{pct}{pending ? "" : m.aiAdjusted ? " ✎" : " ✓"}
                             </span>
                           );
@@ -249,7 +249,7 @@ function NormBadges({ norms, meas, t, calibration }) {
         if (!calDone && calTypes.includes(n.measureType)) return null;
         const dev = normDeviation(val, n);
         const col = deviationColor(dev.sdUnits, t);
-        return (<span key={n.id} style={{ background: col + "22", color: col, border: `1px solid ${col}44`, borderRadius: 3, padding: "0px 4px", fontSize: 9, fontWeight: 700, fontFamily: "'DM Mono',monospace" }}>
+        return (<span key={n.id} style={{ background: col + "22", color: col, border: `1px solid ${col}44`, borderRadius: 3, padding: "0px 4px", fontSize: 12, fontWeight: 700, fontFamily: "'DM Mono',monospace" }}>
           {dev.sdUnits > 0 ? "+" : ""}{dev.sdUnits.toFixed(1)}SD
         </span>);
       })}

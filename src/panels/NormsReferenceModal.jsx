@@ -2,15 +2,90 @@ import { useState, useRef, useMemo } from "react";
 import { DEFAULT_NORMS } from "../data/norms.js";
 import { addPreset, exportLibraryJSON, exportPresetJSON, exportPresetCSV, importLibraryJSON, importPresetCSV, validatePreset } from "../data/normLibrary.js";
 import { fetchCommunityNorms, installPreset, getContributionURL, getRepoURL } from "../data/communityNorms.js";
-import { Btn } from "../ui/ui.jsx";
+import { Btn, GuideBtn, TabBar } from "../ui/ui.jsx";
+import { SMALL_BTN } from "../ui/tokens.js";
+import { DialogShell } from "./Modal.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { askConfirm } from "../ui/dialogs.js";
 import { useDialogA11y } from "../hooks/useDialogA11y.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // NORMS REFERENCE GALLERY MODAL — Browse presets + manage personal library
+// Styled like the app's other dialogs (ui Modal, Settings): surface panel,
+// plain section headers, Btn actions, Settings-style inputs.
 // ═══════════════════════════════════════════════════════════════════════════════
 const _emptyPreset = () => ({ name: "", source: "", population: "", ageRange: "", sex: "", stratification: "", norms: [{ label: "", mean: 0, sd: 1, type: "angle" }] });
+
+const MONO = "'DM Mono',monospace";
+const inputStyle = t => ({ width: "100%", boxSizing: "border-box", padding: "6px 8px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 13, fontFamily: "inherit" });
+const smallBtn = SMALL_BTN;
+
+function Tag({ color, children }) {
+  return <span style={{ fontSize: 11, fontWeight: 600, color, border: `1px solid ${color}55`, borderRadius: 4, padding: "0 5px", lineHeight: "16px", whiteSpace: "nowrap" }}>{children}</span>;
+}
+
+function Empty({ t, children }) {
+  return <div style={{ textAlign: "center", padding: "36px 16px", color: t.tx3, fontSize: 13, lineHeight: 1.6 }}>{children}</div>;
+}
+
+function Notice({ t, children, onDismiss }) {
+  return (
+    <div role="alert" style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 10px", border: `1px solid ${t.err}66`, borderRadius: 6, fontSize: 12, color: t.err, whiteSpace: "pre-wrap" }}>
+      <span style={{ flex: 1 }}>{children}</span>
+      {onDismiss && <button onClick={onDismiss} aria-label="Dismiss" style={{ background: "none", border: "none", color: t.err, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>}
+    </div>
+  );
+}
+
+const th = (t, align = "left") => ({ textAlign: align, padding: "6px 12px", color: t.tx3, fontSize: 12, fontWeight: 600, borderBottom: `1px solid ${t.bdr}` });
+const td = { padding: "6px 12px", fontSize: 13 };
+
+function NormRows({ t, norms, onAddOne }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr>
+          <th style={th(t)}>Measurement</th>
+          <th style={th(t, "right")}>Mean</th>
+          <th style={th(t, "right")}>SD</th>
+          <th style={th(t, "center")}>Type</th>
+          {onAddOne && <th style={th(t, "right")}><span style={{ position: "absolute", left: -9999 }}>Add</span></th>}
+        </tr></thead>
+        <tbody>
+          {norms.map((n, i) => (
+            <tr key={i} style={{ borderBottom: i < norms.length - 1 ? `1px solid ${t.bdr}66` : "none" }}>
+              <td style={{ ...td, color: t.tx, fontWeight: 600, whiteSpace: "nowrap" }}>{n.label}</td>
+              <td style={{ ...td, textAlign: "right", fontFamily: MONO, color: t.tx }}>{Number(n.mean).toFixed(1)}</td>
+              <td style={{ ...td, textAlign: "right", fontFamily: MONO, color: t.tx2 }}>± {Number(n.sd).toFixed(1)}</td>
+              <td style={{ ...td, textAlign: "center", color: t.tx2, fontSize: 12 }}>{n.type}</td>
+              {onAddOne && <td style={{ ...td, textAlign: "right", padding: "3px 12px" }}>
+                <Btn t={t} small ghost title={`Add the ${n.label} norm`} onClick={() => onAddOne(n)} style={{ ...smallBtn, color: t.acc }}>+ Add</Btn>
+              </td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PresetCard({ t, title, tags, source, actions, children }) {
+  return (
+    <section style={{ marginBottom: 12, border: `1px solid ${t.bdr}`, borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ padding: "10px 12px", borderBottom: `1px solid ${t.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: t.tx }}>{title || "Untitled"}</h3>
+            {tags}
+          </div>
+          {source && <div style={{ fontSize: 12, color: t.tx3, marginTop: 2 }}>{source}</div>}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>{actions}</div>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePreset, onDeletePreset }) {
   const [tab, setTab] = useState("browse");
@@ -43,7 +118,7 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
     });
   }
 
-  const allBuiltIn = useMemo(() => Object.entries(DEFAULT_NORMS).map(([key, p]) => ({ key, ...p, builtIn: true })), []);
+  const allBuiltIn = useMemo(() => Object.entries(DEFAULT_NORMS).map(([key, p]) => ({ key, ...p, name: p.name || key, builtIn: true })), []);
   const allUser = useMemo(() => (userPresets || []).map(p => ({ key: p.id, ...p, builtIn: false })), [userPresets]);
   const allPresets = useMemo(() => [...allBuiltIn, ...allUser], [allBuiltIn, allUser]);
 
@@ -88,48 +163,33 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
     setEditingPreset(null); setEditErrors([]);
   }
 
-  function PresetTable({ preset, source, onAddOne, onAddAll, builtIn, onEdit, onDelete, onExportJSON, onExportCSV }) {
+  const addOne = (n, source) => {
+    const existing = onAdd.__norms || [];
+    if (!existing.some(e => e.markupLabel === n.label && e.measureType === n.type)) onAdd(n.label, n.mean, n.sd, n.type, source);
+  };
+  const deletePreset = async p => {
+    if (await askConfirm({ title: `Delete "${p.name}"?`, message: "The preset is removed from your norm library.", confirmLabel: "Delete", danger: true })) onDeletePreset(p.id);
+  };
+
+  function renderPreset(p) {
+    const file = (p.name || "preset").replace(/\s+/g, "_");
     return (
-      <div style={{ marginBottom: 14, border: `1px solid ${t.bdr}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ padding: "8px 12px", background: t.surf2, borderBottom: `1px solid ${t.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: builtIn ? t.acc : t.ok }}>{preset.name || "?"}</span>
-            {!builtIn && <span style={{ fontSize: 8, color: t.ok, marginLeft: 4, background: t.ok + "22", borderRadius: 3, padding: "0 4px", fontWeight: 700 }}>MY</span>}
-            <span style={{ fontSize: 10, color: t.tx3, marginLeft: 8 }}>{source || preset.source}</span>
-          </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-            {onAddAll && <button onClick={onAddAll} style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: t.acc + "22", color: t.acc, cursor: "pointer", fontSize: 9, fontWeight: 700 }}>Add All ({preset.norms.length})</button>}
-            {!builtIn && <>
-              <button onClick={onEdit} style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, cursor: "pointer", fontSize: 9 }} title="Edit">Edit</button>
-              <button onClick={onDelete} style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${t.err}55`, background: "transparent", color: t.err, cursor: "pointer", fontSize: 9 }} title="Delete">Del</button>
-            </>}
-            <button onClick={onExportJSON} style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx3, cursor: "pointer", fontSize: 9 }} title="Export JSON">JSON</button>
-            <button onClick={onExportCSV} style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx3, cursor: "pointer", fontSize: 9 }} title="Export CSV">CSV</button>
-          </div>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
-            <thead><tr style={{ borderBottom: `1px solid ${t.bdr}44`, background: t.surf3 }}>
-              <th style={{ textAlign: "left", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>Label</th>
-              <th style={{ textAlign: "right", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>Mean</th>
-              <th style={{ textAlign: "right", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>SD</th>
-              <th style={{ textAlign: "center", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>Type</th>
-              {onAddOne && <th style={{ textAlign: "right", padding: "5px 10px" }}></th>}
-            </tr></thead>
-            <tbody>
-              {preset.norms.map((n, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${t.bdr}33` }}>
-                  <td style={{ padding: "5px 10px", color: t.tx, fontWeight: 600, whiteSpace: "nowrap" }}>{n.label}</td>
-                  <td style={{ padding: "5px 10px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx }}>{Number(n.mean).toFixed(1)}</td>
-                  <td style={{ padding: "5px 10px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx3 }}>&plusmn; {Number(n.sd).toFixed(1)}</td>
-                  <td style={{ padding: "5px 10px", textAlign: "center" }}><span style={{ background: (n.type === "angle" ? t.warn : t.ok) + "22", color: n.type === "angle" ? t.warn : t.ok, borderRadius: 3, padding: "1px 5px", fontSize: 8, fontWeight: 700 }}>{n.type}</span></td>
-                  {onAddOne && <td style={{ padding: "5px 10px", textAlign: "right" }}><button onClick={() => onAddOne(n.label, n.mean, n.sd, n.type, source || preset.source)} style={{ padding: "2px 7px", borderRadius: 4, border: `1px solid ${t.acc}55`, background: "transparent", color: t.acc, cursor: "pointer", fontSize: 9, fontWeight: 600 }}>+ Add</button></td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PresetCard key={p.key} t={t} title={p.name} source={[p.source, p.population].filter(Boolean).join(" · ")}
+        tags={<>
+          {!p.builtIn && <Tag color={t.ok}>My library</Tag>}
+          {p.sdApproximate && <span title={p.sdNote || "The SDs are approximate."}><Tag color={t.warn}>Approx. SD</Tag></span>}
+        </>}
+        actions={<>
+          <Btn t={t} small onClick={() => p.norms.forEach(n => onAdd(n.label, n.mean, n.sd, n.type, p.source))} style={{ ...smallBtn, color: t.acc, border: `1px solid ${t.acc}66` }}>Add all ({p.norms.length})</Btn>
+          {!p.builtIn && <>
+            <Btn t={t} small onClick={() => setEditingPreset({ ...p })} style={smallBtn}>Edit</Btn>
+            <Btn t={t} small danger onClick={() => deletePreset(p)} style={smallBtn}>Delete</Btn>
+          </>}
+          <Btn t={t} small ghost title="Export as JSON" onClick={() => downloadJSON(exportPresetJSON(p), `${file}.json`)} style={smallBtn}>JSON</Btn>
+          <Btn t={t} small ghost title="Export as CSV" onClick={() => downloadJSON(exportPresetCSV(p), `${file}.csv`)} style={smallBtn}>CSV</Btn>
+        </>}>
+        <NormRows t={t} norms={p.norms} onAddOne={n => addOne(n, p.source)} />
+      </PresetCard>
     );
   }
 
@@ -138,192 +198,144 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
 
   if (editingPreset) {
     const p = editingPreset;
+    const close = () => { setEditingPreset(null); setEditErrors([]); };
     function updPatch(patch) { setEditingPreset(prev => ({ ...prev, ...patch })); }
     function updNorm(i, field, val) { setEditingPreset(prev => { const norms = [...prev.norms]; norms[i] = { ...norms[i], [field]: val }; return { ...prev, norms }; }); }
     function addNorm() { setEditingPreset(prev => ({ ...prev, norms: [...prev.norms, { label: "", mean: 0, sd: 1, type: "angle" }] })); }
     function removeNorm(i) { setEditingPreset(prev => ({ ...prev, norms: prev.norms.filter((_, j) => j !== i) })); }
+    const field = (label, key, placeholder, full) => (
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, gridColumn: full ? "1 / -1" : undefined, fontSize: 13, color: t.tx2 }}>
+        {label}
+        <input value={p[key]} onChange={e => updPatch({ [key]: e.target.value })} placeholder={placeholder} style={inputStyle(t)} />
+      </label>
+    );
+    const cell = { ...inputStyle(t), padding: "4px 6px" };
     return (
-      <div role="dialog" aria-modal="true" aria-label={p.id ? "Edit norm preset" : "New norm preset"} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={() => { setEditingPreset(null); setEditErrors([]); }}>
-        <div ref={dialogRef} style={{ background: t.bg, border: `1px solid ${t.bdr}`, borderRadius: 12, width: "min(90vw, 640px)", maxHeight: "min(90vh, 700px)", display: "flex", flexDirection: "column", boxShadow: `0 24px 64px ${t.shadow}50` }} onClick={e => e.stopPropagation()}>
-          <div style={{ padding: "12px 16px", overflowY: "auto", flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: t.acc, marginBottom: 10 }}>{p.id ? "Edit Preset" : "New Preset"}</div>
-            {editErrors.length > 0 && <div style={{ background: t.err + "22", border: `1px solid ${t.err}44`, borderRadius: 6, padding: 8, marginBottom: 10, fontSize: 10, color: t.err, whiteSpace: "pre-wrap" }}>{editErrors.join("\n")}</div>}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Preset Name *</div><input value={p.name} onChange={e => updPatch({ name: e.target.value })} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }} placeholder="e.g. Harvold (Norwegian)" /></div>
-              <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Source / Citation</div><input value={p.source} onChange={e => updPatch({ source: e.target.value })} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }} placeholder="e.g. Harvold, 1974" /></div>
-              <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Population</div><input value={p.population} onChange={e => updPatch({ population: e.target.value })} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }} placeholder="e.g. Norwegian" /></div>
-              <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Age Range</div><input value={p.ageRange} onChange={e => updPatch({ ageRange: e.target.value })} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }} placeholder="e.g. Adult / Mixed / 12-17y" /></div>
-              <div><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Sex</div><input value={p.sex} onChange={e => updPatch({ sex: e.target.value })} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11 }} placeholder="e.g. Pooled / Male / Female" /></div>
-              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 10, color: t.tx2, marginBottom: 2 }}>Stratification Notes</div><textarea value={p.stratification} onChange={e => updPatch({ stratification: e.target.value })} rows={2} style={{ width: "100%", padding: "6px 8px", border: `1px solid ${t.bdr}`, borderRadius: 4, background: t.surf3, color: t.tx, fontSize: 11, resize: "vertical", fontFamily: "inherit" }} placeholder="Notes about age/sex/ethnic stratification" /></div>
+      <DialogShell zIndex={9999} t={t} dialogRef={dialogRef} label={p.id ? "Edit norm preset" : "New norm preset"} title={p.id ? "Edit preset" : "New preset"} onClose={close} width={640}>
+        <div style={{ padding: "4px 24px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+          {editErrors.length > 0 && <Notice t={t}>{editErrors.join("\n")}</Notice>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+            {field("Preset name *", "name", "e.g. Harvold (Norwegian)", true)}
+            {field("Source / citation", "source", "e.g. Harvold, 1974")}
+            {field("Population", "population", "e.g. Norwegian")}
+            {field("Age range", "ageRange", "e.g. Adult / Mixed / 12-17y")}
+            {field("Sex", "sex", "e.g. Pooled / Male / Female")}
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, gridColumn: "1 / -1", fontSize: 13, color: t.tx2 }}>
+              Stratification notes
+              <textarea value={p.stratification} onChange={e => updPatch({ stratification: e.target.value })} rows={2} placeholder="Notes about age/sex/ethnic stratification" style={{ ...inputStyle(t), resize: "vertical" }} />
+            </label>
+          </div>
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: t.tx }}>Norms ({p.norms.length})</h3>
+              <Btn t={t} small onClick={addNorm} style={smallBtn}>+ Add norm</Btn>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: t.tx2, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>Norms ({p.norms.length})</span>
-              <button onClick={addNorm} style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${t.acc}55`, background: t.acc + "22", color: t.acc, cursor: "pointer", fontSize: 9, fontWeight: 700 }}>+ Add Norm</button>
-            </div>
-            <div style={{ border: `1px solid ${t.bdr}`, borderRadius: 6, overflow: "hidden" }}>
-              <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
-                <thead><tr style={{ background: t.surf3, borderBottom: `1px solid ${t.bdr}` }}>
-                  <th style={{ textAlign: "left", padding: "4px 6px", color: t.tx2, fontWeight: 600 }}>Label</th>
-                  <th style={{ textAlign: "right", padding: "4px 6px", color: t.tx2, fontWeight: 600, width: 60 }}>Mean</th>
-                  <th style={{ textAlign: "right", padding: "4px 6px", color: t.tx2, fontWeight: 600, width: 50 }}>SD</th>
-                  <th style={{ textAlign: "center", padding: "4px 6px", color: t.tx2, fontWeight: 600, width: 65 }}>Type</th>
-                  <th style={{ width: 24 }}></th>
+            <div style={{ border: `1px solid ${t.bdr}`, borderRadius: 8, overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={th(t)}>Measurement</th>
+                  <th style={{ ...th(t, "right"), width: 80 }}>Mean</th>
+                  <th style={{ ...th(t, "right"), width: 70 }}>SD</th>
+                  <th style={{ ...th(t, "center"), width: 90 }}>Type</th>
+                  <th style={{ ...th(t), width: 32 }}><span style={{ position: "absolute", left: -9999 }}>Remove</span></th>
                 </tr></thead>
                 <tbody>
                   {p.norms.map((n, i) => (
-                    <tr key={i} style={{ borderBottom: `1px solid ${t.bdr}33` }}>
-                      <td style={{ padding: 2 }}><input value={n.label} onChange={e => updNorm(i, "label", e.target.value)} style={{ width: "100%", padding: "3px 5px", border: `1px solid transparent`, borderRadius: 3, background: "transparent", color: t.tx, fontSize: 10, fontWeight: 600 }} placeholder="Label" /></td>
-                      <td style={{ padding: 2 }}><input type="number" value={n.mean} onChange={e => updNorm(i, "mean", parseFloat(e.target.value) || 0)} style={{ width: "100%", padding: "3px 5px", border: `1px solid transparent`, borderRadius: 3, background: "transparent", color: t.tx, fontSize: 10, textAlign: "right", fontFamily: "'DM Mono',monospace" }} /></td>
-                      <td style={{ padding: 2 }}><input type="number" value={n.sd} onChange={e => updNorm(i, "sd", parseFloat(e.target.value) || 0)} style={{ width: "100%", padding: "3px 5px", border: `1px solid transparent`, borderRadius: 3, background: "transparent", color: t.tx, fontSize: 10, textAlign: "right", fontFamily: "'DM Mono',monospace" }} step="0.1" min="0" /></td>
-                      <td style={{ padding: 2, textAlign: "center" }}><select value={n.type} onChange={e => updNorm(i, "type", e.target.value)} style={{ padding: "2px 4px", border: `1px solid transparent`, borderRadius: 3, background: "transparent", color: t.tx, fontSize: 9 }}>{["angle", "length", "area", "ratio", "value"].map(tp => <option key={tp} value={tp}>{tp}</option>)}</select></td>
-                      <td style={{ padding: 2, textAlign: "center" }}><button onClick={() => removeNorm(i)} style={{ background: "none", border: "none", color: t.err, cursor: "pointer", fontSize: 12, padding: "0 3px" }} title="Remove">&times;</button></td>
+                    <tr key={i}>
+                      <td style={{ padding: "4px 4px 4px 8px" }}><input value={n.label} onChange={e => updNorm(i, "label", e.target.value)} aria-label="Measurement" placeholder="Label" style={{ ...cell, fontWeight: 600 }} /></td>
+                      <td style={{ padding: 4 }}><input type="number" value={n.mean} onChange={e => updNorm(i, "mean", parseFloat(e.target.value) || 0)} aria-label="Mean" style={{ ...cell, textAlign: "right", fontFamily: MONO }} /></td>
+                      <td style={{ padding: 4 }}><input type="number" value={n.sd} onChange={e => updNorm(i, "sd", parseFloat(e.target.value) || 0)} aria-label="SD" step="0.1" min="0" style={{ ...cell, textAlign: "right", fontFamily: MONO }} /></td>
+                      <td style={{ padding: 4 }}><select value={n.type} onChange={e => updNorm(i, "type", e.target.value)} aria-label="Type" style={cell}>{["angle", "length", "area", "ratio", "value"].map(tp => <option key={tp} value={tp}>{tp}</option>)}</select></td>
+                      <td style={{ padding: "4px 8px 4px 0", textAlign: "center" }}><button onClick={() => removeNorm(i)} title="Remove" aria-label={`Remove ${n.label || "norm"}`} style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px" }}>×</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-              <Btn t={t} small onClick={handleSavePreset} style={{ flex: 1 }}>Save Preset</Btn>
-              <Btn t={t} small onClick={() => { setEditingPreset(null); setEditErrors([]); }} style={{ flex: 1 }}>Cancel</Btn>
-            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Btn t={t} small onClick={close}>Cancel</Btn>
+            <Btn t={t} small active onClick={handleSavePreset}>Save preset</Btn>
           </div>
         </div>
-      </div>
+      </DialogShell>
     );
   }
 
+  const counts = `${builtInCount} built-in${userCount > 0 ? ` · ${userCount} custom` : ""}${communityPresets.length > 0 ? ` · ${communityPresets.length} community` : ""}`;
+  const TABS = [
+    { id: "browse", label: "Browse" },
+    { id: "community", label: communityPresets.length ? `Community (${communityPresets.length})` : "Community" },
+    { id: "library", label: allUser.length ? `My library (${allUser.length})` : "My library" },
+  ];
+
   return (
-    <div role="dialog" aria-modal="true" aria-label="Norms reference" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, backdropFilter: "blur(4px)" }} onClick={onClose}>
-      <div ref={dialogRef} style={{ background: t.bg, border: `1px solid ${t.bdr}`, borderRadius: 12, width: "min(90vw, 680px)", maxHeight: "min(90vh, 720px)", display: "flex", flexDirection: "column", boxShadow: `0 24px 64px ${t.shadow}50` }} onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${t.bdr}`, flexShrink: 0 }}>
-          <span style={{ fontSize: 16 }}>&#x1F4D6;</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.tx, flex: 1 }}>Norms Reference
-            <button onClick={() => setGuideKey("norms")} style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, marginLeft: 6, verticalAlign: "middle" }} title="Guide">?</button>
-          </span>
-          <span style={{ fontSize: 10, color: t.tx3, fontFamily: "'DM Mono',monospace" }}>{builtInCount} built-in{userCount > 0 ? ` + ${userCount} custom` : ""}{communityPresets.length > 0 ? ` + ${communityPresets.length} community` : ""}</span>
-          <button onClick={onClose} title="Close" style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px" }}>&times;</button>
-        </div>
-        {/* Tabs */}
-        <div style={{ display: "flex", borderBottom: `1px solid ${t.bdr}`, flexShrink: 0 }}>
-          {[{ id: "browse", label: "Browse" }, { id: "community", label: "Community" }, { id: "library", label: "My Library" }].map(tb => (
-            <button key={tb.id} onClick={() => { setTab(tb.id); setEditingPreset(null); setImportError(null); if (tb.id === "community") fetchCommunity(false); }} style={{ flex: 1, padding: "8px 12px", background: tab === tb.id ? t.surf2 : "transparent", border: "none", borderBottom: tab === tb.id ? `2px solid ${t.acc}` : "2px solid transparent", color: tab === tb.id ? t.acc : t.tx3, fontSize: 11, fontWeight: tab === tb.id ? 700 : 500, cursor: "pointer", transition: "all 0.15s" }}>{tb.label}{tb.id === "library" && userCount > 0 ? ` (${allUser.length})` : ""}{tb.id === "community" && communityPresets.length > 0 ? ` (${communityPresets.length})` : ""}</button>
-          ))}
-        </div>
-        {/* Search (browse only) */}
-        {tab === "browse" && <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.bdr}44`, flexShrink: 0 }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, source, or measurement..." style={{ width: "85%", padding: "8px 10px", border: `1px solid ${t.bdr}`, borderRadius: 8, background: t.surf3, color: t.tx, fontSize: 12, outline: "none" }} />
-        </div>}
-        {/* Import error */}
-        {importError && <div style={{ margin: "8px 16px 0", padding: "6px 10px", background: t.err + "22", border: `1px solid ${t.err}44`, borderRadius: 6, fontSize: 10, color: t.err, whiteSpace: "pre-wrap" }}>{importError}<button onClick={() => setImportError(null)} style={{ marginLeft: 8, background: "none", border: "none", color: t.err, cursor: "pointer" }}>&times;</button></div>}
-        {/* Browse tab */}
-        {tab === "browse" && <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-          {filteredPresets.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: t.tx3, fontSize: 12 }}>No presets match your search.</div>
-          ) : filteredPresets.map(p => (
-            <PresetTable key={p.key} preset={p} source={p.source} builtIn={p.builtIn}
-              onAddOne={(label, mean, sd, type, source) => { const existing = []; if (onAdd.__norms) existing.push(...onAdd.__norms); if (!existing.some(e => e.markupLabel === label && e.measureType === type)) onAdd(label, mean, sd, type, source); }}
-              onAddAll={() => p.norms.forEach(n => onAdd(n.label, n.mean, n.sd, n.type, p.source))}
-              {...(!p.builtIn ? { onEdit: () => setEditingPreset({ ...p }), onDelete: async () => { if (await askConfirm({ title: `Delete "${p.name}"?`, message: "The preset is removed from your norm library.", confirmLabel: "Delete", danger: true })) onDeletePreset(p.id); } } : {})}
-              onExportJSON={() => downloadJSON(exportPresetJSON(p), `${p.name.replace(/\s+/g, "_")}.json`)}
-              onExportCSV={() => downloadJSON(exportPresetCSV(p), `${p.name.replace(/\s+/g, "_")}.csv`)}
-            />
-          ))}
-        </div>}
-        {/* Community tab */}
-        {tab === "community" && <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center" }}>
-            <Btn t={t} small onClick={() => fetchCommunity(true)} disabled={communityLoading}>
-              {communityLoading ? "Loading..." : "Refresh"}
-            </Btn>
-            <span style={{ fontSize: 10, color: t.tx3, flex: 1 }}>{communityUpdated ? `Updated: ${new Date(communityUpdated).toLocaleDateString()}` : ""}</span>
-            <button onClick={() => window.open(getContributionURL(), "_blank")} style={{ padding: "3px 8px", borderRadius: 4, border: `1px solid ${t.ok}55`, background: t.ok + "11", color: t.ok, cursor: "pointer", fontSize: 9, fontWeight: 600 }}>Contribute Preset</button>
-            <button onClick={() => window.open(getRepoURL(), "_blank")} style={{ padding: "3px 8px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx3, cursor: "pointer", fontSize: 9 }}>Repo</button>
+    <DialogShell zIndex={9999} t={t} dialogRef={dialogRef} label="Norms reference" onClose={onClose} width={720}
+      title={<>Norms reference
+        <GuideBtn t={t} onClick={() => setGuideKey("norms")} label="Norms guide" />
+      </>}
+      extra={<span style={{ fontSize: 12, color: t.tx3 }}>{counts}</span>}>
+      <TabBar t={t} tabs={TABS} active={tab} style={{ padding: "0 24px" }}
+        onChange={id => { setTab(id); setEditingPreset(null); setImportError(null); if (id === "community") fetchCommunity(false); }} />
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {importError && <Notice t={t} onDismiss={() => setImportError(null)}>{importError}</Notice>}
+
+        {tab === "browse" && <>
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, source or measurement" aria-label="Search norms" style={{ ...inputStyle(t), padding: "8px 10px" }} />
+          <div>
+            {filteredPresets.length === 0 ? <Empty t={t}>No presets match your search.</Empty> : filteredPresets.map(renderPreset)}
           </div>
-          {communityError && <div style={{ marginBottom: 10, padding: "6px 10px", background: t.err + "22", border: `1px solid ${t.err}44`, borderRadius: 6, fontSize: 10, color: t.err }}>{communityError}</div>}
-          {communityLoading && communityPresets.length === 0 && (
-            <div style={{ textAlign: "center", padding: 40, color: t.tx3, fontSize: 12 }}>Fetching community presets...</div>
-          )}
-          {!communityLoading && communityPresets.length === 0 && !communityError && (
-            <div style={{ textAlign: "center", padding: 40, color: t.tx3, fontSize: 12 }}>
-              <div style={{ marginBottom: 8, fontSize: 20 }}>&#x1F310;</div>
-              No community presets available yet.<br />
-              <a href={getContributionURL()} target="_blank" rel="noreferrer" style={{ color: t.acc, fontSize: 11 }}>Contribute the first one</a>
-            </div>
-          )}
-          {communityPresets.map((cp, i) => {
-            const isInstalled = installedNames.has(cp.name?.toLowerCase());
-            return (
-              <div key={i} style={{ marginBottom: 14, border: `1px solid ${t.bdr}`, borderRadius: 8, overflow: "hidden" }}>
-                <div style={{ padding: "8px 12px", background: t.surf2, borderBottom: `1px solid ${t.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: t.acc }}>{cp.name}</span>
-                    <span style={{ fontSize: 8, color: t.ok, marginLeft: 4, background: t.ok + "22", borderRadius: 3, padding: "0 4px", fontWeight: 700 }}>COMMUNITY</span>
-                    <span style={{ fontSize: 10, color: t.tx3, marginLeft: 8 }}>{cp.source}</span>
-                    {cp.contributor && <span style={{ fontSize: 9, color: t.tx3, marginLeft: 4 }}>&middot; {cp.contributor}</span>}
-                  </div>
-                  <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-                    {isInstalled ? (
-                      <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, color: t.ok, background: t.ok + "22" }}>Installed</span>
-                    ) : (
-                      <button onClick={() => { const result = installPreset(cp, userPresets); if (result.ok) onSavePreset(result.preset, "add"); }} style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: t.acc + "22", color: t.acc, cursor: "pointer", fontSize: 9, fontWeight: 700 }}>Install ({cp.norms?.length || 0})</button>
-                    )}
-                  </div>
-                </div>
-                {cp.norms && cp.norms.length > 0 && (
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
-                      <thead><tr style={{ borderBottom: `1px solid ${t.bdr}44`, background: t.surf3 }}>
-                        <th style={{ textAlign: "left", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>Label</th>
-                        <th style={{ textAlign: "right", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>Mean</th>
-                        <th style={{ textAlign: "right", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>SD</th>
-                        <th style={{ textAlign: "center", padding: "5px 10px", color: t.tx2, fontWeight: 600 }}>Type</th>
-                      </tr></thead>
-                      <tbody>
-                        {cp.norms.map((n, j) => (
-                          <tr key={j} style={{ borderBottom: `1px solid ${t.bdr}33` }}>
-                            <td style={{ padding: "5px 10px", color: t.tx, fontWeight: 600, whiteSpace: "nowrap" }}>{n.label}</td>
-                            <td style={{ padding: "5px 10px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx }}>{Number(n.mean).toFixed(1)}</td>
-                            <td style={{ padding: "5px 10px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx3 }}>&plusmn; {Number(n.sd).toFixed(1)}</td>
-                            <td style={{ padding: "5px 10px", textAlign: "center" }}><span style={{ background: (n.type === "angle" ? t.warn : t.ok) + "22", color: n.type === "angle" ? t.warn : t.ok, borderRadius: 3, padding: "1px 5px", fontSize: 8, fontWeight: 700 }}>{n.type}</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>}
-        {/* Library tab */}
-        {tab === "library" && <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <Btn t={t} small onClick={() => setEditingPreset(_emptyPreset())} style={{ flex: 1 }}>+ New Preset</Btn>
+        </>}
+
+        {tab === "community" && <>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <Btn t={t} small onClick={() => fetchCommunity(true)} disabled={communityLoading}>{communityLoading ? "Loading…" : "Refresh"}</Btn>
+            <span style={{ fontSize: 12, color: t.tx3, flex: 1 }}>{communityUpdated ? `Updated ${new Date(communityUpdated).toLocaleDateString()}` : ""}</span>
+            <Btn t={t} small onClick={() => window.open(getContributionURL(), "_blank")}>Contribute a preset</Btn>
+            <Btn t={t} small ghost onClick={() => window.open(getRepoURL(), "_blank")}>Repository</Btn>
+          </div>
+          {communityError && <Notice t={t}>{communityError}</Notice>}
+          <div>
+            {communityLoading && communityPresets.length === 0 && <Empty t={t}>Fetching community presets…</Empty>}
+            {!communityLoading && communityPresets.length === 0 && !communityError && (
+              <Empty t={t}>
+                No community presets yet.<br />
+                <a href={getContributionURL()} target="_blank" rel="noreferrer" style={{ color: t.acc }}>Contribute the first one</a>
+              </Empty>
+            )}
+            {communityPresets.map((cp, i) => {
+              const isInstalled = installedNames.has(cp.name?.toLowerCase());
+              return (
+                <PresetCard key={i} t={t} title={cp.name}
+                  source={[cp.source, cp.contributor].filter(Boolean).join(" · ")}
+                  tags={<Tag color={t.tx2}>Community</Tag>}
+                  actions={isInstalled
+                    ? <Tag color={t.ok}>Installed</Tag>
+                    : <Btn t={t} small onClick={() => { const result = installPreset(cp, userPresets); if (result.ok) onSavePreset(result.preset, "add"); }} style={{ ...smallBtn, color: t.acc, border: `1px solid ${t.acc}66` }}>Install ({cp.norms?.length || 0})</Btn>}>
+                  {cp.norms?.length > 0 && <NormRows t={t} norms={cp.norms} />}
+                </PresetCard>
+              );
+            })}
+          </div>
+        </>}
+
+        {tab === "library" && <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Btn t={t} small active onClick={() => setEditingPreset(_emptyPreset())}>+ New preset</Btn>
             <Btn t={t} small onClick={() => jsonRef.current?.click()}>Import JSON</Btn>
             <Btn t={t} small onClick={() => csvRef.current?.click()}>Import CSV</Btn>
-            {allUser.length > 0 && <Btn t={t} small onClick={() => downloadJSON(exportLibraryJSON(allUser), "norm_library.json")}>Export All</Btn>}
+            {allUser.length > 0 && <Btn t={t} small ghost onClick={() => downloadJSON(exportLibraryJSON(allUser), "norm_library.json")}>Export all</Btn>}
             <input ref={jsonRef} type="file" accept=".json" onChange={handleImportJSON} style={{ display: "none" }} />
             <input ref={csvRef} type="file" accept=".csv" onChange={handleImportCSV} style={{ display: "none" }} />
           </div>
-          {allUser.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 40, color: t.tx3, fontSize: 12 }}>
-              <div style={{ marginBottom: 8, fontSize: 20 }}>&#x1F4E6;</div>
-              No custom presets yet.<br />Create one or import from a JSON/CSV file.
-            </div>
-          ) : allUser.map(p => (
-            <PresetTable key={p.id} preset={p} source={p.source} builtIn={false}
-              onAddOne={(label, mean, sd, type, source) => { const existing = []; if (onAdd.__norms) existing.push(...onAdd.__norms); if (!existing.some(e => e.markupLabel === label && e.measureType === type)) onAdd(label, mean, sd, type, source); }}
-              onAddAll={() => p.norms.forEach(n => onAdd(n.label, n.mean, n.sd, n.type, p.source))}
-              onEdit={() => setEditingPreset({ ...p })}
-              onDelete={async () => { if (await askConfirm({ title: `Delete "${p.name}"?`, message: "The preset is removed from your norm library.", confirmLabel: "Delete", danger: true })) onDeletePreset(p.id); }}
-              onExportJSON={() => downloadJSON(exportPresetJSON(p), `${p.name.replace(/\s+/g, "_")}.json`)}
-              onExportCSV={() => downloadJSON(exportPresetCSV(p), `${p.name.replace(/\s+/g, "_")}.csv`)}
-            />
-          ))}
-        </div>}
-        {guideKey && <PanelGuideModal t={t} guideKey={guideKey} onClose={() => setGuideKey(null)} />}
+          <div>
+            {allUser.length === 0
+              ? <Empty t={t}>No custom presets yet.<br />Create one, or import a JSON or CSV file.</Empty>
+              : allUser.map(renderPreset)}
+          </div>
+        </>}
       </div>
-    </div>
+      {guideKey && <PanelGuideModal t={t} guideKey={guideKey} onClose={() => setGuideKey(null)} />}
+    </DialogShell>
   );
 }

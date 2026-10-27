@@ -36,6 +36,60 @@ export function Btn({ onClick, children, style, active, small, danger, t, disabl
   );
 }
 
+// The round "?" that opens a panel's or dialog's guide.
+export function GuideBtn({ t, onClick, label = "Guide", style }) {
+  return (
+    <button onClick={onClick} title={label} aria-label={label}
+      style={{ background: "none", border: `1px solid ${t.bdr}`, color: t.tx2, borderRadius: "50%", width: 22, height: 22, fontSize: 12, lineHeight: "20px", textAlign: "center", cursor: "pointer", padding: 0, flexShrink: 0, fontFamily: "inherit", verticalAlign: "middle", ...style }}>
+      ?
+    </button>
+  );
+}
+
+// A toggle chip: one of a multi-select set (landmarks, filters).
+export function Chip({ t, on, onClick, children, title, mono, style }) {
+  return (
+    <button onClick={onClick} title={title} aria-pressed={!!on}
+      style={{
+        padding: "3px 9px", borderRadius: 6, fontSize: 12, cursor: "pointer", lineHeight: 1.4,
+        border: `1px solid ${on ? t.acc : t.bdr}`, background: on ? t.acc + "22" : "transparent",
+        color: on ? t.acc : t.tx2, fontWeight: on ? 600 : 500,
+        fontFamily: mono ? "'DM Mono',monospace" : "inherit", transition: "all 0.15s", ...style,
+      }}>
+      {children}
+    </button>
+  );
+}
+
+// The small × that removes an item from a list.
+export function RemoveBtn({ t, onClick, label = "Remove", style }) {
+  return (
+    <button onClick={onClick} title={label} aria-label={label}
+      style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px", fontFamily: "inherit", ...style }}>
+      ×
+    </button>
+  );
+}
+
+// Small uppercase-free section label for forms.
+export function FieldLabel({ t, children, style }) {
+  return <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 6, ...style }}>{children}</div>;
+}
+
+// Underlined tabs (dialogs, result views).
+export function TabBar({ t, tabs, active, onChange, style }) {
+  return (
+    <div role="tablist" style={{ display: "flex", gap: 4, borderBottom: `1px solid ${t.bdr}`, overflowX: "auto", flexShrink: 0, ...style }}>
+      {tabs.map(tb => (
+        <button key={tb.id} role="tab" aria-selected={active === tb.id} onClick={() => onChange(tb.id)}
+          style={{ padding: "8px 12px", marginBottom: -1, background: "transparent", border: "none", borderBottom: `2px solid ${active === tb.id ? t.acc : "transparent"}`, color: active === tb.id ? t.tx : t.tx2, fontSize: 13, fontWeight: active === tb.id ? 600 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", transition: "color 0.15s" }}>
+          {tb.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Tag({ color, children }) {
   return (
     <span

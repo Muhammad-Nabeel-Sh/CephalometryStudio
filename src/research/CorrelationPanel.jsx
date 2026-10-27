@@ -3,76 +3,10 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState } from "react";
-import { InfoBox } from "../ui/ui.jsx";
+import { InfoBox, Chip, TabBar } from "../ui/ui.jsx";
 import PlotlyChart, { heatmapLayout, heatmapData } from "./PlotlyChart.jsx";
+import { LabelSelector } from "./LabelSelector.jsx";
 
-function LabelSelector({ sessions, selected, onToggle, t }) {
-  const labels = [
-    ...new Set(
-      (sessions || []).flatMap((s) =>
-        (s.markups || [])
-          .filter(
-            (m) => m.label && m.type !== "ruler" && m.type !== "silhouette",
-          )
-          .map((m) => m.label),
-      ),
-    ),
-  ].sort();
-  if (labels.length === 0)
-    return (
-      <div style={{ fontSize: 10, color: t.tx3 }}>
-        No labeled markups found.
-      </div>
-    );
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {selected.length === 0 && (
-        <span style={{ fontSize: 10, color: t.tx3, padding: "2px 0" }}>
-          All ({labels.length})
-        </span>
-      )}
-      {selected.length > 0 && (
-        <button
-          onClick={() =>
-            labels.forEach((l) => {
-              if (selected.includes(l)) onToggle(l);
-            })
-          }
-          style={{
-            fontSize: 9,
-            padding: "1px 5px",
-            borderRadius: 3,
-            border: `1px solid ${t.bdr}`,
-            background: "transparent",
-            color: t.tx3,
-            cursor: "pointer",
-          }}
-        >
-          Clear
-        </button>
-      )}
-      {labels.map((l) => (
-        <button
-          key={l}
-          onClick={() => onToggle(l)}
-          style={{
-            fontSize: 9,
-            padding: "2px 6px",
-            borderRadius: 3,
-            cursor: "pointer",
-            border: `1px solid ${selected.includes(l) ? t.acc : t.bdr}`,
-            background: selected.includes(l) ? t.acc + "22" : "transparent",
-            color: selected.includes(l) ? t.acc : t.tx2,
-            fontWeight: selected.includes(l) ? 700 : 400,
-            fontFamily: "'DM Mono',monospace",
-          }}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
   const config = study.config;
@@ -124,7 +58,7 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
         display: "flex",
         flexDirection: "column",
         gap: 12,
-        fontSize: 11,
+        fontSize: 12,
       }}
     >
       <InfoBox t={t}>
@@ -135,11 +69,9 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -155,7 +87,7 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
             border: `1px solid ${t.bdr}`,
             background: t.surf,
             color: t.tx,
-            fontSize: 10,
+            fontSize: 12,
           }}
         >
           <option value="pearson">Pearson r</option>
@@ -166,11 +98,9 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -187,11 +117,9 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
           }}
         >
@@ -199,25 +127,10 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {availableLabels.map((l) => (
-            <button
-              key={l}
-              onClick={() => toggleCovariate(l)}
-              style={{
-                fontSize: 9,
-                padding: "2px 6px",
-                borderRadius: 3,
-                cursor: "pointer",
-                border: `1px solid ${covariates.includes(l) ? t.acc : t.bdr}`,
-                background: covariates.includes(l)
-                  ? t.acc + "22"
-                  : "transparent",
-                color: covariates.includes(l) ? t.acc : t.tx2,
-                fontWeight: covariates.includes(l) ? 700 : 400,
-                fontFamily: "'DM Mono',monospace",
-              }}
-            >
+            <Chip t={t} mono on={covariates.includes(l)} key={l}
+              onClick={() => toggleCovariate(l)}>
               {l}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
@@ -226,11 +139,9 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
         <InfoBox t={t}>Optional: configure a regression model below.</InfoBox>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 600,
-            color: t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
+            color: t.tx2,
             marginBottom: 4,
             marginTop: 8,
           }}
@@ -247,7 +158,7 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
             border: `1px solid ${t.bdr}`,
             background: t.surf,
             color: t.tx,
-            fontSize: 10,
+            fontSize: 12,
           }}
         >
           <option value="">— None —</option>
@@ -263,11 +174,9 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
         <div>
           <div
             style={{
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 600,
-              color: t.tx3,
-              textTransform: "uppercase",
-              letterSpacing: 0.3,
+              color: t.tx2,
               marginBottom: 4,
             }}
           >
@@ -277,30 +186,15 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
             {availableLabels
               .filter((l) => l !== depVar)
               .map((l) => (
-                <button
-                  key={l}
-                  onClick={() => togglePredVar(l)}
-                  style={{
-                    fontSize: 9,
-                    padding: "2px 6px",
-                    borderRadius: 3,
-                    cursor: "pointer",
-                    border: `1px solid ${predVars.includes(l) ? t.acc : t.bdr}`,
-                    background: predVars.includes(l)
-                      ? t.acc + "22"
-                      : "transparent",
-                    color: predVars.includes(l) ? t.acc : t.tx2,
-                    fontWeight: predVars.includes(l) ? 700 : 400,
-                    fontFamily: "'DM Mono',monospace",
-                  }}
-                >
+                <Chip t={t} mono on={predVars.includes(l)} key={l}
+                  onClick={() => togglePredVar(l)}>
                   {l}
-                </button>
+                </Chip>
               ))}
           </div>
           {predVars.length > 0 && (
             <div style={{ marginTop: 4 }}>
-              <div style={{ fontSize: 9, color: t.tx3, marginBottom: 2 }}>
+              <div style={{ fontSize: 12, color: t.tx3, marginBottom: 2 }}>
                 Logistic regression threshold (binary outcome):
               </div>
               <input
@@ -322,7 +216,7 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
                   border: `1px solid ${t.bdr}`,
                   background: t.surf,
                   color: t.tx,
-                  fontSize: 10,
+                  fontSize: 12,
                 }}
               />
             </div>
@@ -332,7 +226,7 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
 
       <div
         style={{
-          fontSize: 10,
+          fontSize: 12,
           color: t.tx2,
           textAlign: "center",
           padding: 6,
@@ -356,41 +250,6 @@ function formatP(p) {
   return p.toFixed(3);
 }
 
-function TabBar({ tabs, active, onChange, t }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 2,
-        marginBottom: 8,
-        borderBottom: `1px solid ${t.bdr}44`,
-        flexWrap: "wrap",
-      }}
-    >
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onChange(tab.id)}
-          style={{
-            padding: "5px 10px",
-            fontSize: 9,
-            fontWeight: 600,
-            cursor: "pointer",
-            border: "none",
-            borderBottom:
-              active === tab.id
-                ? `2px solid ${t.acc}`
-                : "2px solid transparent",
-            background: "transparent",
-            color: t.tx,
-          }}
-        >
-          {tab.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function CorrelationResults({ results, t }) {
   const [tab, setTab] = useState("heatmap");
@@ -407,7 +266,7 @@ export function CorrelationResults({ results, t }) {
   if (!results || results.note) {
     return (
       <div
-        style={{ fontSize: 11, color: t.tx2, padding: 16, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx2, padding: 16, textAlign: "center" }}
       >
         {results?.note || "No results available. Run the analysis first."}
       </div>
@@ -416,7 +275,7 @@ export function CorrelationResults({ results, t }) {
 
   return (
     <div>
-      <TabBar tabs={tabs} active={tab} onChange={setTab} t={t} />
+      <TabBar style={{ marginBottom: 10 }} tabs={tabs} active={tab} onChange={setTab} t={t} />
 
       <div style={{ overflow: "auto" }}>
         {tab === "heatmap" && <CorrelationHeatmap results={results} t={t} />}
@@ -496,7 +355,7 @@ function CorrelationHeatmap({ results, t }) {
           alignItems: "center",
           gap: 12,
           marginTop: 4,
-          fontSize: 10,
+          fontSize: 12,
           color: t.tx2,
           flexWrap: "wrap",
           justifyContent: "center",
@@ -519,7 +378,7 @@ function CorrelationTable({ results, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 10,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
         }}
       >
@@ -530,8 +389,7 @@ function CorrelationTable({ results, t }) {
                 padding: "4px 6px",
                 textAlign: "left",
                 color: t.tx,
-                fontSize: 8,
-                textTransform: "uppercase",
+                fontSize: 12,
               }}
             >
               Variable
@@ -543,8 +401,7 @@ function CorrelationTable({ results, t }) {
                   padding: "4px 6px",
                   textAlign: "center",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
+                  fontSize: 12,
                   maxWidth: 60,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -563,7 +420,7 @@ function CorrelationTable({ results, t }) {
                   padding: "5px 6px",
                   color: t.tx,
                   fontWeight: 600,
-                  fontSize: 9,
+                  fontSize: 12,
                 }}
               >
                 {v1}
@@ -602,7 +459,7 @@ function CorrelationTable({ results, t }) {
           ))}
         </tbody>
       </table>
-      <div style={{ fontSize: 9, color: t.tx3, marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: t.tx3, marginTop: 4 }}>
         * BH-adjusted p &lt; 0.05
       </div>
     </div>
@@ -614,7 +471,7 @@ function PartialCorrelationTable({ results, t }) {
   if (!partial)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         No partial correlation results. Add covariates and re-run.
       </div>
@@ -624,7 +481,7 @@ function PartialCorrelationTable({ results, t }) {
   const covs = partial.covariates || [];
   return (
     <div>
-      <div style={{ fontSize: 10, color: t.tx2, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, color: t.tx2, marginBottom: 8 }}>
         Controlling for: {covs.join(", ") || "none"}
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -632,7 +489,7 @@ function PartialCorrelationTable({ results, t }) {
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            fontSize: 10,
+            fontSize: 12,
             fontFamily: "'DM Mono',monospace",
           }}
         >
@@ -643,8 +500,7 @@ function PartialCorrelationTable({ results, t }) {
                   padding: "4px 6px",
                   textAlign: "left",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
+                  fontSize: 12,
                 }}
               >
                 Variable
@@ -656,8 +512,7 @@ function PartialCorrelationTable({ results, t }) {
                     padding: "4px 6px",
                     textAlign: "center",
                     color: t.tx,
-                    fontSize: 8,
-                    textTransform: "uppercase",
+                    fontSize: 12,
                   }}
                 >
                   {v}
@@ -673,7 +528,7 @@ function PartialCorrelationTable({ results, t }) {
                     padding: "5px 6px",
                     color: t.tx,
                     fontWeight: 600,
-                    fontSize: 9,
+                    fontSize: 12,
                   }}
                 >
                   {v1}
@@ -726,7 +581,7 @@ function DescriptiveSummary({ results, t }) {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          fontSize: 10,
+          fontSize: 12,
           fontFamily: "'DM Mono',monospace",
         }}
       >
@@ -739,9 +594,7 @@ function DescriptiveSummary({ results, t }) {
                   padding: "4px 6px",
                   textAlign: "left",
                   color: t.tx,
-                  fontSize: 8,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.3,
+                  fontSize: 12,
                 }}
               >
                 {h}
@@ -788,7 +641,7 @@ function RegressionView({ results, t }) {
   if (!reg)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         No regression configured. Select dependent variable and predictors in
         config.
@@ -797,7 +650,7 @@ function RegressionView({ results, t }) {
   if (reg.note)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         {reg.note}
       </div>
@@ -836,7 +689,7 @@ function RegressionView({ results, t }) {
           border: `1px solid ${t.bdr}44`,
           marginBottom: 12,
           fontFamily: "'DM Mono',monospace",
-          fontSize: 11,
+          fontSize: 12,
           color: t.tx,
         }}
       >
@@ -870,13 +723,13 @@ function RegressionView({ results, t }) {
               border: `1px solid ${t.bdr}`,
             }}
           >
-            <div style={{ fontSize: 9, color: t.tx3 }}>{label}</div>
+            <div style={{ fontSize: 12, color: t.tx3 }}>{label}</div>
             <div
               style={{
                 fontWeight: 700,
                 color: t.tx,
                 fontFamily: "'DM Mono',monospace",
-                fontSize: 11,
+                fontSize: 12,
               }}
             >
               {val}
@@ -890,7 +743,7 @@ function RegressionView({ results, t }) {
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            fontSize: 10,
+            fontSize: 12,
             fontFamily: "'DM Mono',monospace",
           }}
         >
@@ -903,9 +756,7 @@ function RegressionView({ results, t }) {
                     padding: "4px 6px",
                     textAlign: "left",
                     color: t.tx,
-                    fontSize: 8,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.3,
+                    fontSize: 12,
                   }}
                 >
                   {h}
@@ -945,7 +796,7 @@ function RegressionView({ results, t }) {
                 >
                   {formatP(pValues[i])}
                 </td>
-                <td style={{ padding: "5px 6px", color: t.tx2, fontSize: 9 }}>
+                <td style={{ padding: "5px 6px", color: t.tx2, fontSize: 12 }}>
                   [{show(ci95[i][0], 2)}, {show(ci95[i][1], 2)}]
                 </td>
                 <td
@@ -990,24 +841,23 @@ function RegressionView({ results, t }) {
           >
             <div
               style={{
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: 600,
-                color: t.tx3,
+                color: t.tx2,
                 marginBottom: 4,
-                textTransform: "uppercase",
               }}
             >
               Residual Normality
             </div>
-            <div style={{ fontSize: 10 }}>
+            <div style={{ fontSize: 12 }}>
               W = {diagnostics.normalityResiduals?.W?.toFixed(4)}
             </div>
-            <div style={{ fontSize: 10 }}>
+            <div style={{ fontSize: 12 }}>
               p = {diagnostics.normalityResiduals?.p?.toFixed(4)}
             </div>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 color:
                   (diagnostics.normalityResiduals?.p || 0) < 0.05
                     ? t.err
@@ -1031,24 +881,23 @@ function RegressionView({ results, t }) {
           >
             <div
               style={{
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: 600,
-                color: t.tx3,
+                color: t.tx2,
                 marginBottom: 4,
-                textTransform: "uppercase",
               }}
             >
               Heteroscedasticity (BP)
             </div>
-            <div style={{ fontSize: 10 }}>
+            <div style={{ fontSize: 12 }}>
               BP = {diagnostics.heteroscedasticity?.statistic?.toFixed(2)}
             </div>
-            <div style={{ fontSize: 10 }}>
+            <div style={{ fontSize: 12 }}>
               p = {diagnostics.heteroscedasticity?.p?.toFixed(4)}
             </div>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 color:
                   (diagnostics.heteroscedasticity?.p || 0) >= 0.05
                     ? t.ok
@@ -1075,7 +924,7 @@ function RegressionView({ results, t }) {
         >
           <div
             style={{
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 600,
               color: t.warn,
               marginBottom: 4,
@@ -1083,7 +932,7 @@ function RegressionView({ results, t }) {
           >
             ⚠ Influential Cases
           </div>
-          <div style={{ fontSize: 9, color: t.tx2 }}>
+          <div style={{ fontSize: 12, color: t.tx2 }}>
             {influential.map((d) => `#${d.index}`).join(", ")}
           </div>
         </div>
@@ -1097,7 +946,7 @@ function LogisticView({ results, t }) {
   if (!log)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         No logistic regression configured. Set threshold in config and re-run.
       </div>
@@ -1105,7 +954,7 @@ function LogisticView({ results, t }) {
   if (log.note)
     return (
       <div
-        style={{ fontSize: 11, color: t.tx3, padding: 12, textAlign: "center" }}
+        style={{ fontSize: 12, color: t.tx3, padding: 12, textAlign: "center" }}
       >
         {log.note}
       </div>
@@ -1160,13 +1009,13 @@ function LogisticView({ results, t }) {
               border: `1px solid ${t.bdr}`,
             }}
           >
-            <div style={{ fontSize: 9, color: t.tx3 }}>{label}</div>
+            <div style={{ fontSize: 12, color: t.tx3 }}>{label}</div>
             <div
               style={{
                 fontWeight: 700,
                 color: t.tx,
                 fontFamily: "'DM Mono',monospace",
-                fontSize: 11,
+                fontSize: 12,
               }}
             >
               {val}
@@ -1181,7 +1030,7 @@ function LogisticView({ results, t }) {
             display: "flex",
             gap: 12,
             marginBottom: 12,
-            fontSize: 10,
+            fontSize: 12,
             fontFamily: "'DM Mono',monospace",
           }}
         >
@@ -1217,7 +1066,7 @@ function LogisticView({ results, t }) {
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            fontSize: 10,
+            fontSize: 12,
             fontFamily: "'DM Mono',monospace",
           }}
         >
@@ -1230,9 +1079,7 @@ function LogisticView({ results, t }) {
                     padding: "4px 6px",
                     textAlign: "left",
                     color: t.tx,
-                    fontSize: 8,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.3,
+                    fontSize: 12,
                   }}
                 >
                   {h}
@@ -1277,7 +1124,7 @@ function LogisticView({ results, t }) {
                 >
                   {formatP(pValues[i])}
                 </td>
-                <td style={{ padding: "5px 6px", color: t.tx2, fontSize: 9 }}>
+                <td style={{ padding: "5px 6px", color: t.tx2, fontSize: 12 }}>
                   [{show(ci95[i][0], 2)}, {show(ci95[i][1], 2)}]
                 </td>
               </tr>

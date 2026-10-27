@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useCallback } from "react";
 import { Modal } from "./Modal.jsx";
-import { Btn } from "../ui/ui.jsx";
+import { Btn, GuideBtn } from "../ui/ui.jsx";
 import { logError } from "../lib/logger.js";
 import { mkSession } from "../model/session.js";
 import { mkSubject, addSubject, addSession } from "../model/project.js";
@@ -125,8 +125,7 @@ export default function BatchImportModal({ t, project, onUpdateProject, onClose 
     <><Modal t={t} title="Batch Import Sessions" onClose={onClose} wide>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -8 }}>
-          <button onClick={() => setGuideKey("batchImport")}
-            style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0 }} title="Guide">?</button>
+          <GuideBtn t={t} onClick={() => setGuideKey("batchImport")} />
         </div>
         <div style={{ display: "flex", gap: 12 }}>
           <div style={{ flex: 1 }}>

@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDialogStore, closeDialog, dismissToast } from "./dialogs.js";
+import { BACKDROP } from "./tokens.js";
 
 function DialogBox({ t, d }) {
   const [value, setValue] = useState(d.defaultValue ?? "");
@@ -48,7 +49,7 @@ function DialogBox({ t, d }) {
   const titleId = `${d.id}-title`;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: BACKDROP, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
       onMouseDown={e => { if (e.target === e.currentTarget) closeDialog(d.id, cancelValue); }}>
       <form ref={boxRef} role={d.kind === "info" ? "dialog" : "alertdialog"} aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
         onSubmit={e => { e.preventDefault(); accept(); }}

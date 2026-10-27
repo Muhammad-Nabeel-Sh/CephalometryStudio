@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState } from "react";
 import { useDialogA11y } from "./useDialogA11y.js";
+import { BACKDROP } from "../ui/tokens.js";
 // KaTeX is BUNDLED from the npm package (was loaded at runtime from
 // cdnjs.cloudflare.com with no integrity/SRI — a supply-chain and offline
 // risk for a clinical tool). Bundling ships the matched CSS+JS from the same
@@ -53,7 +54,7 @@ export function KatexSpan({ latex, block = false, large = false, fontSize }) {
 export function LatexFloatingPanel({ latex, onClose }) {
   const ref = useDialogA11y(onClose);
   return (
-    <div role="dialog" aria-modal="true" aria-label="Formula" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label="Formula" style={{ position: "fixed", inset: 0, background: BACKDROP, zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div ref={ref} onClick={e => e.stopPropagation()} style={{ background: "#ffffff", borderRadius: 16, padding: "48px 60px", maxWidth: "80vw", minWidth: 360, boxShadow: "0 32px 80px rgba(0,0,0,0.5)", position: "relative" }}>
         <button onClick={onClose} title="Close" style={{ position: "absolute", top: 12, right: 16, background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
         <div style={{ color: "#111", fontSize: "40pt", fontFamily: "'KaTeX_Main',serif", textAlign: "center", lineHeight: 1.4 }}>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LUT_PRESETS } from "../data/constants.js";
-import { Sld, Divider, PanelHeader, Btn } from "../ui/ui.jsx";
+import { Sld, Divider, PanelHeader, Btn, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -12,8 +12,7 @@ export function ImagePanel({ t, processing, setProcessing, lutMode, setLutMode, 
     <div style={{ padding: 12 }}>
       <PanelHeader t={t}>
         Window & Level
-        <button onClick={() => setGuideKey("image")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, marginLeft: 6, verticalAlign: "middle" }} title="Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("image")} style={{ marginLeft: 6 }} />
       </PanelHeader>
       <Sld label="W Center" value={processing.windowCenter} min={0} max={255} onChange={v => { const p = { ...processing, windowCenter: v }; setProcessing(p); }} t={t} />
       <Sld label="W Width" value={processing.windowWidth} min={0} max={255} onChange={v => { const p = { ...processing, windowWidth: v }; setProcessing(p); }} t={t} />
@@ -26,8 +25,7 @@ export function ImagePanel({ t, processing, setProcessing, lutMode, setLutMode, 
       <Divider t={t} />
       <PanelHeader t={t}>
         LUT Colorization
-        <button onClick={() => setGuideKey("lut")}
-          style={{ background: "none", border: `1px solid ${t.tx3}55`, color: t.tx3, borderRadius: 10, width: 18, height: 18, fontSize: 10, lineHeight: "16px", textAlign: "center", cursor: "pointer", padding: 0, marginLeft: 6, verticalAlign: "middle" }} title="LUT Guide">?</button>
+        <GuideBtn t={t} onClick={() => setGuideKey("lut")} label="LUT Guide" style={{ marginLeft: 6 }} />
       </PanelHeader>
       <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         <Btn t={t} small active={showLUT} onClick={() => setShowLUT(v => !v)}>Legend</Btn>
