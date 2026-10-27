@@ -51,6 +51,28 @@ function Switch({ t, checked, onChange, label }) {
   );
 }
 
+// Shrink an uploaded logo to at most 400 px (it is kept with the preferences).
+function readLogo(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The file could not be read."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("This is not an image the browser can open."));
+      img.onload = () => {
+        const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.naturalWidth * k));
+        c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 const selStyle = t => ({ padding: "5px 8px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 13, fontFamily: "inherit" });
 
 export default function SettingsModal({ t, theme, setTheme, angleMode, setAngleMode, facingSetting, setFacingSetting, resolvedFacing, magnifierOn, toggleMagnifier, storageEncrypted, onClose }) {
@@ -148,6 +170,32 @@ export default function SettingsModal({ t, theme, setTheme, angleMode, setAngleM
           )}
         </Section>
       )}
+
+      <Section t={t} title="PDF report" note="Shown on the report's cover and page headers">
+        <Row t={t} label="Clinic or institution">
+          <input value={ui.reportClinicName || ""} onChange={e => set({ reportClinicName: e.target.value })} placeholder="e.g. University Dental Hospital" aria-label="Clinic or institution"
+            style={{ ...selStyle(t), width: 220 }} />
+        </Row>
+        <Row t={t} label="Logo" hint="PNG or JPEG; resized to 400 px">
+          {ui.reportClinicLogo && <img src={ui.reportClinicLogo} alt="Clinic logo" style={{ height: 28, maxWidth: 90, objectFit: "contain", background: "#fff", borderRadius: 4, padding: 2 }} />}
+          <label style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, color: t.tx2, fontSize: 13, cursor: "pointer" }}>
+            {ui.reportClinicLogo ? "Replace" : "Choose image"}
+            <input type="file" accept="image/png,image/jpeg" style={{ display: "none" }}
+              onChange={async e => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try { set({ reportClinicLogo: await readLogo(f) }); } catch (err) { notify(err.message, { tone: "err" }); }
+              }} />
+          </label>
+          {ui.reportClinicLogo && (
+            <button onClick={() => set({ reportClinicLogo: null })}
+              style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 13, cursor: "pointer" }}>
+              Remove
+            </button>
+          )}
+        </Row>
+      </Section>
 
       <Section t={t} title="AI landmark detection">
         <Row t={t} label="Model" hint={`${LANDMARK_MODEL.version} · runs in your browser; images are not uploaded`}>

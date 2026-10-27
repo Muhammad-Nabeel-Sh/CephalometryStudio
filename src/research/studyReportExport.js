@@ -11,7 +11,7 @@ import { buildResultsTables } from "./resultsExport.js";
 import { collectStudyWarnings } from "./studyWarnings.js";
 import { STUDY_TYPES } from "./studyModel.js";
 
-const fmtCell = v => {
+export const fmtCell = v => {
   if (v == null || v === "") return "";
   if (typeof v === "number") {
     if (!isFinite(v)) return "";
@@ -33,7 +33,7 @@ export function studyReportContent(study, status) {
   const summary = summarizeStudy(study);
   return {
     title: study.name,
-    subtitle: `${typeName} study · ${new Date(study.lastRun?.at || study.updatedAt || Date.now()).toLocaleDateString()}`,
+    subtitle: `${typeName}${/stud(y|ies)$/i.test(typeName) ? "" : " study"} · ${new Date(study.lastRun?.at || study.updatedAt || Date.now()).toLocaleDateString()}`,
     warnings: collectStudyWarnings(study, { status }).map(w => w.text),
     summary,
     methods: methodsText(study).html,

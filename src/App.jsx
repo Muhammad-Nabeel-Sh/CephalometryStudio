@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   lazy,
   Suspense,
+  Fragment,
 } from "react";
 import { THEMES, PREDEFINED, LUT_PRESETS } from "./data/constants.js";
 import { KEYBINDINGS } from "./data/keybindings.js";
@@ -1401,6 +1402,15 @@ function Workspace({
   const filmstripOpen = useUIStore((s) => s.filmstripOpen);
   const guideKey = useUIStore((s) => s.guideKey);
   const reportSections = useUIStore((s) => s.reportSections);
+  const reportTheme = useUIStore((s) => s.reportTheme);
+  const reportClinicName = useUIStore((s) => s.reportClinicName);
+  const reportClinicLogo = useUIStore((s) => s.reportClinicLogo);
+  // Report options: session to compare with, studies to include (null = all),
+  // and the generated PDF waiting in the preview.
+  const [reportCompareId, setReportCompareId] = useState("");
+  const [reportStudyIds, setReportStudyIds] = useState(null);
+  const [reportPreview, setReportPreview] = useState(null);
+  const [reportBusy, setReportBusy] = useState(false);
   const pinnedFormulas = useUIStore((s) => s.pinnedFormulas);
 
   const markups = useSessionStore((s) => s.markups);
@@ -5611,6 +5621,47 @@ function Workspace({
           onClose={() => setShowReportOptions(false)}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div role="radiogroup" aria-label="Report style" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: t.tx2 }}>Style</span>
+              {[
+                ["light", "Light (white pages)"],
+                ["dark", "Dark (Plasticity)"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  role="radio"
+                  aria-checked={reportTheme === id}
+                  onClick={() => useUIStore.setState({ reportTheme: id })}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: `1px solid ${reportTheme === id ? t.acc : t.bdr}`,
+                    background: reportTheme === id ? t.accMuted : "transparent",
+                    color: reportTheme === id ? t.acc : t.tx2,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {(() => {
+              const sealed = sealedSessions(project);
+              const others = (project.sessions || []).filter((s) => s.id !== activeSession?.id && !sealed.has(s.id));
+              if (!others.length) return null;
+              return (
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: t.tx2, marginBottom: 6, flexWrap: "wrap" }}>
+                  Compare with
+                  <select value={reportCompareId} onChange={(e) => setReportCompareId(e.target.value)}
+                    style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 13 }}>
+                    <option value="">No comparison</option>
+                    {others.map((s) => <option key={s.id} value={s.id}>{[s.label, s.name].filter(Boolean).join(" · ") || "Session"}</option>)}
+                  </select>
+                </label>
+              );
+            })()}
             <div style={{ fontSize: 11, color: t.tx2, marginBottom: 4 }}>
               Select sections to include in the report:
             </div>
@@ -5624,10 +5675,8 @@ function Workspace({
               ["formulas", "Custom Formulas"],
               ["interpretation", "Clinical Interpretation"],
             ].map(([key, label]) => (
-              <div
-                key={key}
-                style={{ display: "flex", alignItems: "center", gap: 10 }}
-              >
+              <Fragment key={key}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   onClick={() =>
                     setReportSections((s) => ({ ...s, [key]: !s[key] }))
@@ -5665,6 +5714,23 @@ function Workspace({
                   {label}
                 </span>
               </div>
+              {key === "research" && reportSections.research && (() => {
+              const studies = (project.researchStudies || []).filter((st) => !st.archived && st.results && !st.results.error);
+              if (!studies.length) return <div style={{ fontSize: 12, color: t.tx3, marginLeft: 30 }}>No research study has results yet.</div>;
+              const chosen = reportStudyIds || studies.map((st) => st.id);
+              return (
+                <div role="group" aria-label="Studies to include" style={{ marginLeft: 30, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {studies.map((st) => (
+                    <label key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: t.tx2, cursor: "pointer" }}>
+                      <input type="checkbox" checked={chosen.includes(st.id)}
+                        onChange={() => setReportStudyIds(chosen.includes(st.id) ? chosen.filter((id) => id !== st.id) : [...chosen, st.id])} />
+                      {st.name || st.type}
+                    </label>
+                  ))}
+                </div>
+              );
+              })()}
+              </Fragment>
             ))}
             <div
               style={{
@@ -5695,19 +5761,23 @@ function Workspace({
                     const { original: origUrl, markup: markupUrl } = await captureReportImages();
                     // Same as the Interpretation panel: linear measures need calibration.
                     const interp = generateInterpretation(allMeas, norms, calibration);
-                    const [{ generateReport }] = await Promise.all([
+                    setReportBusy(true);
+                    const [{ generateReport }, { captureStudyCharts }] = await Promise.all([
                       import("./report/reportGenerator.js"),
+                      import("./report/studyChartCapture.jsx"),
                       loadFormulaEngine().catch(() => false),
                     ]);
+                    const cmp = (project.sessions || []).find((s) => s.id === reportCompareId && s.id !== activeSession?.id);
                     const fv = {};
                     formulas.forEach((f) => {
                       const v = evalFormula(f.expression, measScope);
                       if (v !== null) fv[f.id] = v;
                     });
-                    await generateReport({
+                    const doc = await generateReport({
                       project,
                       session: activeSession,
                       allMeas,
+                      markups,
                       norms,
                       formulas,
                       formulaValues: fv,
@@ -5722,10 +5792,20 @@ function Workspace({
                       calibration,
                       facing,
                       sections: reportSections,
+                      theme: reportTheme,
+                      compare: cmp ? { ...cmp, facing: resolveFacing(cmp.facing, cmp.markups) } : null,
+                      studyIds: reportStudyIds,
+                      captureStudyCharts,
+                      clinic: reportClinicName || reportClinicLogo ? { name: reportClinicName, logo: reportClinicLogo } : null,
+                      save: false,
                     });
+                    const blob = doc.output("blob");
+                    setReportPreview({ url: URL.createObjectURL(blob), fileName: doc._fileName, pages: doc.internal.getNumberOfPages() });
                   } catch (e) {
                     logError("PDF generation failed:", e);
                     notify("The PDF report could not be created. " + (e?.message || ""), { tone: "err" });
+                  } finally {
+                    setReportBusy(false);
                   }
                 }}
                 style={{ flex: 1 }}
@@ -5741,6 +5821,38 @@ function Workspace({
                 Cancel
               </Btn>
             </div>
+          </div>
+        </Modal>
+      )}
+      {reportBusy && (
+        <div role="status" aria-live="polite" style={{ position: "fixed", inset: 0, zIndex: 3000, background: "#0008", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14 }}>
+          Creating the PDF report…
+        </div>
+      )}
+      {reportPreview && (
+        <Modal
+          t={t}
+          title={`Report preview · ${reportPreview.pages} page${reportPreview.pages === 1 ? "" : "s"}`}
+          customWidth={900}
+          onClose={() => { URL.revokeObjectURL(reportPreview.url); setReportPreview(null); }}
+        >
+          <iframe title="PDF report preview" src={reportPreview.url} style={{ width: "100%", height: "70vh", border: `1px solid ${t.bdr}`, borderRadius: 6, background: "#fff" }} />
+          <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
+            <span style={{ flex: 1, fontSize: 12, color: t.tx3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{reportPreview.fileName}</span>
+            <Btn t={t} ghost onClick={() => { URL.revokeObjectURL(reportPreview.url); setReportPreview(null); setShowReportOptions(true); }}>Change options</Btn>
+            <Btn
+              t={t}
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = reportPreview.url;
+                a.download = reportPreview.fileName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              }}
+            >
+              Download PDF
+            </Btn>
           </div>
         </Modal>
       )}

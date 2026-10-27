@@ -11,7 +11,8 @@ export const PREF_KEYS = [
   "showDefTooltips", "showAnnotations", "annotationSize", "showScaleBar",
   "autoHideLabels", "annotationBold", "labelLayout", "labelsActiveOnly",
   "snapTolerance", "defaultLineStyle", "defaultMarkupColor", "defaultLineWidth",
-  "showCpAlways", "showAnchorAlways", "readableText",
+  "showCpAlways", "showAnchorAlways", "readableText", "reportTheme",
+  "reportClinicName", "reportClinicLogo",
 ];
 const PREFS_KEY = "cephalo_prefs_v1";
 let savedPrefs = {};
@@ -91,6 +92,11 @@ export const useUIStore = create(() => ({
   showSettings: false,
   // C2: 12 px minimum text size across the app.
   readableText: true,
+  // PDF report style: "light" (white pages) or "dark" (Plasticity theme).
+  reportTheme: "light",
+  // Clinic name and logo (small PNG data URL) for the report cover and header.
+  reportClinicName: "",
+  reportClinicLogo: null,
   ...savedPrefs,
 }));
 

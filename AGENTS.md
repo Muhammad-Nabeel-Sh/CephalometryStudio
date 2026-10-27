@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **778 tests (Vitest)**
+- **No TypeScript**, **790 tests (Vitest)**
 
 ---
 
@@ -131,6 +131,7 @@ src/
 │
 ├── report/                     Export/PDF generation
 │   ├── reportGenerator.js      PDF/DOCX/PNG export
+│   ├── studyChartCapture.jsx   Off-screen render of a study's charts → PNGs for the PDF
 │   ├── csvParser.js            CSV sidecar parsing
 │   └── anonymize.js            PHI anonymization
 │
@@ -206,7 +207,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               Image loading + drop handling
 │
-└── test/                       Vitest test files (778 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (790 tests; realistic fixtures in test/helpers/)
 ```
 
 ### File Organization
@@ -523,6 +524,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Normogram**: rows from `lib/normogram.js` (`normogramRows`, `comparisonValues`, `chartLayout`); `NormogramPanel` takes `markups`, `calibration`, `facing`, `sessions` (sealed ones filtered out in App), `activeSessionId`, `caseName`; transparent charts, print-colour downloads via a hidden render (`PRINT_T`). 7 tests in `src/test/normogram.test.js`
 
+- **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`. Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. 10 tests in `src/test/reportGaps.test.js`.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -531,7 +534,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 778 tests pass (49 test files, 0 failures)
+- `npm test` — 790 tests pass (50 test files, 0 failures)
 
 
 

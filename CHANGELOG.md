@@ -1,5 +1,41 @@
 # Changelog
 
+## [Unreleased] - PDF report: research results and themes
+
+### Fixed
+- Research studies did not appear in the PDF report: the section read result fields that no
+  longer exist, so most study types printed only a title. Each study now prints its status,
+  caveats, plain-language summary and findings, APA methods and results text, result tables
+  and references (all eight study types; archived studies are left out). Out-of-date results
+  are flagged.
+- The cover's date was the case's last-modified date; it is now the session date.
+
+### Added
+- Report style in the PDF options: **Light** (white pages, for printing) or **Dark** (the
+  Plasticity theme), remembered between visits. Every page, including pages a long table
+  continues onto, uses the chosen background.
+- **Preview before download**: the report opens in a preview with Download and Change options;
+  the file name carries the date (`Case_2026-10-27_report.pdf`).
+- **Session comparison** (e.g. T0 vs T1): pick a session in the options for a value/change
+  table and comparison markers on the normogram. Sealed (blinded) sessions are not offered.
+- **Choose the studies** to include; each study now also prints its charts.
+- **Calibration statement** (method, px/mm, magnification caveat, or "not calibrated") and
+  **AI landmark provenance** (counts plus a per-landmark source table; unreviewed AI points
+  highlighted).
+- Clinic name and logo (Settings → PDF report) on the cover and page headers; clinician and
+  facility on the cover.
+- PDF title/author properties and bookmarks for every section (studies nested under
+  Research); each page's header names the case and session.
+
+### Changed
+- The normogram uses the same rows as the app's Normogram: categories, neutral bands,
+  off-scale arrows with z-scores, "~" for approximate SDs, hidden uncalibrated distances.
+- Measurements table grouped by category, norms with their unit, z-score and band.
+- Interpretation: one overview table, then a short paragraph per measurement (no repeated
+  columns).
+- Greek letters in statistics (η², χ², α) print as Greek (Noto Sans, fetched only when needed);
+  the cover logo is visible on white pages; projection reads "Lateral cephalogram".
+
 ## [Unreleased] - Normogram
 
 ### Fixed
