@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] - Offline and self-hosted fonts
+
+### Added
+- Works offline: a service worker (production builds) keeps the app itself on the device, so
+  it opens without a connection. The AI runtime and the PDF fonts are kept the first time they
+  are used (the AI model already was). When a new version is published, a notice offers
+  **Reload**; nothing reloads on its own.
+
+### Changed
+- The interface fonts (DM Sans, DM Mono, Syne) ship with the app instead of loading from
+  Google Fonts: no request to Google, and they work offline. The security policy no longer
+  allows Google font hosts.
+
 ## [Unreleased] - Consistent design
 
 ### Changed

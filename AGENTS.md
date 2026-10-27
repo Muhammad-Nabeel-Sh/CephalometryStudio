@@ -52,7 +52,9 @@ npm run setup:ort
 ```
 src/
 ├── App.jsx                     Root component (~6150 lines)
-├── main.jsx                    Entry point
+├── main.jsx                    Entry point (registers the service worker in production)
+├── fonts.js                    Self-hosted interface fonts (@fontsource; no Google Fonts)
+├── pwa.js                      Service worker registration + "new version" toast
 ├── index.css                   Global styles
 │
 ├── canvas/                     Canvas rendering + image processing
@@ -317,7 +319,7 @@ const result = compiled.evaluate(scope);
 
 ### KaTeX Usage
 
-- Load KaTeX CSS via CDN dynamically (see `useKatex` hook)
+- KaTeX JS + CSS are bundled from npm and loaded on first use (see `useKatex` hook)
 - Render with `throwOnError: false` to prevent crashes
 - Use `output: "html"` for inline rendering
 
@@ -527,6 +529,8 @@ Recommended settings for `.vscode/settings.json`:
 - **PDF report + airway fixes**: report pages via `newPage` (reuses the empty first page; never call `doc.addPage` directly in builders), headers/footers drawn in a final pass, `measurementRows` (primary measure + unit), live airway results passed from App, Amiri font for non-Latin text (`public/fonts/`, loaded on demand), report images from `captureReportImages`. Airway: `getInterpretation(z, id)` is direction-aware, `normalizeSex`/`normalizeAge`, clinical notes only when calibrated, traced walls (`tracedBoundaries`) feed R-PAS/R-RG/Min-CSA/area, snapping uses `getImagePixels` (image coordinates). 14 tests in `src/test/reportAirwayFixes.test.js`
 
 - **Normogram**: rows from `lib/normogram.js` (`normogramRows`, `comparisonValues`, `chartLayout`); `NormogramPanel` takes `markups`, `calibration`, `facing`, `sessions` (sealed ones filtered out in App), `activeSessionId`, `caseName`; transparent charts, print-colour downloads via a hidden render (`PRINT_T`). 7 tests in `src/test/normogram.test.js`
+
+- **Offline + fonts (Phase 2, item 17 part 1)**: `vite-plugin-pwa` (config in `vite.config.js`) precaches the app shell (~5 MB: JS, CSS, HTML, icons, woff2); `/ort/` is cached on use (NetworkFirst) and `/fonts/` (PDF fonts) CacheFirst; `public/models`, splash images and the model are not precached (the model has its own cache in `storage/modelCache.js`). `registerType: "prompt"` — `src/pwa.js` shows a Reload toast; dev server has no service worker. Test with `npm run build && npm run preview`. Fonts come from `src/fonts.js`; `vercel.json` CSP has no Google hosts and `sw.js` is served `no-cache`.
 
 - **Design consistency**: shared controls in `ui/ui.jsx` — `Btn` (with `SMALL_BTN` from `ui/tokens.js` for compact ones), `Chip` (toggle/segmented choices), `TabBar` (underlined tabs), `GuideBtn` ("?"), `RemoveBtn` (×), `FieldLabel`; dialogs use `Modal` or `DialogShell` (`panels/Modal.jsx`, same overlay/panel/header, `BACKDROP`); icons come from `ui/icons.jsx`, not emoji; no inline font size under 12 px in panels/research setup (the readable-text CSS floor is only a fallback).
 

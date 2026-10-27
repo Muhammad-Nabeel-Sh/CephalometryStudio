@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './fonts.js'
 import './index.css'
 import App from './App.jsx'
 
@@ -8,6 +9,11 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Offline support: register the service worker in production builds only.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  import("./pwa.js").then((m) => m.registerServiceWorker()).catch(() => {});
+}
 
 // Dev-only debugging hooks (no-op in production builds).
 if (import.meta.env.DEV) {
