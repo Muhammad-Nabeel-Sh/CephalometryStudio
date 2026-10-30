@@ -505,3 +505,29 @@ a `cepha19` set (manual placement for the extras) or a masked-loss 29-landmark
 retrain that keeps all 29 outputs.
 
 Next: decide the integration path and (optionally) address `Pog'`.
+
+### Step 22 — `cepha19` integrated as the active app model
+
+Shipped the multi-domain model as **`cepha19`** (option "both" — 29-landmark
+masked retrain next):
+
+- `src/data/landmarkMap.js`: `CEPHA19 = ISBI19` (same 19 vocabulary/app labels,
+  separate set key) + registered in `LANDMARK_SETS`.
+- `src/lib/shapeModel.js`: imported/registered `src/data/shapeModel.cepha19.json`
+  (19 landmarks, K=10, 81.96% variance, n=1050).
+- `src/data/landmarkModelInfo.js`: split into `CEPHA29_MODEL` (HF-hosted, kept)
+  and `CEPHA19_MODEL` (multi-domain), with `LANDMARK_MODEL = CEPHA19_MODEL`.
+  Local weights `public/models/landmarks-md19.int8.onnx` (gitignored), SHA-256
+  `aabfddce…7315`. For deployment, host the file and update `url`.
+- Refinement stays disabled (`shape: false`, band options kept) and orientation /
+  polarity search stays on, matching how E1 was measured.
+- Tests: 4 new (cepha19 set order, prior registration, active manifest, residual
+  with the new prior) → **874 pass**, lint clean, build OK.
+
+**Caveat:** the quality-gate thresholds are still the CEPHA29 calibration. The
+E1 benchmark ran `--no-ssm`, so it did not record cepha19 residual stats; a
+`--report-ood` run with the cepha19 prior (refinement gated off) should be used to
+recalibrate the residual/mahalanobis cut points for this model.
+
+**Next:** masked-loss 29-landmark multi-domain retrain (keep all 29 outputs; ISBI
+images supervise only the 19) for full production parity.

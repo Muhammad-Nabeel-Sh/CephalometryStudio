@@ -184,3 +184,22 @@ describe("shapeResidual (CEPHA29)", () => {
     expect(r.k).toBeGreaterThan(6);
   });
 });
+
+describe("cepha19 (multi-domain) prior", () => {
+  it("is registered with the 19 shared landmarks and usable components", () => {
+    const p = getShapeModel("cepha19");
+    expect(p).toBeTruthy();
+    expect(p.mean.length / 2).toBe(19);
+    expect(p.components.length).toBeGreaterThan(0);
+    expect(p.components[0].length).toBe(p.mean.length);
+    expect(p.sigmas.length).toBe(p.components.length);
+  });
+
+  it("scores the multi-domain landmarks without a prior-size mismatch", () => {
+    const p = getShapeModel("cepha19");
+    const pts = Array.from({ length: 19 }, (_, i) => ({ x: p.mean[2 * i], y: p.mean[2 * i + 1] }));
+    const r = shapeResidual(pts, { set: "cepha19" });
+    expect(r).toBeTruthy();
+    expect(r.residualRatio).toBeLessThan(0.01);
+  });
+});

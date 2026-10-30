@@ -1,26 +1,23 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Landmark model manifest
+// Landmark model manifests
 //
-// Defaults target the CEPHA29 29-landmark HRNet-W32 (trained with CephaloHRNet on
-// the Aariz Cephalometric Dataset, CC BY 4.0). Weights are hosted on Hugging Face
-// and fetched (SHA-256 verified, Cache Storage) on first use; the ONNX Runtime
-// UMD build is self-hosted and loaded via a <script> tag:
+// Two models ship:
+//   CEPHA19_MODEL — multi-domain HRNet-W32 (Aariz + ISBI 2015), 19 shared landmarks.
+//                   ACTIVE by default: measured better cross-domain and in-domain.
+//   CEPHA29_MODEL — original Aariz-only 29-landmark HRNet-W32 (HF-hosted).
 //
-//   npm run setup:ort            # copies onnxruntime-web dist -> public/ort/
+// Weights are SHA-256 verified and cached (storage/modelCache.js). The ONNX
+// Runtime UMD build is self-hosted under public/ort/ and loaded via a <script>.
 //
-// The ISBI 19-landmark model (MIT, cwlachap) remains available by switching
-// `landmarkSet` to "isbi19" and pointing `url`/`sha256`/`version` at it.
+// INT8 must be static-QDQ quantized: dynamic quantization emits ConvInteger, which
+// onnxruntime-web cannot run (session create fails → demo fallback).
 //
 // If `url` is blank the deterministic demo detector runs instead.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const LANDMARK_MODEL = {
-  // Master switch for the AI auto-trace feature in production. The weights are
-  // hosted on Hugging Face and the ORT runtime ships in public/ort/, so this is
-  // enabled everywhere; dev also enables it regardless.
+// Settings shared by both models.
+const SHARED = {
   enabled: true,
-  version: "cepha29-hrnet-w32-v1",
-  landmarkSet: "cepha29",
   inputSize: 768,
   inputChannels: 3,
   normalize: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
@@ -43,10 +40,9 @@ export const LANDMARK_MODEL = {
     minResidualRatio: 0.1,
     maxResidualRatio: 0.5,
   },
-  // Robustness layer (see docs/ai-module-improvement-plan.md §8). The model is
-  // orientation-specific and has never seen an inverted film, so detection tries
-  // {identity, mirrored} × {normal, inverted} and keeps whichever candidate looks
-  // most like a cephalogram. A "high" first pass short-circuits the search.
+  // Orientation-specific model: try {identity, mirrored} × {normal, inverted} and
+  // keep whichever candidate looks most like a cephalogram. A "high" first pass
+  // short-circuits the search.
   robustness: {
     autoOrientation: true,
     autoPolarity: true,
@@ -54,22 +50,43 @@ export const LANDMARK_MODEL = {
     contrast: false,
     rankWeights: { residual: 0.35, edge: 0.25 },
   },
-  // Quality gate thresholds — override of lib/landmarkQuality defaults. Tune
-  // with `python scripts/eval-landmark-model.py --report-ood`.
+  // Quality gate thresholds — override of lib/landmarkQuality defaults. Tune with
+  // `python scripts/eval-landmark-model.py --report-ood`.
   quality: null,
-  url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-cepha29.int8.onnx",
-  sha256: "f7f1db9cc2de37c0fa94dab431d7d3446d1d8ffc62fa92e6610c2380af83080d",
   ortUrl: "/ort/ort.wasm.min.js",
   wasmPaths: "/ort/",
 };
 
-// CEPHA29 valid set (150 images), training-time metrics: MRE ~1.24 mm, SDR@2 mm
-// ~83%, SDR@3 mm ~94%. DARK decoding + SSM refinement (`refine`, prior in
-// shapeModel.cepha29.json) improve on this. The INT8 model MUST be static
-// QDQ-quantized — dynamic quantization emits ConvInteger, which onnxruntime-web
-// does not implement (session create fails → demo fallback). `sha256` is pinned
-// so a stale/incompatible cached model is rejected and re-fetched; update it
-// whenever you regenerate the model.
+// Original 29-landmark Aariz-only model (Hugging Face).
+export const CEPHA29_MODEL = {
+  ...SHARED,
+  version: "cepha29-hrnet-w32-v1",
+  landmarkSet: "cepha29",
+  url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-cepha29.int8.onnx",
+  sha256: "f7f1db9cc2de37c0fa94dab431d7d3446d1d8ffc62fa92e6610c2380af83080d",
+};
+
+// Multi-domain 19-landmark model (Aariz + ISBI 2015), fine-tuned from CEPHA29.
+//
+// Measured (INT8, raw — the app default):
+//   external ISBI 2015 test (50 held out): MRE 2.05 mm, median 1.34, SDR@2 64.7%
+//     (the 29-landmark baseline was 50.6% on the same task)
+//   in-domain Aariz valid (shared 19):      MRE 0.99 mm, median 0.61, SDR@2 91.0%
+//
+// It cannot output the 10 Aariz-only landmarks (Co, LIA, LMT, LPM, N`, Pn, R,
+// UIA, UMT, UPM); analyses that need them queue those points for manual placement.
+// Local file: public/models/landmarks-md19.int8.onnx (gitignored). For deployment,
+// host it and update `url`.
+export const CEPHA19_MODEL = {
+  ...SHARED,
+  version: "md19-hrnet-w32-v1",
+  landmarkSet: "cepha19",
+  url: "/models/landmarks-md19.int8.onnx",
+  sha256: "aabfddcebdb0aad0f14bc99bba7498fd2a7f9a57135d86180820c91c57ed7315",
+};
+
+// The model the app uses. Switch to CEPHA29_MODEL to revert to 29 landmarks.
+export const LANDMARK_MODEL = CEPHA19_MODEL;
 
 export function isModelConfigured(model = LANDMARK_MODEL) {
   return Boolean(model?.url && model?.ortUrl);

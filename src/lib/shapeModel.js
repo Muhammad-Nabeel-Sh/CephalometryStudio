@@ -17,8 +17,9 @@
 
 import isbi19 from "../data/shapeModel.isbi19.json";
 import cepha29 from "../data/shapeModel.cepha29.json";
+import cepha19 from "../data/shapeModel.cepha19.json";
 
-const PRIORS = { isbi19, cepha29 };
+const PRIORS = { isbi19, cepha29, cepha19 };
 
 // Register an additional set's prior (used once a CEPHA29 model is generated).
 export function registerShapeModel(setKey, model) {

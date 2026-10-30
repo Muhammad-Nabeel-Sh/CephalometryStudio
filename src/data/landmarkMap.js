@@ -75,7 +75,12 @@ export const CEPHA31 = [
   { symbol: "PPOcc", name: "Posterior Occlusal Point", app: "PPOcc", mock: [0.420, 0.590] },
 ];
 
-export const LANDMARK_SETS = { isbi19: ISBI19, cepha29: CEPHA29, cepha31: CEPHA31 };
+// Multi-domain shared set (Aariz ∩ ISBI 2015). Same 19 landmarks and app labels
+// as ISBI19; the multi-domain model outputs them in this exact order. Kept as a
+// separate set key so it can have its own shape prior and manifest.
+export const CEPHA19 = ISBI19;
+
+export const LANDMARK_SETS = { isbi19: ISBI19, cepha29: CEPHA29, cepha31: CEPHA31, cepha19: CEPHA19 };
 export const DEFAULT_LANDMARK_SET = "isbi19";
 
 export function getLandmarkSet(key = DEFAULT_LANDMARK_SET) {

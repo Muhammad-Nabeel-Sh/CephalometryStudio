@@ -125,3 +125,14 @@ describe("mockDetections", () => {
     expect(mockDetections(px, 40, 30, "cepha29")).toHaveLength(29);
   });
 });
+
+describe("cepha19 (multi-domain) set", () => {
+  it("reuses the 19 ISBI landmarks and app labels in model order", () => {
+    expect(LANDMARK_SETS.cepha19).toBe(ISBI19);
+    expect(getLandmarkSet("cepha19")).toHaveLength(19);
+    expect(getLandmarkSet("cepha19").map((l) => l.symbol)).toEqual([
+      "S", "N", "Or", "Po", "A", "B", "Pog", "Me", "Gn", "Go",
+      "L1", "U1", "UL", "LL", "Sn", "Pog'", "PNS", "ANS", "Ar",
+    ]);
+  });
+});
