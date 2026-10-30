@@ -6109,9 +6109,6 @@ export default function CephalometryStudio() {
         ),
       );
     window.history.pushState({ cephView: "workspace" }, "");
-    // Opening any case answers the "Welcome back" prompt; it must not come
-    // back on returning home with an out-of-date suggestion.
-    setWelcome(null);
     setActiveId(id);
   };
   const goHome = () => {
@@ -6125,10 +6122,6 @@ export default function CephalometryStudio() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [activeId]);
-  // On load, greet the user with a choice: jump straight into the most recent
-  // project (canvas) or land on the homepage. `welcome` holds the project id to
-  // offer; it is consumed by the first click and never re-shown during the session.
-  const [welcome, setWelcome] = useState(null);
   const dirtyRef = useRef(false);
   // D3: surface IDB-unavailable / storage-quota failures as a dismissible banner
   // instead of silently degrading (incognito mode, full storage). The autosave
@@ -6154,15 +6147,8 @@ export default function CephalometryStudio() {
       // Cases are never deleted automatically (the 90-day retention purge
       // was removed); only the user deletes them.
       setProjects(lp);
-      // Not on /features: someone opening that page came to read about the app.
-      if (lp.length > 0 && window.location.pathname !== "/features") {
-        // Offer the MOST RECENTLY MODIFIED project (projects are stored in
-        // insertion order, so [0] would be the oldest).
-        const mostRecent = lp.reduce((a, b) =>
-          (b.modified || 0) > (a.modified || 0) ? b : a,
-        );
-        setWelcome({ projectId: mostRecent.id });
-      }
+      // The home page greets the user with "What's new", which also offers to
+      // continue the most recent case.
       setLoaded(true);
       // Encrypt images stored before encryption existed; sweep orphans.
       runStorageMaintenance();
@@ -6562,77 +6548,6 @@ export default function CephalometryStudio() {
               ×
             </button>
           </div>
-        )}
-        {loaded && welcome && !activeId && (
-          <Modal
-            t={t}
-            title="Welcome back"
-            onClose={() => setWelcome(null)}
-            customWidth={splashMobile ? 340 : 420}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: splashMobile ? 20 : 16,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: splashMobile ? 14 : 12,
-                  color: t.tx2,
-                  lineHeight: 1.6,
-                }}
-              >
-                You have saved projects in this browser.
-                {projects.find((p) => p.id === welcome.projectId)?.name && (
-                  <span>
-                    {" "}
-                    Your most recent one is{" "}
-                    <strong style={{ color: t.tx }}>
-                      {projects.find((p) => p.id === welcome.projectId).name}
-                    </strong>
-                    .
-                  </span>
-                )}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: splashMobile ? "column" : "row",
-                  justifyContent: splashMobile ? "stretch" : "flex-end",
-                  gap: 10,
-                }}
-              >
-                <Btn
-                  t={t}
-                  onClick={() => setWelcome(null)}
-                  style={
-                    splashMobile
-                      ? { width: "100%", padding: "14px 16px", fontSize: 15 }
-                      : undefined
-                  }
-                >
-                  Homepage
-                </Btn>
-                <Btn
-                  t={t}
-                  active
-                  onClick={() => {
-                    openProject(welcome.projectId);
-                    setWelcome(null);
-                  }}
-                  style={
-                    splashMobile
-                      ? { width: "100%", padding: "14px 16px", fontSize: 15 }
-                      : undefined
-                  }
-                >
-                  Continue to canvas
-                </Btn>
-              </div>
-            </div>
-          </Modal>
         )}
         {!activeId && !loaded && (
           <div

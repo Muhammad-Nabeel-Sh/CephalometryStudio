@@ -7,10 +7,15 @@ import StartupWizard from "./StartupWizard.jsx";
 import { patientOfCase } from "../model/patients.js";
 import CaseManager from "./CaseManager.jsx";
 import FeaturesPage from "./FeaturesPage.jsx";
+import WhatsNewDialog from "./WhatsNewDialog.jsx";
 import { SessionThumb } from "./SessionFilmstrip.jsx";
 import { useDialogA11y } from "../hooks/useDialogA11y.js";
 import { Icon } from "../ui/icons.jsx";
 import { BACKDROP } from "../ui/tokens.js";
+
+// "What's new" opens once per page load (each visit or refresh), not every
+// time the user comes back to the home page from a case.
+const whatsNewPending = { current: true };
 
 function NewCaseForm({ t, onSubmit, onCancel, initial, pickProjection }) {
   const [proj, setProj] = useState("lateral");
@@ -396,6 +401,23 @@ export default function HomePage({
     return () => window.removeEventListener("popstate", onPop);
   }, [view]);
   const fileRef = useRef(null);
+  // What's new: on every visit (not over the features page), and on request.
+  // It also offers to continue the most recently changed case.
+  const [whatsNew, setWhatsNew] = useState(
+    () => view !== "features" && whatsNewPending.current,
+  );
+  useEffect(() => {
+    whatsNewPending.current = false;
+  }, []);
+  const closeWhatsNew = () => setWhatsNew(false);
+  const latestCase = useMemo(
+    () =>
+      projects.reduce(
+        (a, b) => (!a || (b.modified || 0) > (a.modified || 0) ? b : a),
+        null,
+      ),
+    [projects],
+  );
   // A new case: for an existing patient (details filled in) or from scratch.
   const newCase = (g) => {
     if (!g) {
@@ -1149,7 +1171,7 @@ export default function HomePage({
                 fontFamily: "'DM Mono',monospace",
               }}
             >
-              Claude AI
+              Claude
             </span>
             <span
               style={{
@@ -1233,7 +1255,7 @@ export default function HomePage({
                 fontFamily: "'DM Mono',monospace",
               }}
             >
-              GitHub Pages
+              Vercel
             </span>
           </div>
         </div>
@@ -1241,6 +1263,21 @@ export default function HomePage({
 
       {/* OVERLAY: New Case Form → Startup Wizard */}
       {flowOverlay}
+      {whatsNew && (
+        <WhatsNewDialog
+          t={t}
+          onClose={closeWhatsNew}
+          latestCase={latestCase}
+          onContinue={() => {
+            closeWhatsNew();
+            onOpen(latestCase.id);
+          }}
+          onFeatures={() => {
+            closeWhatsNew();
+            openView("features");
+          }}
+        />
+      )}
 
       {/* DISCLAIMER */}
       <div style={{ background: t.bg, padding: "20px 32px 28px" }}>
@@ -1250,6 +1287,37 @@ export default function HomePage({
             purposes only. It is not approved or cleared for clinical diagnosis
             or treatment planning. <br /> Clinical decisions should not be made
             solely on the basis of measurements produced by this software.
+          </p>
+          <p style={{ fontSize: 12, margin: "10px 0 0" }}>
+            <button
+              onClick={() => setWhatsNew(true)}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: t.acc,
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "inherit",
+              }}
+            >
+              What&apos;s new
+            </button>
+            <span style={{ color: t.tx3 }}> · </span>
+            <button
+              onClick={() => openView("features")}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: t.acc,
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "inherit",
+              }}
+            >
+              All features
+            </button>
           </p>
           {!storageEncrypted && (
             <p

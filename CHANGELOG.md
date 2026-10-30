@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased] - What's new
+
+### Added
+- A **What's new** dialog on the home screen shows the highlights of this release at every
+  visit or refresh (not when returning home from a case), and again from "What's new" in the
+  home page footer. It replaces the "Welcome back" prompt: **Homepage** closes it, **Continue
+  to "…"** opens the most recently changed case. The highlights scroll; the buttons stay
+  visible. Content lives in `src/data/whatsNew.js`.
+
 ## [Unreleased] - Case manager and features page
 
 ### Added
