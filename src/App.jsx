@@ -141,7 +141,7 @@ import DriveBackupDialog from "./panels/DriveBackupDialog.jsx";
 import ProfileMenu from "./panels/ProfileMenu.jsx";
 import SyncSetupDialog from "./panels/SyncSetupDialog.jsx";
 import { useDriveSync } from "./hooks/useDriveSync.js";
-import { switchProfile } from "./storage/profiles.js";
+import { switchProfile, activeProfile } from "./storage/profiles.js";
 import { driveConfigured } from "./storage/driveBackup.js";
 import { drawImageLayers, reportScale, printLabelScale } from "./canvas/imageLayers.js";
 import { computeAirwayMeasurements, normalizeSex, normalizeAge } from "./research/airway.js";
@@ -6438,6 +6438,65 @@ export default function CephalometryStudio() {
     if (warnings.length) showInfo({ title: "Restored with notes", items: warnings });
   };
 
+  // One case as a .cephx file, with the images of every session.
+  const exportOneCase = async (proj) => {
+    const { project: full, missing } = await hydrateProjectImages(proj);
+    exportCephx(full);
+    if (missing)
+      notify(
+        `${missing} image${missing === 1 ? "" : "s"} could not be read from this browser's storage and ${missing === 1 ? "is" : "are"} missing from the file.`,
+        { tone: "err" },
+      );
+  };
+
+  // Case manager actions (home page → Cases).
+  const caseActions = {
+    rename: async (p) => {
+      const name = await askText({ title: "Rename case", label: "Case name", defaultValue: p.name || "" });
+      if (name?.trim()) updateProject(p.id, { name: name.trim() });
+    },
+    duplicate: (p) => {
+      // Same sessions and images (image ids never change content), new case id.
+      const copy = { ...JSON.parse(JSON.stringify(p)), id: uid(), name: `${p.name || "Case"} (copy)`, created: Date.now(), modified: Date.now() };
+      setProjects((prev) => [...prev, copy]);
+      notify(`Duplicated “${p.name || "Case"}”.`, { tone: "ok" });
+    },
+    exportCases: async (list) => {
+      if (!list.length) return;
+      if (
+        list.some(hasUnanonymizedPHI) &&
+        !(await askConfirm({
+          title: list.length === 1 ? "Export with patient identifiers?" : `Export ${list.length} cases with patient identifiers?`,
+          message: "The file includes patient identifiers (name, date of birth, …), unencrypted. Use Anonymize in the case for a shareable copy.",
+          confirmLabel: "Export anyway",
+          danger: true,
+        }))
+      )
+        return;
+      if (list.length === 1) await exportOneCase(list[0]);
+      else {
+        const { count, missing } = await downloadBackup(list);
+        notify(`Exported ${count} cases in one backup file${missing ? `; ${missing} image${missing === 1 ? "" : "s"} could not be read` : ""}.`, { tone: missing ? "warn" : "ok" });
+      }
+    },
+    // → true when deleted
+    remove: async (list) => {
+      if (!list.length) return false;
+      const n = list.length;
+      const ok = await askConfirm({
+        title: n === 1 ? `Delete “${list[0].name || "Untitled case"}”?` : `Delete ${n} cases?`,
+        message: `${n === 1 ? "The case, its sessions and images are" : "These cases, their sessions and images are"} deleted from this browser. This can't be undone; export or back up first if you may need ${n === 1 ? "it" : "them"}.${sync.email ? " Your other synced devices will be asked whether to remove them too." : ""}`,
+        confirmLabel: n === 1 ? "Delete case" : `Delete ${n} cases`,
+        danger: true,
+      });
+      if (!ok) return false;
+      const ids = new Set(list.map((p) => p.id));
+      setProjects((prev) => prev.filter((p) => !ids.has(p.id)));
+      notify(`Deleted ${n} case${n === 1 ? "" : "s"}.`, { tone: "ok" });
+      return true;
+    },
+  };
+
   const handleBackup = async () => {
     if (
       projects.some(hasUnanonymizedPHI) &&
@@ -6603,6 +6662,8 @@ export default function CephalometryStudio() {
             onClearLocalData={handleClearLocalData}
             onBackup={handleBackup}
             onDrive={openDrive && (() => openDrive(true))}
+            profileName={activeProfile().name}
+            caseActions={caseActions}
             profileMenu={<ProfileMenu t={t} sync={sync} onSwitch={switchToProfile} onOpenSetup={() => setSyncSetupDismissed(null)} />}
           />
         )}
@@ -6617,13 +6678,7 @@ export default function CephalometryStudio() {
             setTheme={setTheme}
             onSave={async (proj) => {
               // Images of sessions not opened in this visit come from storage.
-              const { project: full, missing } = await hydrateProjectImages(proj);
-              exportCephx(full);
-              if (missing)
-                notify(
-                  `${missing} image${missing === 1 ? "" : "s"} could not be read from this browser's storage and ${missing === 1 ? "is" : "are"} missing from the file.`,
-                  { tone: "err" },
-                );
+              await exportOneCase(proj);
               dirtyRef.current = false;
             }}
             onImport={importCephxFile}

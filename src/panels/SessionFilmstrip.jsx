@@ -153,7 +153,7 @@ function thumbFor(id, dataUrl) {
   return thumbCache.get(id);
 }
 
-function SessionThumb({ id, dataUrl }) {
+export function SessionThumb({ id, dataUrl }) {
   const [thumb, setThumb] = useState(null);
   useEffect(() => {
     let live = true;

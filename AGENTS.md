@@ -123,7 +123,8 @@ src/
 │   ├── AirwayPanel.jsx         Airway analysis panel
 │   ├── InterpretationPanel.jsx Clinical interpretation
 │   ├── NormogramPanel.jsx      Normogram visualization
-│   ├── HomePage.jsx            Home screen: new case, patients (search + timelines)
+│   ├── HomePage.jsx            Home screen: recent cases, new case (portal cards), header (Cases, profiles, theme)
+│   ├── CaseManager.jsx         All cases: search/filter/sort, case list + patient timelines, bulk export/delete, data actions
 │   ├── SettingsModal.jsx       All settings in one dialog
 │   ├── DriveBackupDialog.jsx   Google Drive backup / restore (home page; Settings backup-only)
 │   ├── ProfileMenu.jsx         Home header: profiles (switch/add/rename/remove) + sync status and actions

@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased] - Case manager
+
+### Added
+- **Cases** (button in the home page header): a dedicated manager for the profile's cases —
+  search (patient, ID, case, clinician, session), filter by projection, sort, and switch
+  between a case list (thumbnail, patient, projection, sessions, tracing status, last
+  update) and the patient view with session timelines. Open, rename, duplicate, export
+  (.cephx) and delete cases, or select several to export (one backup file) or delete.
+  Import, "Back up all", Google Drive and "Clear all local data" moved here.
+
+### Changed
+- The home page shows the four most recent cases ("Continue where you left off") instead
+  of the full patient list, and no longer has the import and data buttons.
+
 ## [Unreleased] - Profiles and cross-device sync
 
 ### Added
