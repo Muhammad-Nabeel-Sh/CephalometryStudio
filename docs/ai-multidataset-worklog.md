@@ -531,3 +531,31 @@ recalibrate the residual/mahalanobis cut points for this model.
 
 **Next:** masked-loss 29-landmark multi-domain retrain (keep all 29 outputs; ISBI
 images supervise only the 19) for full production parity.
+
+### Step 23 — Masked 29-landmark multi-domain pipeline built
+
+To keep all 29 outputs while gaining domain diversity, added masked supervision:
+
+- **`scripts/ai/cephalohrnet_mask_patch.py`** — patches a CephaloHRNet checkout:
+  - `data/dataset.py`: reads an optional `visible: [symbols]` field into a per-sample
+    mask; zeroes the heatmap channels of absent landmarks (so they never teach a peak).
+  - `utils/losses.py`: `AdaptiveWingLoss` / `MSEHeatmapLoss` accept a `(B,N)` mask and
+    normalise by visible channels.
+  - `utils/metrics.py`: `compute_mre` / `compute_sdr` accept a mask; never-visible
+    landmarks are excluded (per-landmark value NaN).
+  - `train.py`: passes masks to loss/metrics; **loads the head too when shapes match**
+    (so a 29→29 fine-tune actually starts from the trained head, not a fresh one).
+  - `test.py`: passes masks to metrics; skips never-visible landmarks in the table.
+- **`scripts/ai/kaggle-multidomain29.ipynb`** — builds a `Merged29` dataset (Aariz all
+  29; ISBI 19 mapped onto CEPHA29 with the other 10 as masked sentinels), applies the
+  patch, fine-tunes from `best.pt` (lr 5e-4, 80 epochs, patience 15, `--workers 0`),
+  exports 29-channel ONNX + INT8 + prior, and benchmarks ISBI test (19 shared) and
+  Aariz valid (29) raw.
+
+**Validated locally** on a fresh CephaloHRNet clone with a synthetic mixed-visibility
+dataset: patches apply cleanly, the 1-epoch smoke test trains and evaluates, and unit
+checks confirm (a) a masked landmark's error does not enter MRE/SDR and (b) garbage in
+a masked channel does not change the loss.
+
+Next: run `kaggle-multidomain29.ipynb` on Kaggle and compare with E1 (ISBI SDR@2
+64.7%) and the 29-model baseline (50.6%).
