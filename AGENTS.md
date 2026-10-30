@@ -125,6 +125,7 @@ src/
 │   ├── NormogramPanel.jsx      Normogram visualization
 │   ├── HomePage.jsx            Home screen: recent cases, new case (portal cards), header (Cases, profiles, theme)
 │   ├── CaseManager.jsx         All cases: search/filter/sort, case list + patient timelines, bulk export/delete, data actions
+│   ├── FeaturesPage.jsx        /features: the app's features by area (HomePage view; pushState URL, Back returns)
 │   ├── SettingsModal.jsx       All settings in one dialog
 │   ├── DriveBackupDialog.jsx   Google Drive backup / restore (home page; Settings backup-only)
 │   ├── ProfileMenu.jsx         Home header: profiles (switch/add/rename/remove) + sync status and actions

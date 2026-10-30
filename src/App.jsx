@@ -6154,7 +6154,8 @@ export default function CephalometryStudio() {
       // Cases are never deleted automatically (the 90-day retention purge
       // was removed); only the user deletes them.
       setProjects(lp);
-      if (lp.length > 0) {
+      // Not on /features: someone opening that page came to read about the app.
+      if (lp.length > 0 && window.location.pathname !== "/features") {
         // Offer the MOST RECENTLY MODIFIED project (projects are stored in
         // insertion order, so [0] would be the oldest).
         const mostRecent = lp.reduce((a, b) =>

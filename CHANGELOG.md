@@ -1,9 +1,12 @@
 # Changelog
 
-## [Unreleased] - Case manager
+## [Unreleased] - Case manager and features page
 
 ### Added
-- **Cases** (button in the home page header): a dedicated manager for the profile's cases —
+- **Features page** (`/features`, "Explore all features" on the home page): every part of the
+  app — tracing, measuring, images, research, reports and data — with a workflow overview,
+  key numbers and a section menu. Opening it directly skips the "Welcome back" prompt.
+- **Case manager** ("All N cases" on the home page): a dedicated manager for the profile's cases —
   search (patient, ID, case, clinician, session), filter by projection, sort, and switch
   between a case list (thumbnail, patient, projection, sessions, tracing status, last
   update) and the patient view with session timelines. Open, rename, duplicate, export
@@ -12,7 +15,9 @@
 
 ### Changed
 - The home page shows the four most recent cases ("Continue where you left off") instead
-  of the full patient list, and no longer has the import and data buttons.
+  of the full patient list. Import moved next to "Start a new case" (and into the case
+  manager); the backup, Google Drive and clear-data buttons, the storage line and the
+  feature strip were removed from the home page.
 
 ## [Unreleased] - Profiles and cross-device sync
 
