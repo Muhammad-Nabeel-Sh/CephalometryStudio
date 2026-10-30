@@ -468,3 +468,40 @@ CephaloHRNet's `--annotators Merged19` resolves
 Fix: `ann_dir()` now appends `"Merged19"` (the eval dirs use the same helper, so
 they are fixed too). Rebuild or run a one-off move of `*.json` into `Merged19/`
 in the current session, then train.
+
+### Step 21 — Multi-domain E1 result: clear cross-domain win
+
+The fine-tune completed (84 epochs, early stop). Outputs in `Results/` (gitignored);
+small reports filed in `scripts/ai/experiments/E1_md19_isbi/` and `E1_md19_aariz/`.
+
+**Training:** best epoch **54** — merged-valid (Aariz 150 + ISBI 50) MRE
+**1.24 mm**, SDR@2 **84.5%**. After epoch 54 the run diverged (`val_loss` NaN,
+`val_mre_px` 484) and early-stopped at 84. `best.pt` (epoch 54) was exported, so
+the result is from the best checkpoint, but future runs should lower the LR
+(e.g. 5e-4) or shorten the schedule.
+
+**External (ISBI test, 50 held out, raw INT8):**
+
+| | MRE | median | RMSE | SDR@2 | SDR@3 | SDR@4 |
+| --- | --- | --- | --- | --- | --- | --- |
+| baseline 29-model (400 ISBI) | 4.81 | 1.97 | 15.90 | 50.6% | 68.3% | 78.8% |
+| **multidomain 19-model (50 test)** | **2.05** | **1.34** | **2.86** | **64.7%** | **77.5%** | **86.1%** |
+
+Same 50 test images, per-image mean error: baseline median **2.66 mm** / mean
+**3.93** → multidomain **2.07** / **2.05**; **improved on 43/50 images**.
+
+**In-domain (Aariz valid, 150, shared 19, raw):** MRE **0.99 mm**, median
+**0.61**, SDR@2 **91.0%**, SDR@3 95.9%, SDR@4 98.2%. (One catastrophic outlier
+keeps the mean down; max 149.8 mm.)
+
+**Remaining hard landmarks (ISBI):** `Pog'` **6.92 mm** (median 6.91 — consistently
+bad), `B` 4.36, `Or` 3.97, `UL` 2.90; everything else ≤2.3 mm.
+
+**Interpretation:** domain diversity + the 19-landmark task clearly fixes the
+cross-domain failure mode. SDR@2 rises ~14 pp on ISBI and the model is strong
+in-domain. Cost: the 19-model cannot supply the 10 Aariz-only landmarks
+(`Co, LIA, LMT, LPM, N\`, Pn, R, UIA, UMT, UPM`), so app integration needs either
+a `cepha19` set (manual placement for the extras) or a masked-loss 29-landmark
+retrain that keeps all 29 outputs.
+
+Next: decide the integration path and (optionally) address `Pog'`.
