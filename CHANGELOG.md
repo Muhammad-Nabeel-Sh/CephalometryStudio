@@ -1,5 +1,100 @@
 # Changelog
 
+## [Unreleased] - Profiles and cross-device sync
+
+### Added
+- **Profiles** (menu in the home page header): separate sets of cases on one device, each
+  with its own encrypted storage. Add a local profile or a Google account, switch, rename,
+  and remove profiles (removing deletes only that profile's data on this device, after you
+  confirm). Existing data becomes the first profile, "This device".
+- **Sync with Google Drive**: a profile linked to a Google account keeps its cases in a
+  "Cephalometry Studio sync" folder of that account's Drive. Sign in with the same account
+  on another device and the cases appear there; every device keeps its own copy and works
+  offline. Changes sync after edits and every half minute while the app is open (sign-ins
+  last about an hour). Images upload once each.
+  - Encryption with a passphrase is optional (recommended): set on the first device,
+    entered once on each new device.
+  - A case changed on two devices keeps both versions; nothing is overwritten silently.
+  - A case deleted on another device is removed here only if you confirm.
+
+### Changed
+- The Google Drive backup passphrase is optional; without one, the backup is a plain
+  .cephx file (with a warning first).
+- "Clear all local data" clears the current profile only.
+
+## [Unreleased] - Google Drive backup
+
+### Added
+- **Google Drive backup** (home page and Settings): every case, with images, is encrypted
+  with your passphrase on this device and saved to a "Cephalometry Studio backups" folder in
+  your own Google Drive. The app can see only the files it creates there (`drive.file`).
+  Restore from the home page; you are asked before any case here is replaced. Backups are
+  never deleted automatically; removing one moves it to the Drive trash. A lost passphrase
+  can't be recovered. Requires a Google OAuth client ID (`docs/GOOGLE_DRIVE_SETUP.md`); the
+  buttons stay hidden until it is configured.
+
+### Fixed
+- Session thumbnails show after a reload (they were read only from memory) and are small
+  copies instead of the full image.
+- Study results no longer crash when a statistic couldn't be computed for a tiny group (for
+  example the SD of one value) and the study was saved: every results view shows "—".
+
+## [Unreleased] - DICOM and TIFF import
+
+### Added
+- Open DICOM files directly (Open image, drag and drop, the setup wizard and batch import):
+  uncompressed (little/big endian), RLE, JPEG baseline, JPEG Lossless, JPEG-LS and
+  JPEG 2000. The JPEG-LS/2000 decoders (WebAssembly) load only when a file needs them and
+  also work offline. Patient attributes in the file are not read.
+- Automatic calibration from the DICOM pixel spacing, preferring spacing in the patient
+  (geometry/fiducial-calibrated Pixel Spacing, or Imager Pixel Spacing ÷ the estimated
+  magnification factor). When only detector or film spacing exists, the app says that
+  radiographic magnification is included. The Image panel, Calibration dialog and PDF
+  report show where the calibration came from.
+- 12–16-bit images (DICOM, 16-bit TIFF) keep their original data: Window & Level works on it,
+  with the file's own windows (e.g. soft tissue), Auto and Full range. The chosen window is
+  saved as the session's image, so other sessions sharing the image (duplicates, reliability
+  raters) keep theirs.
+- TIFF files (8/16-bit grayscale, RGB), including in batch import and the setup wizard.
+- **Detect ticks** in the Calibration dialog: draw the ruler line along a radiographic
+  ruler's tick marks and the tick spacing is measured across the whole line (sub-pixel).
+
+### Fixed
+- Dropping several images at once could replace the first with the second instead of
+  stacking them.
+- A new case started from the setup wizard kept the image as "Imported" and lost its name.
+- The calibration guide named tag (0018,1164) as Pixel Spacing; it is Imager Pixel Spacing.
+
+## [Unreleased] - Encrypted case storage
+
+### Changed
+- Cases are stored in the browser's database (IndexedDB) instead of localStorage, so the
+  ~5 MB limit is gone. Each case is a separate encrypted record and only changed cases are
+  rewritten; a tab can no longer delete a case created in another tab, and a load that fails
+  never wipes what is stored.
+- Images are now encrypted at rest too. Images saved before this version are encrypted once,
+  in the background, and checked before the unencrypted copy is replaced.
+- Existing data moves over automatically on the first visit. The old copy stays until a later
+  visit has read the cases back from the new store. If a tab still running the previous
+  version saves afterwards, its newer cases are merged in.
+
+### Added
+- **Back up all cases** (home page and Settings): one file with every case, its images and
+  patient identifiers; restore it with Import. Cases that already exist are only replaced
+  if you choose to.
+- Settings → Data and privacy shows the space used and can ask the browser to keep the data
+  when the disk runs low.
+
+### Removed
+- Cases are no longer deleted automatically after 90 days without changes (the retention
+  purge). Only you delete cases.
+
+### Fixed
+- Exporting a case (.cephx) now includes the images of sessions not opened in this visit;
+  they used to be left out.
+- After "Clear all local data", saving no longer stalls until the page is reloaded.
+- The leave-page warning stays on until the latest change has actually been saved.
+
 ## [Unreleased] - Offline and self-hosted fonts
 
 ### Added

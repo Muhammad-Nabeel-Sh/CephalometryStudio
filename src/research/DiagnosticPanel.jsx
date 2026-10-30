@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import PlotlyChart from "./PlotlyChart.jsx";
 import { computeClinicalThreshold } from "./diagnostic.js";
 import { Chip, TabBar } from "../ui/ui.jsx";
+import { fmtNum } from "../lib/utils.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB BAR (shared with other panels)
@@ -477,7 +478,7 @@ function ROCCurveView({
               fontSize={9}
               textAnchor="middle"
             >
-              {v.toFixed(2)}
+              {fmtNum(v, 2)}
             </text>
             <text
               x={pad - 8}
@@ -486,7 +487,7 @@ function ROCCurveView({
               fontSize={9}
               textAnchor="end"
             >
-              {v.toFixed(2)}
+              {fmtNum(v, 2)}
             </text>
           </g>
         ))}
@@ -579,7 +580,7 @@ function ROCCurveView({
           textAnchor="middle"
           fontWeight={700}
         >
-          AUC = {auc.auc.toFixed(3)}
+          AUC = {fmtNum(auc.auc, 3)}
         </text>
       </svg>
 
@@ -597,7 +598,7 @@ function ROCCurveView({
             Optimal Thresholds
           </div>
           <ThresholdCard
-            label={`Youden's J (${optYouden.youdenJ.toFixed(3)})`}
+            label={`Youden's J (${fmtNum(optYouden.youdenJ, 3)})`}
             pt={optYouden}
             color={t.ok}
             t={t}
@@ -638,7 +639,7 @@ function ROCCurveView({
 }
 
 function AUCSummaryCard({ auc, t }) {
-  const fmt = (v) => (v != null ? v.toFixed(4) : "—");
+  const fmt = (v) => (v != null ? fmtNum(v, 4) : "—");
   return (
     <div
       style={{
@@ -732,7 +733,7 @@ function Slider({ label, value, min, max, step, onChange, t }) {
           fontFamily: "'DM Mono',monospace",
         }}
       >
-        {value.toFixed(1)}
+        {fmtNum(value, 1)}
       </span>
     </div>
   );
@@ -769,7 +770,7 @@ function MetricsTableView({ result, highlightPt, t }) {
           [
             "95% CI",
             auc?.ci95
-              ? `[${auc.ci95[0].toFixed(3)}, ${auc.ci95[1].toFixed(3)}]`
+              ? `[${fmtNum(auc.ci95[0], 3)}, ${fmtNum(auc.ci95[1], 3)}]`
               : "—",
           ],
           ["p (H₀: AUC=0.5)", fmtP(auc?.p)],
@@ -860,42 +861,42 @@ function MetricsTableView({ result, highlightPt, t }) {
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.sensitivity.toFixed(3)}
+                {fmtNum(pt.sensitivity, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.specificity.toFixed(3)}
+                {fmtNum(pt.specificity, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.ppv.toFixed(3)}
+                {fmtNum(pt.ppv, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.npv.toFixed(3)}
+                {fmtNum(pt.npv, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.accuracy.toFixed(3)}
+                {fmtNum(pt.accuracy, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.f1.toFixed(3)}
+                {fmtNum(pt.f1, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.lrPos.toFixed(2)}
+                {fmtNum(pt.lrPos, 2)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.lrNeg.toFixed(2)}
+                {fmtNum(pt.lrNeg, 2)}
               </td>
               <td
                 style={{
@@ -905,12 +906,12 @@ function MetricsTableView({ result, highlightPt, t }) {
                   fontWeight: pt.youdenJ === optimalYouden?.youdenJ ? 700 : 400,
                 }}
               >
-                {pt.youdenJ.toFixed(3)}
+                {fmtNum(pt.youdenJ, 3)}
               </td>
               <td
                 style={{ padding: "2px 4px", textAlign: "right", color: t.tx2 }}
               >
-                {pt.dor.toFixed(1)}
+                {fmtNum(pt.dor, 1)}
               </td>
             </tr>
           ))}
@@ -995,7 +996,7 @@ function CompareROCView({ results, t }) {
                   textAnchor="end"
                   fontWeight={700}
                 >
-                  AUC={p.auc.auc.toFixed(3)}
+                  AUC={fmtNum(p.auc.auc, 3)}
                 </text>
               </svg>
             </div>
@@ -1045,10 +1046,10 @@ function CompareROCView({ results, t }) {
                 {c.A} vs {c.B}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {c.aucA.toFixed(4)}
+                {fmtNum(c.aucA, 4)}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {c.aucB.toFixed(4)}
+                {fmtNum(c.aucB, 4)}
               </td>
               <td
                 style={{
@@ -1058,13 +1059,13 @@ function CompareROCView({ results, t }) {
                 }}
               >
                 {c.diff > 0 ? "+" : ""}
-                {c.diff.toFixed(4)}
+                {fmtNum(c.diff, 4)}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {c.se.toFixed(4)}
+                {fmtNum(c.se, 4)}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {c.z.toFixed(3)}
+                {fmtNum(c.z, 3)}
               </td>
               <td
                 style={{
@@ -1085,7 +1086,7 @@ function CompareROCView({ results, t }) {
                 {fmtP(c.pAdj)}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2, fontSize: 12 }}>
-                [{c.ci95[0].toFixed(3)}, {c.ci95[1].toFixed(3)}]
+                [{fmtNum(c.ci95[0], 3)}, {fmtNum(c.ci95[1], 3)}]
               </td>
             </tr>
           ))}
@@ -1212,7 +1213,7 @@ function CalibrationView({ result, t }) {
             <div>
               <span style={{ color: t.tx3 }}>H-L &chi;² = </span>
               <span style={{ color: t.tx, fontWeight: 700 }}>
-                {cal.hlStat.toFixed(2)}
+                {fmtNum(cal.hlStat, 2)}
               </span>
             </div>
             <div>
@@ -1228,15 +1229,15 @@ function CalibrationView({ result, t }) {
             </div>
             <div>
               <span style={{ color: t.tx3 }}>ICI = </span>
-              <span style={{ color: t.tx }}>{cal.ici.toFixed(4)}</span>
+              <span style={{ color: t.tx }}>{fmtNum(cal.ici, 4)}</span>
             </div>
             <div>
               <span style={{ color: t.tx3 }}>Brier = </span>
-              <span style={{ color: t.tx }}>{cal.brier.toFixed(4)}</span>
+              <span style={{ color: t.tx }}>{fmtNum(cal.brier, 4)}</span>
             </div>
             <div>
               <span style={{ color: t.tx3 }}>Brier skill = </span>
-              <span style={{ color: t.tx }}>{cal.brierSkill.toFixed(4)}</span>
+              <span style={{ color: t.tx }}>{fmtNum(cal.brierSkill, 4)}</span>
             </div>
             <div>
               <span style={{ color: cal.wellCalibrated ? t.ok : t.err }}>
@@ -1289,7 +1290,7 @@ function CompositeView({ composite, t }) {
           [
             "95% CI",
             composite.auc?.ci95
-              ? `[${composite.auc.ci95[0].toFixed(3)}, ${composite.auc.ci95[1].toFixed(3)}]`
+              ? `[${fmtNum(composite.auc.ci95[0], 3)}, ${fmtNum(composite.auc.ci95[1], 3)}]`
               : "—",
           ],
           ["Nagelkerke R²", composite.r2Nag?.toFixed(4) || "—"],
@@ -1352,13 +1353,13 @@ function CompositeView({ composite, t }) {
                 {predNames[i]}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {b.toFixed(4)}
+                {fmtNum(b, 4)}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {composite.se[i].toFixed(4)}
+                {fmtNum(composite.se[i], 4)}
               </td>
               <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                {composite.z[i].toFixed(3)}
+                {fmtNum(composite.z[i], 3)}
               </td>
               <td
                 style={{
@@ -1448,7 +1449,7 @@ function CrossValidationView({ crossVal, t }) {
           <div style={{ fontSize: 12, color: t.tx3 }}>CV AUC 95% CI</div>
           <div style={{ fontSize: 12, color: t.tx }}>
             {crossVal.cvAUC?.ci95
-              ? `[${crossVal.cvAUC.ci95[0].toFixed(3)}, ${crossVal.cvAUC.ci95[1].toFixed(3)}]`
+              ? `[${fmtNum(crossVal.cvAUC.ci95[0], 3)}, ${fmtNum(crossVal.cvAUC.ci95[1], 3)}]`
               : "—"}
           </div>
         </div>
@@ -1523,8 +1524,8 @@ function DiagnosticReport({ results, t }) {
               {name}
             </div>
             <div style={{ color: t.tx2, marginTop: 2 }}>
-              AUC = {p.auc.auc.toFixed(3)} (95% CI: [{p.auc.ci95[0].toFixed(3)},{" "}
-              {p.auc.ci95[1].toFixed(3)}]), p = {fmtP(p.auc.p)}
+              AUC = {fmtNum(p.auc.auc, 3)} (95% CI: [{fmtNum(p.auc.ci95[0], 3)},{" "}
+              {fmtNum(p.auc.ci95[1], 3)}]), p = {fmtP(p.auc.p)}
               &nbsp;|&nbsp; Optimal threshold (Youden):{" "}
               {p.optimalYouden?.threshold?.toFixed(2) || "—"}
             </div>
@@ -1546,7 +1547,7 @@ function DiagnosticReport({ results, t }) {
           {comparisons.map((c, i) => (
             <div key={i} style={{ color: t.tx2, fontSize: 12, marginBottom: 2 }}>
               {c.A} vs {c.B}: &Delta;AUC = {c.diff > 0 ? "+" : ""}
-              {c.diff.toFixed(3)}, z = {c.z.toFixed(2)}, p = {fmtP(c.p)}{" "}
+              {fmtNum(c.diff, 3)}, z = {fmtNum(c.z, 2)}, p = {fmtP(c.p)}{" "}
               {c.significant ? "*" : ""}
             </div>
           ))}
@@ -1577,6 +1578,6 @@ function DiagnosticReport({ results, t }) {
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "—";
   if (p < 0.001) return "<0.001";
-  if (p < 0.01) return p.toFixed(4);
-  return p.toFixed(3);
+  if (p < 0.01) return fmtNum(p, 4);
+  return fmtNum(p, 3);
 }

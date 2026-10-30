@@ -3,6 +3,7 @@ import { mkSession } from "../model/session.js";
 import { addSession, removeSession } from "../model/project.js";
 import { onEnter } from "../lib/utils.js";
 import { askConfirm } from "../ui/dialogs.js";
+import { getImageDataUrl } from "../storage/imageStore.js";
 
 export default function SessionFilmstrip({ project, t, onUpdateProject, compact }) {
   const sessions = project?.sessions || [];
@@ -71,7 +72,7 @@ export default function SessionFilmstrip({ project, t, onUpdateProject, compact 
                 background: t.surf3, display: "flex", alignItems: "center",
                 justifyContent: "center", flexShrink: 0,
               }}>
-                <SessionThumb dataUrl={s.images?.[0]?.dataUrl} />
+                <SessionThumb id={s.images?.[0]?.id} dataUrl={s.images?.[0]?.dataUrl} />
               </div>
               {!compact && <div style={{
                 fontSize: 8, color: isActive ? t.acc : t.tx2, textAlign: "center",
@@ -117,36 +118,53 @@ export default function SessionFilmstrip({ project, t, onUpdateProject, compact 
 }
 
 // ─── Session thumbnail (D7) ──────────────────────────────────────────────────
-// The filmstrip renders one thumb per session. Previously each `<img src>` held
-// the full base64 dataUrl in the DOM attribute — for a multi-session case that's
-// N copies of a multi-MB string living in the DOM. Here the dataUrl is decoded
-// to a Blob once and displayed via a short `blob:` object URL that is revoked on
-// change/unmount, so the DOM only ever holds the small reference. The base64
-// still lives in React state (needed for save/export) but is no longer mirrored
-// into every thumbnail's DOM attribute.
-function SessionThumb({ dataUrl }) {
-  const [objectUrl, setObjectUrl] = useState(null);
+// A small (≤ 96 px) copy of the session's first image, shown via a `blob:` URL
+// so the DOM never holds the multi-MB base64. Images restored from storage have
+// no dataUrl in memory, so the thumbnail reads the stored image by id. An image
+// id's pixels never change (a new window makes a new id), so thumbnails are
+// cached by id for the visit.
+const THUMB_PX = 96;
+const thumbCache = new Map(); // image id → Promise<blob: URL | null>
+
+function makeThumb(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, THUMB_PX / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k));
+      c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob((b) => resolve(b ? URL.createObjectURL(b) : null), "image/jpeg", 0.8);
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function thumbFor(id, dataUrl) {
+  if (!id) return dataUrl ? makeThumb(dataUrl) : Promise.resolve(null);
+  if (!thumbCache.has(id)) {
+    const p = (dataUrl ? Promise.resolve(dataUrl) : getImageDataUrl(id)).then((src) => (src ? makeThumb(src) : null));
+    // A miss (image not loaded yet) is retried next time rather than cached.
+    p.then((url) => { if (!url) thumbCache.delete(id); });
+    thumbCache.set(id, p);
+  }
+  return thumbCache.get(id);
+}
+
+function SessionThumb({ id, dataUrl }) {
+  const [thumb, setThumb] = useState(null);
   useEffect(() => {
-    if (!dataUrl) { setObjectUrl(null); return; }  // eslint-disable-line react-hooks/set-state-in-effect
-    let url = null;
-    try {
-      const [meta, b64] = dataUrl.split(",");
-      const mime = (meta && meta.match(/:(.*?);/) && meta.match(/:(.*?);/)[1]) || "image/png";
-      const bin = atob(b64 || "");
-      const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      url = URL.createObjectURL(new Blob([arr], { type: mime }));
-    } catch { url = null; }
-    setObjectUrl(url);
-    // Revoke the object URL when the dataUrl changes or the component unmounts
-    // (Strict-Mode-safe: each effect run owns its own URL and cleans it up).
-    return () => { if (url) URL.revokeObjectURL(url); };
-  }, [dataUrl]);
-  if (!objectUrl) {
+    let live = true;
+    thumbFor(id, dataUrl).then((url) => { if (live) setThumb(url ? { id, url } : null); });
+    return () => { live = false; };
+  }, [id, dataUrl]);
+  if (!thumb || thumb.id !== id) {
     return <span style={{ fontSize: 14, opacity: 0.25, lineHeight: 1 }}>⊞</span>;
   }
   return (
-    <img src={objectUrl} alt="" draggable={false}
+    <img src={thumb.url} alt="" draggable={false}
       style={{ width: "100%", height: "100%", objectFit: "cover" }} />
   );
 }

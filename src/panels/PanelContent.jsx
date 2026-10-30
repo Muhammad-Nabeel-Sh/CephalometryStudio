@@ -50,7 +50,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
   formulas, measScope, pinnedFormulas, setPinnedFormulas,
   processing, lutMode, lutInvert, showLUT, setShowLUT, showScaleBar, setShowScaleBar,
   showHistogram, setShowHistogram,
-  sessionImage, stackImgRef,
+  sessionImage, sourceWindow, stackImgRef,
   project,
   markups, loadAirwayTier, showAirwayOverlay, setShowAirwayOverlay, loadTemplate, patientSex, patientAge, getImagePixels,
   canvasSize, toImage, addMarkup, pushUndo,
@@ -72,7 +72,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
           {rightPanel === "markups" && <MarkupsPanel {...pMarkups} />}
           {rightPanel === "measurements" && <MeasurementsPanel allMeas={allMeas} formulaMeas={formulaMeas} t={t} calibration={calibration} norms={norms} onUpdateNorms={ns => updSession({ norms: ns })} onExportCSV={exportCSV} onOpenCalib={() => dispatch({ type: "SET", payload: { showCalib: true } })} formatAngle={formatAngle} userPresets={userPresets} onSavePreset={handleSavePreset} onDeletePreset={handleDeletePreset} />}
           {rightPanel === "formulas" && <FormulasPanel formulas={formulas} t={t} scope={measScope} onAdd={() => dispatch({ type: "SET", payload: { editFormulaId: null, showFormulaEditor: true } })} onEdit={id => dispatch({ type: "SET", payload: { editFormulaId: id, showFormulaEditor: true } })} onDelete={id => updSession({ formulas: formulas.filter(f => f.id !== id) })} pinnedFormulas={pinnedFormulas} onPinFormula={id => setPinnedFormulas(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; })} />}
-          {rightPanel === "image" && <ImagePanel t={t} processing={processing} setProcessing={p => updSession({ processing: p })} lutMode={lutMode} setLutMode={m => updSession({ lutMode: m })} lutInvert={lutInvert} setLutInvert={v => updSession({ lutInvert: v })} showLUT={showLUT} setShowLUT={setShowLUT} showScaleBar={showScaleBar} setShowScaleBar={setShowScaleBar} calibration={calibration} onOpenCalib={() => dispatch({ type: "SET", payload: { showCalib: true } })} onReset={() => updSession({ processing: { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 128, edgeEnhance: 0 }, lutMode: "gray", lutInvert: false })} onShowHist={() => setShowHistogram(v => !v)} showHistogram={showHistogram} />}
+          {rightPanel === "image" && <ImagePanel t={t} processing={processing} setProcessing={p => updSession({ processing: p })} lutMode={lutMode} setLutMode={m => updSession({ lutMode: m })} lutInvert={lutInvert} setLutInvert={v => updSession({ lutInvert: v })} showLUT={showLUT} setShowLUT={setShowLUT} showScaleBar={showScaleBar} setShowScaleBar={setShowScaleBar} calibration={calibration} onOpenCalib={() => dispatch({ type: "SET", payload: { showCalib: true } })} onReset={() => updSession({ processing: { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 128, edgeEnhance: 0 }, lutMode: "gray", lutInvert: false })} onShowHist={() => setShowHistogram(v => !v)} showHistogram={showHistogram} sourceWindow={sourceWindow} />}
           {rightPanel === "layers" && <LayersPanel t={t} images={sessionImage} markups={markups} onUpdateImages={imgs => updSession({ images: imgs })} onAddImage={() => stackImgRef.current?.click()} />}
           {rightPanel === "sessions" && <SessionsPanel {...pSessions} />}
           {rightPanel === "research" && <ResearchLauncher t={t} studies={(project?.researchStudies || []).length} />}

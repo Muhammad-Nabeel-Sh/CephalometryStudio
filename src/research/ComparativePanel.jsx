@@ -3,6 +3,7 @@ import { InfoBox, Btn, Chip, RemoveBtn, TabBar } from "../ui/ui.jsx";
 import { TEST_POLICIES } from "./comparative.js";
 import { LabelSelector } from "./LabelSelector.jsx";
 import { SMALL_BTN } from "../ui/tokens.js";
+import { fmtNum } from "../lib/utils.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -267,7 +268,7 @@ function ResultsView({ results, t }) {
               lr.testName === "Wilcoxon signed-rank" ? r?.W :
               lr.testName === "Kruskal-Wallis" ? r?.H :
               lr.testName === "Friedman test" ? r?.Q : null;
-            const fmtDf = v => (typeof v === "number" && !Number.isInteger(v) ? v.toFixed(2) : v);
+            const fmtDf = v => (typeof v === "number" && !Number.isInteger(v) ? fmtNum(v, 2) : v);
             const df = lr.testName === "Independent t-test" || lr.testName === "Welch's t-test" ? fmtDf(r?.df) :
               lr.testName === "One-way ANOVA" ? `${r?.dfBetween},${r?.dfWithin}` :
               lr.testName === "Welch's ANOVA" ? `${r?.df1},${r?.df2?.toFixed(1)}` :
@@ -280,7 +281,7 @@ function ResultsView({ results, t }) {
               <tr key={label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{label}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>{lr.testName}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2, fontWeight: 700 }}>{statVal != null ? statVal.toFixed(4) : "—"}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2, fontWeight: 700 }}>{statVal != null ? fmtNum(statVal, 4) : "—"}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>{df}</td>
                 <td style={{ padding: "5px 6px", color: p != null ? (sig ? t.err : t.ok) : t.tx2, fontWeight: 700 }}>{p != null ? fmtP(p) : "—"}</td>
                 <td style={{ padding: "5px 6px" }}>
@@ -411,8 +412,8 @@ function EffectSizeView({ results, t }) {
               <tr key={label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{label}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>{es.measure || "—"}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2, fontWeight: 700 }}>{value != null ? value.toFixed(4) : "—"}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{ci ? `[${ci[0].toFixed(3)}, ${ci[1].toFixed(3)}]` : "—"}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2, fontWeight: 700 }}>{value != null ? fmtNum(value, 4) : "—"}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{ci ? `[${fmtNum(ci[0], 3)}, ${fmtNum(ci[1], 3)}]` : "—"}</td>
                 <td style={{ padding: "5px 6px" }}>
                   <span style={{
                     padding: "1px 6px", borderRadius: 3, fontSize: 12, fontWeight: 700,
@@ -558,11 +559,11 @@ function BoxMView({ boxM, t }) {
     <div style={{ padding: 10, background: t.surf3, borderRadius: 6, border: `1px solid ${t.bdr}44` }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: t.tx, marginBottom: 4 }}>Box's M Test — Covariance Homogeneity</div>
       <div style={{ fontSize: 12, fontFamily: "'DM Mono',monospace", color: t.tx2, display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <span>M = <b style={{ color: t.tx }}>{boxM.M.toFixed(3)}</b></span>
-        <span>χ² = <b style={{ color: t.tx }}>{boxM.chi2.toFixed(3)}</b></span>
+        <span>M = <b style={{ color: t.tx }}>{fmtNum(boxM.M, 3)}</b></span>
+        <span>χ² = <b style={{ color: t.tx }}>{fmtNum(boxM.chi2, 3)}</b></span>
         <span>df = <b style={{ color: t.tx }}>{boxM.df}</b></span>
         <span>p = <b style={{ color: boxM.pValue < 0.05 ? t.err : t.ok }}>{fmtP(boxM.pValue)}</b></span>
-        <span>c₁ = <b style={{ color: t.tx }}>{boxM.correction.toFixed(4)}</b></span>
+        <span>c₁ = <b style={{ color: t.tx }}>{fmtNum(boxM.correction, 4)}</b></span>
       </div>
       <div style={{ fontSize: 12, color: boxM.pValue < 0.05 ? t.warn : t.tx3, marginTop: 4 }}>
         {boxM.pValue < 0.05
@@ -584,5 +585,5 @@ function EmptyDetail({ message, t }) {
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "—";
   if (p < 0.001) return "<0.001";
-  return p.toFixed(3);
+  return fmtNum(p, 3);
 }

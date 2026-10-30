@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { InfoBox, Btn } from "../ui/ui.jsx";
+import { fmtNum } from "../lib/utils.js";
 
 // ─── Config Panel ─────────────────────────────────────────────────────────
 
@@ -146,16 +147,16 @@ export function AirwayStudyResults({ results, t }) {
                 }}>
                   <td style={{ padding: "4px 6px", color: t.tx, whiteSpace: "nowrap" }}>{m.label}</td>
                   <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "'DM Mono',monospace", color: m.value != null ? t.tx : t.tx3 }}>
-                    {m.value != null ? m.value.toFixed(2) + " " + (m.unit || "") : "—"}
+                    {m.value != null ? fmtNum(m.value, 2) + " " + (m.unit || "") : "—"}
                   </td>
                   <td style={{ padding: "4px 6px", textAlign: "center", color: t.tx2 }}>
-                    {m.normMean != null ? m.normMean.toFixed(1) + " ± " + (m.normSD != null ? m.normSD.toFixed(1) : "—") : "—"}
+                    {m.normMean != null ? fmtNum(m.normMean, 1) + " ± " + (m.normSD != null ? fmtNum(m.normSD, 1) : "—") : "—"}
                   </td>
                   <td style={{
                     padding: "4px 6px", textAlign: "center", fontWeight: 600,
                     fontFamily: "'DM Mono',monospace", color: zColor(m.zScore),
                   }}>
-                    {m.zScore != null ? (m.zScore >= 0 ? "+" : "") + m.zScore.toFixed(2) : "—"}
+                    {m.zScore != null ? (m.zScore >= 0 ? "+" : "") + fmtNum(m.zScore, 2) : "—"}
                   </td>
                   <td style={{ padding: "4px 6px", textAlign: "center", color: m.interpretation ? t.tx2 : t.tx3 }}>
                     {m.interpretation || "—"}

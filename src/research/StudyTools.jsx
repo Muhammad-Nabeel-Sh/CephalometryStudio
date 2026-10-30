@@ -5,8 +5,9 @@
 import { useMemo, useState } from "react";
 import { buildDataMatrix, dataMatrixToCSV } from "./dataPreview.js";
 import { nTwoMeans, nPaired, nCorrelation, nICC, nBlandAltman } from "./sampleSize.js";
+import { fmtNum } from "../lib/utils.js";
 
-const fmt = v => (typeof v === "number" && isFinite(v) ? (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)) : "");
+const fmt = v => (typeof v === "number" && isFinite(v) ? (Math.abs(v) >= 100 ? fmtNum(v, 1) : fmtNum(v, 2)) : "");
 
 export function DataPreview({ study, sessions, calibration, t, defaultOpen = false }) {
   const matrix = useMemo(() => buildDataMatrix(study, sessions, calibration), [study, sessions, calibration]);

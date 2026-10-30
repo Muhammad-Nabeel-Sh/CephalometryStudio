@@ -1,56 +1,76 @@
 import { uid } from "../lib/utils.js";
 import { logError } from "../lib/logger.js";
 import { notify } from "../ui/dialogs.js";
+import { readImageFile, imageEntry, rawSummary, isImportableFile, ImageImportError } from "../imaging/readImage.js";
+import { storeRawPixels } from "../storage/imageStore.js";
 
-export function loadImageFile(file, addToStack, { sessionImages, dispatch, updSession, imgRefs, canvasSize, panRef, zoomRef }) {
-  if (!file || !file.type.startsWith("image/")) return;
-  if (file.size > 100 * 1024 * 1024) {
-    notify(`"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum image size is 100 MB.`, { tone: "err" });
-    return;
+// Read any supported file (PNG/JPEG…, DICOM, TIFF) into a new image entry. The
+// original pixels of a 12–16-bit image are stored now, so the window can be
+// changed later. → { entry, read }; throws ImageImportError.
+export async function importImageFile(file) {
+  const read = await readImageFile(file);
+  const id = uid();
+  const entry = imageEntry(id, read);
+  if (read.raw) {
+    const key = `raw:${id}`;
+    const r = await storeRawPixels(key, read.raw.pixels, read.raw.meta);
+    if (r.ok) entry.raw = rawSummary(key, read.raw.meta, read.raw.window, read.raw.presets);
+    else read.notes.push("The original image depth could not be kept in this browser, so its window can't be changed later.");
   }
-  dispatch({ type: "SET", payload: { loadingImages: true } });
-  const reader = new FileReader();
-  reader.onload = e => {
-    const dataUrl = e.target.result;
-    const img = new Image();
-    img.onload = () => {
-      const id = uid();
-      imgRefs.current[id] = img;
-      const entry = { id, name: file.name, dataUrl, dx: 0, dy: 0, opacity: 1, blendMode: "normal", visible: true, color: "none", transform: { tx: 0, ty: 0, rot: 0, scale: 1 } };
-      const currentImages = sessionImages || [];
-      if (addToStack) {
-        updSession({ images: [...currentImages, entry] });
-      } else {
-        updSession({ images: [entry] });
-      }
-      dispatch({ type: "SET", payload: { loadingImages: false } });
-      if (!addToStack) {
-        const cw = canvasSize.current.w - 80, ch = canvasSize.current.h - 80;
-        const sc = Math.min(cw / (img.naturalWidth || 600), ch / (img.naturalHeight || 500), 1);
-        if (zoomRef) zoomRef.current = sc;
-        dispatch({ type: "SET", payload: { zoom: sc } });
-        panRef.current = { x: 40, y: 40 };
-        dispatch({ type: "SET", payload: { pan: { x: 40, y: 40 } } });
-        updSession({ calibration: { done: false, pxPerMm: 1, knownMm: "" } });
-      }
-    };
-    img.onerror = () => {
-      dispatch({ type: "SET", payload: { loadingImages: false } });
-      logError("Image decode failed:", null);
-      notify(`Could not decode "${file?.name || "image"}". The file may be corrupt or in an unsupported format.`, { tone: "err" });
-    };
-    img.src = dataUrl;
-  };
-  reader.onerror = () => {
-    dispatch({ type: "SET", payload: { loadingImages: false } });
-    logError("File read failed:", reader.error);
-    notify(`Could not read "${file?.name || "file"}".`, { tone: "err" });
-  };
-  reader.readAsDataURL(file);
+  return { entry, read };
 }
 
-export function handleImageDrop(e, loadImageFn) {
+export function importErrorMessage(file, e) {
+  if (e instanceof ImageImportError) return e.message;
+  return `Could not open "${file?.name || "the file"}". It may be corrupt or in an unsupported format.`;
+}
+
+// One line on how a DICOM image was calibrated, for toasts.
+export function calibrationNotice(cal) {
+  if (!cal?.done || cal.method !== "dicom") return null;
+  return `Calibrated from the DICOM file: ${cal.pxPerMm.toFixed(3)} px/mm (${cal.source}).`;
+}
+
+// `getImages` returns the session's current images (read when the file is
+// ready, so several files dropped at once stack instead of replacing each other).
+export function loadImageFile(file, addToStack, { getImages, dispatch, updSession, imgRefs, canvasSize, panRef, zoomRef }) {
+  if (!file || !isImportableFile(file)) return Promise.resolve();
+  dispatch({ type: "SET", payload: { loadingImages: true } });
+  return importImageFile(file)
+    .then(({ entry, read }) => new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        imgRefs.current[entry.id] = img;
+        if (addToStack) {
+          updSession({ images: [...(getImages() || []), entry] });
+        } else {
+          updSession({ images: [entry] });
+          const cw = canvasSize.current.w - 80, ch = canvasSize.current.h - 80;
+          const sc = Math.min(cw / (img.naturalWidth || 600), ch / (img.naturalHeight || 500), 1);
+          if (zoomRef) zoomRef.current = sc;
+          dispatch({ type: "SET", payload: { zoom: sc } });
+          panRef.current = { x: 40, y: 40 };
+          dispatch({ type: "SET", payload: { pan: { x: 40, y: 40 } } });
+          // A new base image: its own DICOM calibration, or none.
+          updSession({ calibration: read.calibration || { done: false, pxPerMm: 1, knownMm: "" } });
+        }
+        const lines = [!addToStack && calibrationNotice(read.calibration), ...read.notes].filter(Boolean);
+        if (lines.length) notify(lines.join(" "), { tone: read.calibration?.magnificationCorrected === false || !read.calibration && read.source ? "warn" : "info", duration: 12000 });
+        resolve();
+      };
+      img.onerror = () => reject(new ImageImportError(`Could not decode "${file.name}". The file may be corrupt or in an unsupported format.`));
+      img.src = entry.dataUrl;
+    }))
+    .catch(e => {
+      if (!(e instanceof ImageImportError)) logError("Image import failed:", e);
+      notify(importErrorMessage(file, e), { tone: "err" });
+    })
+    .finally(() => dispatch({ type: "SET", payload: { loadingImages: false } }));
+}
+
+export async function handleImageDrop(e, loadImageFn) {
   e.preventDefault();
-  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
-  files.forEach((f, i) => loadImageFn(f, i > 0));
+  const files = Array.from(e.dataTransfer.files).filter(isImportableFile);
+  // One at a time, in order: the first replaces the image, the rest stack.
+  for (let i = 0; i < files.length; i++) await loadImageFn(files[i], i > 0);
 }

@@ -3,6 +3,7 @@ import { mean } from "../lib/utils.js";
 import { InfoBox, Btn, Chip, RemoveBtn, TabBar } from "../ui/ui.jsx";
 import { LabelSelector } from "./LabelSelector.jsx";
 import { SMALL_BTN } from "../ui/tokens.js";
+import { fmtNum } from "../lib/utils.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -687,7 +688,7 @@ function TrajectoryView({ results, t }) {
                       fontSize={8}
                       textAnchor="end"
                     >
-                      {v.toFixed(1)}
+                      {fmtNum(v, 1)}
                     </text>
                   </g>
                 );
@@ -1214,7 +1215,7 @@ function MixedModelView({ results, t }) {
             <div style={{ fontSize: 12, color: t.tx3, marginBottom: 6, lineHeight: 1.5 }}>
               Time axis: <b style={{ color: t.tx2 }}>{m.timeAxis === "age" ? "patient age (years)" : m.timeAxis === "targetAge" ? "timepoint target age (years)" : "visit number"}</b>
               {" · "}{m.randomSlope ? "random intercept + slope" : "random intercept"}
-              {m.slopeTest ? ` (slope variance LRT p = ${m.slopeTest.pValue < 0.001 ? "<0.001" : m.slopeTest.pValue.toFixed(3)})` : ""}
+              {m.slopeTest ? ` (slope variance LRT p = ${m.slopeTest.pValue < 0.001 ? "<0.001" : fmtNum(m.slopeTest.pValue, 3)})` : ""}
               {" · "}{m.fit?.subjects} subjects, {m.fit?.n} observations
               {(m.warnings || []).map((w, i) => (
                 <div key={i} style={{ color: t.warn }}>⚠ {w}</div>
@@ -1285,7 +1286,7 @@ function MixedModelView({ results, t }) {
                         {fe.t?.toFixed(3) || "—"}
                       </td>
                       <td style={{ padding: "4px 6px", color: t.tx2 }}>
-                        {fe.df != null ? fe.df.toFixed(1) : "—"}
+                        {fe.df != null ? fmtNum(fe.df, 1) : "—"}
                       </td>
                       <td
                         style={{
@@ -1298,7 +1299,7 @@ function MixedModelView({ results, t }) {
                       </td>
                       <td style={{ padding: "4px 6px", color: t.tx2 }}>
                         {fe.ci95
-                          ? `[${fe.ci95[0].toFixed(3)}, ${fe.ci95[1].toFixed(3)}]`
+                          ? `[${fmtNum(fe.ci95[0], 3)}, ${fmtNum(fe.ci95[1], 3)}]`
                           : "—"}
                       </td>
                     </tr>
@@ -1554,5 +1555,5 @@ function EmptyDetail({ message, t }) {
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "—";
   if (p < 0.001) return "<0.001";
-  return p.toFixed(3);
+  return fmtNum(p, 3);
 }

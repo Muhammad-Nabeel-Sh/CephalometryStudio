@@ -39,7 +39,8 @@ import {
   FloatingHistogram,
 } from "./canvas/imageUtils.jsx";
 import { KatexSpan, LatexFloatingPanel } from "./hooks/useKatex.jsx";
-import { Btn, Tag, Sld, PropRow, Inp, GuideBtn } from "./ui/ui.jsx";
+import { Btn, Tag, Sld, PropRow, Inp, GuideBtn, Chip } from "./ui/ui.jsx";
+import { detectRulerScale } from "./imaging/ruler.js";
 import { BACKDROP } from "./ui/tokens.js";
 import ToolBtn from "./ui/ToolBtn.jsx";
 import {
@@ -82,6 +83,7 @@ import {
   exportCSV as exportCSVData,
 } from "./workspace/calibration.js";
 import { loadImageFile, handleImageDrop } from "./workspace/images.js";
+import { IMAGE_ACCEPT } from "./imaging/readImage.js";
 import { Modal } from "./panels/Modal.jsx";
 import PanelGuideModal from "./panels/PanelGuideModal.jsx";
 import HomePage from "./panels/HomePage.jsx";
@@ -100,6 +102,7 @@ import AnalysisModal from "./panels/AnalysisModal.jsx";
 // first use instead of with the app.
 const ResearchWorkspace = lazy(() => import("./research/ResearchWorkspace.jsx"));
 import { useFormulaEngine } from "./hooks/useFormulaEngine.js";
+import { useSourceWindow } from "./hooks/useSourceWindow.js";
 import { sessionSeal, unsealSession, sealedSessions } from "./research/blinding.js";
 import InterpretationPanel from "./panels/InterpretationPanel.jsx";
 import NormogramPanel from "./panels/NormogramPanel.jsx";
@@ -107,34 +110,39 @@ import MobileTabBar from "./ui/MobileTabBar.jsx";
 import MobileBottomSheet from "./ui/MobileBottomSheet.jsx";
 import ContextMenu from "./ui/ContextMenu.jsx";
 import { mkProject, updateSessionInProject } from "./model/project.js";
-import {
-  storeImageBlob,
-  getImageDataUrl,
-  clearImageBlobs,
-  deleteOrphanBlobs,
-  idbAvailable,
-} from "./storage/imageStore.js";
+import { getImageDataUrl, idbAvailable } from "./storage/imageStore.js";
 import {
   importCephxPayload,
   validateCepht,
-  CEPHX_FORMAT,
-  CEPHX_VERSION,
-  normalizeSessionImages,
+  buildCephxPayload,
+  isBackupPayload,
+  parseBackupPayload,
 } from "./storage/cephxFormat.js";
+import { secureStorageAvailable } from "./storage/secureStorage.js";
 import {
-  encryptJSON,
-  decryptJSON,
-  clearSecureStorage,
-  secureStorageAvailable,
-} from "./storage/secureStorage.js";
+  loadProjects,
+  saveProjects,
+  clearAllLocalData,
+  hydrateProjectImages,
+  setBackupSource,
+  downloadBackup,
+  runStorageMaintenance,
+  STORAGE_EVENT,
+} from "./storage/projectStore.js";
 import { anonymizeProject, hasUnanonymizedPHI } from "./report/anonymize.js";
-import { logError, logWarn } from "./lib/logger.js";
+import { logError } from "./lib/logger.js";
 import { askConfirm, askText, notify, showInfo, dismissToastKey } from "./ui/dialogs.js";
 import { describeChange, isNotableChange } from "./workspace/undoHistory.js";
 import { nextToReview, confirmPoint } from "./workspace/aiReview.js";
 import { PlacingGuide, Magnifier } from "./panels/PlacingGuide.jsx";
 import { DialogHost } from "./ui/DialogHost.jsx";
 import SettingsModal from "./panels/SettingsModal.jsx";
+import DriveBackupDialog from "./panels/DriveBackupDialog.jsx";
+import ProfileMenu from "./panels/ProfileMenu.jsx";
+import SyncSetupDialog from "./panels/SyncSetupDialog.jsx";
+import { useDriveSync } from "./hooks/useDriveSync.js";
+import { switchProfile } from "./storage/profiles.js";
+import { driveConfigured } from "./storage/driveBackup.js";
 import { drawImageLayers, reportScale, printLabelScale } from "./canvas/imageLayers.js";
 import { computeAirwayMeasurements, normalizeSex, normalizeAge } from "./research/airway.js";
 
@@ -232,76 +240,11 @@ function profileProject(project) {
   };
 }
 
-// Strip session image data from any objects nested in research study results
-function sanitizeResults(obj, depth = 0) {
-  if (depth > 20 || !obj || typeof obj !== "object") return obj;
-  if (Array.isArray(obj)) return obj.map((v) => sanitizeResults(v, depth + 1));
-  const out = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v && typeof v === "object") {
-      // If it looks like a session object (has image.dataUrl), strip the image data
-      if (v.image?.dataUrl) {
-        out[k] = { ...v, image: { ...v.image, dataUrl: "[stripped]" } };
-      } else if (
-        v.session &&
-        typeof v.session === "object" &&
-        v.session.image?.dataUrl
-      ) {
-        out[k] = {
-          ...v,
-          session: {
-            ...v.session,
-            image: { ...v.session.image, dataUrl: "[stripped]" },
-          },
-        };
-      } else if (k === "sessions" && Array.isArray(v)) {
-        // Array of session objects — strip image data
-        out[k] = v.map((s) =>
-          s?.image?.dataUrl
-            ? { ...s, image: { ...s.image, dataUrl: "[stripped]" } }
-            : s,
-        );
-      } else {
-        out[k] = sanitizeResults(v, depth + 1);
-      }
-    } else {
-      out[k] = v;
-    }
-  }
-  return out;
-}
-
+// `project` must carry its image data (hydrateProjectImages fills in images
+// the case records leave out).
 function exportCephx(project) {
   profileProject(project);
-
-  let cleaned = { ...project };
-  if (cleaned.images) cleaned.images = undefined;
-
-  // Normalize session images via the shared import/export helper so the two
-  // paths can't drift (D4). Coerces legacy session.image → session.images[].
-  if (cleaned.sessions) {
-    cleaned.sessions = cleaned.sessions.map((s) => normalizeSessionImages(s));
-  }
-
-  // Sanitize research study results (strip any session objects with image data)
-  if (cleaned.researchStudies) {
-    cleaned = {
-      ...cleaned,
-      researchStudies: cleaned.researchStudies.map((rs) => ({
-        ...rs,
-        results: rs.results ? sanitizeResults(rs.results) : rs.results,
-      })),
-    };
-  }
-
-  const payload = {
-    format: CEPHX_FORMAT,
-    version: CEPHX_VERSION,
-    exported: Date.now(),
-    project: cleaned,
-  };
-  const json = JSON.stringify(payload);
-
+  const json = JSON.stringify(buildCephxPayload(project));
   const blob = new Blob([json], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -309,7 +252,7 @@ function exportCephx(project) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
 }
-function importCephx(file, onLoad) {
+function importCephx(file, onLoad, onBackup) {
   const reader = new FileReader();
   reader.onload = (e) => {
     let parsed;
@@ -318,6 +261,12 @@ function importCephx(file, onLoad) {
     } catch (err) {
       logError("Cephx import error:", err);
       notify("Cannot open the file — it is not valid JSON.", { tone: "err" });
+      return;
+    }
+    if (isBackupPayload(parsed)) {
+      const res = parseBackupPayload(parsed);
+      if (!res.ok) notify(res.error, { tone: "err" });
+      else onBackup?.(res);
       return;
     }
     const res = importCephxPayload(parsed);
@@ -384,22 +333,33 @@ function hasPlacedCoords(markups) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount }) {
+const CALIB_MODES = [["ruler", "From Ruler"], ["ticks", "Detect Ticks"], ["manual", "Manual px/mm"]];
+
+function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount, onDetectTicks, onApplyTicks }) {
   const [mm, setMm] = useState(String(calibration.knownMm || "10"));
   const [ppm, setPpm] = useState(String(calibration.pxPerMm || "1"));
   const [mode, setMode] = useState("ruler");
   const [guideKey, setGuideKey] = useState(null);
+  const [tickMm, setTickMm] = useState(1);
+  const [ticks, setTicks] = useState(null);
   return (
     <div>
+      {calibration.done && calibration.method === "dicom" && (
+        <div style={{ fontSize: 12, color: calibration.magnificationCorrected ? t.tx2 : t.warn, marginBottom: 12, lineHeight: 1.5 }}>
+          Now calibrated from the DICOM file ({calibration.source}): {calibration.pxPerMm.toFixed(4)} px/mm.
+          {!calibration.magnificationCorrected && " Measured at the detector, so radiographic magnification is included."}
+        </div>
+      )}
       <div
         style={{
           display: "flex",
           gap: 6,
           marginBottom: 16,
           alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
-        {["ruler", "manual"].map((m) => (
+        {CALIB_MODES.map(([m, label]) => (
           <Btn
             key={m}
             t={t}
@@ -407,12 +367,49 @@ function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount }) {
             active={mode === m}
             onClick={() => setMode(m)}
           >
-            {m === "ruler" ? "From Ruler" : "Manual px/mm"}
+            {label}
           </Btn>
         ))}
         <GuideBtn t={t} onClick={() => setGuideKey("calibration")} style={{ marginLeft: "auto" }} />
       </div>
-      {mode === "ruler" ? (
+      {mode === "ticks" ? (
+        <>
+          <div style={{ fontSize: 13, color: t.tx2, marginBottom: 12, lineHeight: 1.6 }}>
+            Draw a ruler line (⟺ key) along the radiographic ruler&apos;s tick marks, over at least 8 ticks.
+            The spacing of the ticks is then measured automatically.
+          </div>
+          <PropRow label="Tick spacing" t={t}>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[0.5, 1, 2].map((v) => (
+                <Chip key={v} t={t} on={tickMm === v} onClick={() => { setTickMm(v); setTicks(null); }}>{v} mm</Chip>
+              ))}
+            </div>
+          </PropRow>
+          <Btn t={t} onClick={() => setTicks(onDetectTicks(tickMm))} style={{ width: "100%", marginTop: 8 }}>
+            Detect ticks
+          </Btn>
+          {ticks?.error && (
+            <div role="alert" style={{ fontSize: 12, color: t.warn, marginTop: 10, lineHeight: 1.5 }}>{ticks.error}</div>
+          )}
+          {ticks && !ticks.error && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 13, color: t.tx, lineHeight: 1.5 }}>
+                {ticks.ticks} ticks, one every {ticks.period.toFixed(2)} px:{" "}
+                <strong style={{ color: t.ok, fontFamily: "'DM Mono',monospace" }}>{ticks.pxPerMm.toFixed(3)} px/mm</strong>
+              </div>
+              <div style={{ fontSize: 12, color: ticks.confidence < 0.4 ? t.warn : t.tx3, marginTop: 2 }}>
+                Pattern match {Math.round(ticks.confidence * 100)}%{ticks.confidence < 0.4 ? " — check the line follows the ticks" : ""}
+              </div>
+              <Btn t={t} onClick={() => onApplyTicks(ticks)} style={{ width: "100%", marginTop: 10 }}>
+                Set Calibration
+              </Btn>
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: t.tx3, marginTop: 8, lineHeight: 1.5 }}>
+            Magnification: a ruler at the midsagittal plane gives anatomical size; one at the detector includes the 8–15% magnification.
+          </div>
+        </>
+      ) : mode === "ruler" ? (
         <>
           <div
             style={{
@@ -453,7 +450,7 @@ function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount }) {
               }}
             />
           </PropRow>
-          <div style={{ fontSize: 9, color: t.tx3, marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: t.tx3, marginTop: 8 }}>
             2D cephalometric radiographs carry ~8–15% magnification. Ensure the
             ruler distance reflects the actual image scale (not CBCT).
           </div>
@@ -468,7 +465,7 @@ function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount }) {
       ) : (
         <>
           <div style={{ fontSize: 13, color: t.tx2, marginBottom: 16 }}>
-            Enter px/mm directly (from DICOM metadata).
+            Enter px/mm directly. DICOM images are calibrated automatically when the file has a pixel spacing.
           </div>
           {calibration.done && (
             <div style={{ fontSize: 12, color: t.ok, marginBottom: 10 }}>
@@ -494,7 +491,7 @@ function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount }) {
               }}
             />
           </PropRow>
-          <div style={{ fontSize: 9, color: t.tx3, marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: t.tx3, marginTop: 8 }}>
             2D cephalograms have ~8–15% inherent magnification. CBCT-derived
             px/mm is more accurate for linear measurements.
           </div>
@@ -1292,6 +1289,8 @@ function Workspace({
   setTheme,
   onSave,
   onImport,
+  onBackup,
+  onDrive,
 }) {
   // ══════════════════════════════════════
   // CANVAS + REFS
@@ -2192,17 +2191,37 @@ function Workspace({
     });
   }, [sessionImage]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Window & level on the original pixels of 12–16-bit images (DICOM, TIFF):
+  // a live preview replaces the image while the sliders move.
+  const getSessionImages = useCallback(() => useSessionStore.getState().sessionImage, []);
+  const onSourceChange = useCallback((id) => {
+    for (const k of procCache.current.keys())
+      if (k.startsWith(id + "-")) procCache.current.delete(k);
+    staticDirtyRef.current = true;
+    scheduleRedrawRef.current?.();
+  }, []);
+  const setLoadedImage = useCallback((id, img) => { imgRefs.current[id] = img; }, []);
+  const sourceWindow = useSourceWindow({
+    sessionImage,
+    setLoadedImage,
+    updSession,
+    getImages: getSessionImages,
+    onSourceChange,
+  });
+  const { previewFor } = sourceWindow;
+
   // ══════════════════════════════════════
   // CANVAS DRAW PIPELINE
   const getProcessed = useCallback((imgEntry) => {
     const p = useSessionStore.getState().processing;
     const lm = useSessionStore.getState().lutMode;
     const li = useSessionStore.getState().lutInvert;
-    const key = `${imgEntry.id}-${JSON.stringify(p)}-${lm}-${li}`;
+    const pv = previewFor(imgEntry.id);
+    const key = `${imgEntry.id}-${JSON.stringify(p)}-${lm}-${li}${pv ? `-pv${pv.version}` : ""}`;
     const cached = procCache.current.get(key);
     if (cached) return cached;
     const processed = processImageToCanvas(
-      imgRefs.current[imgEntry.id],
+      pv ? pv.canvas : imgRefs.current[imgEntry.id],
       p,
       lm,
       li,
@@ -2217,7 +2236,7 @@ function Workspace({
     procCache.current.set(key, processed);
     staticDirtyRef.current = true;
     return processed;
-  }, []);
+  }, [previewFor]);
 
   // F7: clear processed-image cache when switching sessions
   useEffect(() => {
@@ -2566,26 +2585,18 @@ function Workspace({
   // ══════════════════════════════════════
   // IMAGE LOADING
   const loadImage = useCallback(
-    (file, addToStack = false) => {
+    (file, addToStack = false) =>
       loadImageFile(file, addToStack, {
-        sessionImages: activeSession?.images || [],
+        // Read when the file is ready, so stacked files don't overwrite each other.
+        getImages: () => useSessionStore.getState().sessionImage,
         dispatch,
         updSession,
         imgRefs,
         canvasSize,
         panRef,
         zoomRef,
-      });
-    },
-    [
-      activeSession?.images,
-      dispatch,
-      updSession,
-      imgRefs,
-      canvasSize,
-      panRef,
-      zoomRef,
-    ],
+      }),
+    [dispatch, updSession, imgRefs, canvasSize, panRef, zoomRef],
   );
 
   const handleDrop = useCallback(
@@ -4461,6 +4472,25 @@ function Workspace({
     return { original: oc.toDataURL("image/jpeg", 0.9), markup: mc.toDataURL("image/jpeg", 0.92) };
   }, [sessionImage, markups, calibration, t, facing, angleMode, getProcessed]);
 
+  // Ruler tick detection (calibration dialog): measures the tick spacing along
+  // the drawn ruler line — the pending one, or the only ruler.
+  const detectTicks = useCallback((tickMm) => {
+    const rulers = markups.filter((m) => m.type === "ruler");
+    const r = pendingRuler || (rulers.length === 1 ? rulers[0] : null);
+    if (!r) {
+      return { error: rulers.length > 1 ? "Several rulers are drawn: draw a fresh one along the tick marks, or delete the extra ones." : "Draw a ruler line (⟺ key) along the ruler's tick marks first." };
+    }
+    const vp = vpts(r);
+    if (vp.length < 2) return { error: "The ruler line is incomplete." };
+    return detectRulerScale(getImagePixels(), vp[0], vp[1], tickMm);
+  }, [markups, pendingRuler, getImagePixels]);
+  const applyTicks = useCallback((res) => {
+    if (!(res?.pxPerMm > 0)) return;
+    pushUndo();
+    updSession({ calibration: { done: true, pxPerMm: res.pxPerMm, knownMm: "", method: "ticks", source: `${res.ticks} ticks, ${res.tickMm} mm apart` } });
+    dispatch({ type: "SET", payload: { showCalib: false } });
+  }, [pushUndo, updSession, dispatch]);
+
   const measScope = useMemo(
     () => buildScope(markups, calibration, facingSetting),
     [markups, calibration, facingSetting],
@@ -4869,7 +4899,7 @@ function Workspace({
       <input
         ref={openImgRef}
         type="file"
-        accept="image/*"
+        accept={IMAGE_ACCEPT}
         style={{ display: "none" }}
         onChange={(e) => {
           if (e.target.files[0]) loadImage(e.target.files[0]);
@@ -4879,7 +4909,7 @@ function Workspace({
       <input
         ref={stackImgRef}
         type="file"
-        accept="image/*"
+        accept={IMAGE_ACCEPT}
         style={{ display: "none" }}
         onChange={(e) => {
           if (e.target.files[0]) loadImage(e.target.files[0], true);
@@ -5233,6 +5263,7 @@ function Workspace({
                 showHistogram={showHistogram}
                 setShowHistogram={setShowHistogram}
                 sessionImage={sessionImage}
+                sourceWindow={sourceWindow}
                 stackImgRef={stackImgRef}
                 project={project}
                 onUpdateProject={onUpdateProject}
@@ -5373,6 +5404,7 @@ function Workspace({
                 showHistogram={showHistogram}
                 setShowHistogram={setShowHistogram}
                 sessionImage={sessionImage}
+                sourceWindow={sourceWindow}
                 stackImgRef={stackImgRef}
                 project={project}
                 onUpdateProject={onUpdateProject}
@@ -5471,6 +5503,8 @@ function Workspace({
             onFinish={finalizeCalib}
             rulerLabel={pendingRuler?.label || null}
             rulerCount={markups.filter((m) => m.type === "ruler").length}
+            onDetectTicks={detectTicks}
+            onApplyTicks={applyTicks}
           />
         </Modal>
       )}
@@ -5866,6 +5900,8 @@ function Workspace({
           magnifierOn={magnifierOn}
           toggleMagnifier={toggleMagnifier}
           storageEncrypted={secureStorageAvailable()}
+          onBackup={onBackup}
+          onDrive={onDrive}
           onClose={() => useUIStore.setState({ showSettings: false })}
         />
       )}
@@ -6040,195 +6076,6 @@ function Workspace({
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROOT
 // ═══════════════════════════════════════════════════════════════════════════════
-const STORAGE_KEY = "cephalometry_projects";
-
-// Async load with legacy-plaintext migration. Old autosaves were a bare
-// JSON array in localStorage; new autosaves are an {enc, iv, ct} (or fallback
-// {enc:false, plaintext}) envelope. Both shapes are handled so existing users
-// don't lose their projects on upgrade. Sessions are normalized to the
-// canonical `session.images[]` shape here too (D4) and the referenced image-id
-// baseline is captured for orphan GC (D2).
-let _knownImageIds = new Set();
-
-function collectReferencedImageIds(projects) {
-  const ids = new Set();
-  for (const p of projects) {
-    for (const s of p.sessions || []) {
-      for (const img of s.images || []) {
-        if (img && img.id) ids.add(img.id);
-      }
-    }
-  }
-  return ids;
-}
-
-async function loadProjects() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (e) {
-      logError("loadProjects/parse", e);
-      return [];
-    }
-    let projects = null;
-    if (Array.isArray(parsed))
-      projects = parsed; // legacy plaintext projects array
-    else if (parsed && typeof parsed === "object") {
-      projects = await decryptJSON(parsed);
-      // P7: key-loss detection — if the envelope was encrypted but decrypt returned null
-      if (!projects && parsed.enc === true) {
-        emitStorageWarning(
-          "key-loss",
-          "Your saved data could not be decrypted. The encryption key may have been lost (cleared IndexedDB). If you have a backup file (.cephx), import it to restore your projects.",
-        );
-      }
-    }
-    if (!projects) return [];
-    // Normalize legacy session.image → session.images[] on load so the GC
-    // baseline (and the rest of the app) sees the canonical shape.
-    projects = projects.map((p) => ({
-      ...p,
-      sessions: (p.sessions || []).map((s) => normalizeSessionImages(s)),
-    }));
-    _knownImageIds = collectReferencedImageIds(projects);
-    return projects;
-  } catch (e) {
-    logWarn("Failed to load projects from storage:", e);
-    return [];
-  }
-}
-
-// Serialize concurrent saves so rapid project edits can't write envelopes out
-// of order (encryption is async). The last call always wins.
-let _saveChain = Promise.resolve();
-let _idbQuotaWarned = false;
-
-// Surface a storage problem to the UI via a decoupled custom event (D3). The
-// root component listens and renders a dismissible banner; saveProjects stays
-// outside React so it can't call setState directly.
-function emitStorageWarning(kind, message) {
-  try {
-    window.dispatchEvent(
-      new CustomEvent("Cephalometry Studio:storage-warning", {
-        detail: { kind, message },
-      }),
-    );
-  } catch {
-    /* best-effort */
-  }
-}
-
-function saveProjects(projects) {
-  _saveChain = _saveChain.then(async () => {
-    try {
-      // 1. Gather images that carry an in-memory dataUrl (just loaded/imported)
-      //    and need persisting to IDB before they're stripped from localStorage.
-      const toStore = [];
-      for (const p of projects) {
-        for (const s of p.sessions || []) {
-          for (const img of s.images || []) {
-            if (img && img.dataUrl)
-              toStore.push({ id: img.id, dataUrl: img.dataUrl });
-          }
-        }
-      }
-
-      // 2. D1: persist to IDB FIRST and await the result. Only strip the dataUrl
-      //    from the localStorage payload for images whose blob was actually
-      //    stored. Failed / unavailable images keep their dataUrl in localStorage
-      //    so the radiograph isn't lost (localStorage may hit quota, but silent
-      //    image loss in a medical app is worse). Previously the order was
-      //    reversed — localStorage was written with dataUrl:null BEFORE a
-      //    fire-and-forget IDB write whose .catch(()=>{}) swallowed failures, so
-      //    a failed/aborted IDB write permanently lost the image.
-      const failedIds = new Set();
-      let hadIdbQuota = false;
-      let hadIdbUnavailable = false;
-      if (toStore.length > 0) {
-        const results = await Promise.all(
-          toStore.map(({ id, dataUrl }) => storeImageBlob(id, dataUrl)),
-        );
-        results.forEach((r, i) => {
-          if (!r || !r.ok) {
-            failedIds.add(toStore[i].id);
-            if (r && r.error === "quota") hadIdbQuota = true;
-            if (r && r.error === "unavailable") hadIdbUnavailable = true;
-          }
-        });
-      }
-      if (hadIdbQuota && !_idbQuotaWarned) {
-        _idbQuotaWarned = true;
-        emitStorageWarning(
-          "idb-quota",
-          "Image storage is full. Some new images could not be saved locally — export your project as .cephx to keep them, then clear local data.",
-        );
-      }
-      if (hadIdbUnavailable && !idbAvailable()) {
-        emitStorageWarning(
-          "idb-unavailable",
-          "Image storage is unavailable in this browser/session (e.g. private mode). Images won't persist across sessions — export your work as .cephx to keep it.",
-        );
-      }
-
-      // 3. Build the stripped payload: null dataUrl for stored images, keep
-      //    dataUrl for the failures so they survive in the (encrypted) envelope.
-      const stripped = projects.map((p) => ({
-        ...p,
-        sessions: p.sessions?.map((s) => ({
-          ...s,
-          images: s.images?.map((img) => ({
-            ...img,
-            dataUrl: img && failedIds.has(img.id) ? img.dataUrl : null,
-          })),
-        })),
-      }));
-
-      // 4. D2: garbage-collect orphaned blobs — sessions/images/projects that
-      //    were removed since the last save. Diff against the known-id baseline
-      //    (cheap); on a cold baseline this falls back to a full IDB scan.
-      const referencedIds = collectReferencedImageIds(projects);
-      try {
-        await deleteOrphanBlobs(referencedIds, _knownImageIds);
-      } catch (e) {
-        logWarn("Orphan blob GC failed:", e);
-      }
-      _knownImageIds = referencedIds;
-
-      // 5. Write the encrypted envelope to localStorage.
-      const envelope = await encryptJSON(stripped);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
-    } catch (e) {
-      if (
-        e &&
-        (e.name === "QuotaExceededError" ||
-          e.name === "NS_ERROR_DOM_QUOTA_REACHED")
-      ) {
-        emitStorageWarning(
-          "ls-quota",
-          "Local storage is full. Your projects could not be saved. Export your project files (.cephx) to preserve your data, then clear browser storage or remove unused projects.",
-        );
-      } else {
-        logWarn("Failed to save projects:", e);
-      }
-    }
-  });
-  return _saveChain;
-}
-
-// Wipe ALL local data: encrypted autosave, the encryption key store, and the
-// image blob IDB. Called only from the explicit "Clear all local data" action.
-async function clearAllLocalData() {
-  await clearSecureStorage(STORAGE_KEY);
-  await clearImageBlobs();
-  // Reset the orphan-GC baseline so a subsequent save doesn't try to diff
-  // against ids that no longer exist (D2), and re-arm the quota warning.
-  _knownImageIds = new Set();
-  _idbQuotaWarned = false;
-}
-
 export default function CephalometryStudio() {
   const splashMobile = useMediaQuery("(max-width: 640px)");
   const [theme, setTheme] = useState("bluish");
@@ -6304,30 +6151,20 @@ export default function CephalometryStudio() {
     (async () => {
       const lp = await loadProjects();
       if (cancelled) return;
-      // P6: data-retention purge — remove projects older than 90 days unless they have an audit log
-      const retentionDays = 90;
-      const cutoff = Date.now() - retentionDays * 86400000;
-      const withRetention = lp.filter(
-        (p) =>
-          (p.modified || 0) > cutoff ||
-          (p.meta?.anonymizationLog?.length || 0) > 0,
-      );
-      if (withRetention.length < lp.length) {
-        const purged = lp.length - withRetention.length;
-        logWarn(
-          `Retention: purged ${purged} project(s) older than ${retentionDays} days.`,
-        );
-      }
-      setProjects(withRetention);
-      if (withRetention.length > 0) {
+      // Cases are never deleted automatically (the 90-day retention purge
+      // was removed); only the user deletes them.
+      setProjects(lp);
+      if (lp.length > 0) {
         // Offer the MOST RECENTLY MODIFIED project (projects are stored in
         // insertion order, so [0] would be the oldest).
-        const mostRecent = withRetention.reduce((a, b) =>
+        const mostRecent = lp.reduce((a, b) =>
           (b.modified || 0) > (a.modified || 0) ? b : a,
         );
         setWelcome({ projectId: mostRecent.id });
       }
       setLoaded(true);
+      // Encrypt images stored before encryption existed; sweep orphans.
+      runStorageMaintenance();
     })();
     return () => {
       cancelled = true;
@@ -6336,10 +6173,18 @@ export default function CephalometryStudio() {
 
   useEffect(() => {
     const onWarn = (e) => setStorageWarn((e && e.detail) || null);
-    window.addEventListener("Cephalometry Studio:storage-warning", onWarn);
-    return () =>
-      window.removeEventListener("Cephalometry Studio:storage-warning", onWarn);
+    window.addEventListener(STORAGE_EVENT, onWarn);
+    return () => window.removeEventListener(STORAGE_EVENT, onWarn);
   }, []);
+
+  // Backups (home page, Settings, error screen) take the live cases, which
+  // are fresher than the debounced autosave.
+  useEffect(() => {
+    setBackupSource(() => projects);
+  }, [projects]);
+  // Google Drive backup dialog: { canRestore } while open (restore only from home).
+  const [driveDialog, setDriveDialog] = useState(null);
+  const openDrive = driveConfigured() ? (canRestore) => setDriveDialog({ canRestore }) : null;
 
   // Mobile: enter browser fullscreen by default on load. Browsers reject a
   // load-time requestFullscreen() (it needs a user gesture — and logs an error
@@ -6373,13 +6218,16 @@ export default function CephalometryStudio() {
     };
   }, [splashMobile]);
 
-  // W4: debounce autosave so rapid edits don't encrypt-write per tick
+  // W4: debounce autosave so rapid edits don't encrypt-write per tick. The
+  // leave-page warning stays armed until the latest scheduled save succeeded.
   const saveTimerRef = useRef(null);
+  const saveSeqRef = useRef(0);
   const debouncedSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const seq = ++saveSeqRef.current;
     saveTimerRef.current = setTimeout(() => {
-      saveProjects(projects).then(() => {
-        dirtyRef.current = false;
+      saveProjects(projects).then((ok) => {
+        if (ok && seq === saveSeqRef.current) dirtyRef.current = false;
       });
     }, 800);
   }, [projects]);
@@ -6390,6 +6238,20 @@ export default function CephalometryStudio() {
       debouncedSave();
     }
   }, [projects, loaded, debouncedSave]);
+
+  // Profiles reload the page: save first, so nothing is lost or prompted.
+  const switchToProfile = useCallback(async (id, token) => {
+    clearTimeout(saveTimerRef.current);
+    saveSeqRef.current++;
+    await saveProjects(projects);
+    dirtyRef.current = false;
+    switchProfile(id, { token });
+  }, [projects]);
+  // Cross-device sync of the active profile through its Google Drive.
+  const sync = useDriveSync({ projects, setProjects, loaded, onSwitch: switchToProfile });
+  // The setup/unlock dialog opens when sync needs it, until dismissed.
+  const [syncSetupDismissed, setSyncSetupDismissed] = useState(null);
+  const showSyncSetup = ["setup", "locked"].includes(sync.status) && syncSetupDismissed !== sync.status;
 
   useEffect(() => {
     const handler = (e) => {
@@ -6421,12 +6283,15 @@ export default function CephalometryStudio() {
     if (
       !(await askConfirm({
         title: "Clear ALL local data?",
-        message: "This permanently deletes every project, image, and patient identifier stored in this browser. This cannot be undone. Export any project you want to keep as a .cephx file first.",
+        message: `This permanently deletes every project, image, and patient identifier stored in this browser for this profile. This cannot be undone. Export any project you want to keep as a .cephx file first.${sync.email ? ` Cases synced with ${sync.email} stay in Google Drive and come back at the next sync; stop syncing first if you don't want that.` : ""}`,
         confirmLabel: "Delete everything",
         danger: true,
       }))
     )
       return;
+    // A pending autosave must not write the old cases back after the wipe.
+    clearTimeout(saveTimerRef.current);
+    saveSeqRef.current++;
     await clearAllLocalData();
     dirtyRef.current = false;
     setProjects([]);
@@ -6453,20 +6318,24 @@ export default function CephalometryStudio() {
     };
     const session = p.sessions.find((s) => s.id === p.activeSessionId);
     session.meta = { ...session.meta, patientId: p.meta.patientId, age: p.meta.age };
+    // The wizard's image entry as built (its name, and for DICOM/TIFF the
+    // source and original-pixels link); a bare dataUrl gets a new entry.
     if (result.image)
       session.images = [
-        {
-          id: uid(),
-          name: "Imported",
-          dataUrl: result.image.dataUrl || result.image,
-          dx: 0,
-          dy: 0,
-          opacity: 1,
-          blendMode: "normal",
-          visible: true,
-          color: "none",
-          transform: { tx: 0, ty: 0, rot: 0, scale: 1 },
-        },
+        typeof result.image === "object" && result.image.id
+          ? { ...result.image }
+          : {
+              id: uid(),
+              name: "Imported",
+              dataUrl: result.image.dataUrl || result.image,
+              dx: 0,
+              dy: 0,
+              opacity: 1,
+              blendMode: "normal",
+              visible: true,
+              color: "none",
+              transform: { tx: 0, ty: 0, rot: 0, scale: 1 },
+            },
       ];
     session.calibration = result.calibration || {
       done: false,
@@ -6536,7 +6405,61 @@ export default function CephalometryStudio() {
         return;
       setProjects((prev) => [...prev.filter((p) => p.id !== proj.id), proj]);
       openProject(proj.id);
-    });
+    }, restoreBackup);
+  };
+
+  // A backup adds its cases; cases that already exist here are replaced only
+  // if the user says so.
+  const restoreBackup = async ({ projects: incoming, warnings }) => {
+    if (!incoming.length) {
+      notify("The backup contains no cases.", { tone: "err" });
+      return;
+    }
+    const have = new Set(projects.map((p) => p.id));
+    const clashes = incoming.filter((p) => have.has(p.id)).length;
+    const replace =
+      clashes > 0 &&
+      (await askConfirm({
+        title: "Restore backup",
+        message: `The backup has ${incoming.length} case${incoming.length === 1 ? "" : "s"}; ${clashes} already exist${clashes === 1 ? "s" : ""} here. Replace ${clashes === 1 ? "it" : "them"} with the backup ${clashes === 1 ? "copy" : "copies"}, or keep your current ${clashes === 1 ? "version" : "versions"} and add only the others?`,
+        confirmLabel: "Replace with backup",
+        cancelLabel: "Keep current",
+        danger: true,
+      }));
+    const add = incoming.filter((p) => replace || !have.has(p.id));
+    const ids = new Set(add.map((p) => p.id));
+    if (add.length) setProjects((prev) => [...prev.filter((p) => !ids.has(p.id)), ...add]);
+    notify(
+      add.length
+        ? `Restored ${add.length} case${add.length === 1 ? "" : "s"} from the backup.`
+        : "No cases were added; every case in the backup is already here.",
+      { tone: add.length ? "ok" : "info" },
+    );
+    if (warnings.length) showInfo({ title: "Restored with notes", items: warnings });
+  };
+
+  const handleBackup = async () => {
+    if (
+      projects.some(hasUnanonymizedPHI) &&
+      !(await askConfirm({
+        title: "Back up all cases",
+        message: "The backup contains every case with its images and patient identifiers, unencrypted. Keep the file somewhere safe; it can be restored here with Import.",
+        confirmLabel: "Save backup",
+      }))
+    )
+      return;
+    try {
+      const { count, missing } = await downloadBackup(projects);
+      notify(
+        missing
+          ? `Backup of ${count} case${count === 1 ? "" : "s"} saved, but ${missing} image${missing === 1 ? "" : "s"} could not be read and ${missing === 1 ? "is" : "are"} missing from it.`
+          : `Backup of ${count} case${count === 1 ? "" : "s"} saved.`,
+        { tone: missing ? "warn" : "ok" },
+      );
+    } catch (e) {
+      logError("Backup failed", e);
+      notify("The backup could not be created.", { tone: "err" });
+    }
   };
 
   return (
@@ -6678,6 +6601,9 @@ export default function CephalometryStudio() {
             onImport={importCephxFile}
             storageEncrypted={secureStorageAvailable()}
             onClearLocalData={handleClearLocalData}
+            onBackup={handleBackup}
+            onDrive={openDrive && (() => openDrive(true))}
+            profileMenu={<ProfileMenu t={t} sync={sync} onSwitch={switchToProfile} onOpenSetup={() => setSyncSetupDismissed(null)} />}
           />
         )}
         {activeId && activeProject && (
@@ -6689,11 +6615,32 @@ export default function CephalometryStudio() {
             t={t}
             theme={theme}
             setTheme={setTheme}
-            onSave={(proj) => {
-              exportCephx(proj);
+            onSave={async (proj) => {
+              // Images of sessions not opened in this visit come from storage.
+              const { project: full, missing } = await hydrateProjectImages(proj);
+              exportCephx(full);
+              if (missing)
+                notify(
+                  `${missing} image${missing === 1 ? "" : "s"} could not be read from this browser's storage and ${missing === 1 ? "is" : "are"} missing from the file.`,
+                  { tone: "err" },
+                );
               dirtyRef.current = false;
             }}
             onImport={importCephxFile}
+            onBackup={handleBackup}
+            onDrive={openDrive && (() => openDrive(false))}
+          />
+        )}
+        {showSyncSetup && (
+          <SyncSetupDialog t={t} sync={sync} onClose={() => setSyncSetupDismissed(sync.status)} />
+        )}
+        {driveDialog && (
+          <DriveBackupDialog
+            t={t}
+            projects={projects}
+            canRestore={driveDialog.canRestore}
+            onRestore={restoreBackup}
+            onClose={() => setDriveDialog(null)}
           />
         )}
       </div>

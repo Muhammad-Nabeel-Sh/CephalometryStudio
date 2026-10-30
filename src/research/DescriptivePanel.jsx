@@ -8,6 +8,10 @@ import { InfoBox, Btn, RemoveBtn, TabBar } from "../ui/ui.jsx";
 import { LabelSelector } from "./LabelSelector.jsx";
 import { SMALL_BTN } from "../ui/tokens.js";
 
+// Statistics that can't be computed for tiny groups (SD of one value,
+// skewness of two) are NaN, and saved results turn NaN into null: show "—".
+const fmt = (v, d = 2) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(d) : "—");
+
 function sid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
@@ -315,16 +319,16 @@ function DescriptiveTable({ labels, data, t }) {
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{l}</td>
                 <td style={{ padding: "5px 6px", color: t.tx3 }}>{data[l].unit || "—"}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.n}</td>
-                <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 700 }}>{s.mean.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.sd.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.sem.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.median.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.q1.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.q3.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.min.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.max.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.skewness.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{s.kurtosis.toFixed(2)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 700 }}>{fmt(s.mean)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.sd)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.sem)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.median)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.q1)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.q3)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.min)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.max)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.skewness)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(s.kurtosis)}</td>
               </tr>
             );
           })}
@@ -361,13 +365,13 @@ function RefIntervalTable({ labels, data, t }) {
                     {ri.method}
                   </span>
                 </td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{ri.recommendedLower?.toFixed(2)}</td>
-                <td style={{ padding: "5px 6px", color: t.tx2 }}>{ri.recommendedUpper?.toFixed(2)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(ri.recommendedLower)}</td>
+                <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmt(ri.recommendedUpper)}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>
-                  {ri.parametric?.lowerCi ? `[${ri.parametric.lowerCi[0].toFixed(2)}, ${ri.parametric.lowerCi[1].toFixed(2)}]` : "—"}
+                  {ri.parametric?.lowerCi ? `[${fmt(ri.parametric.lowerCi[0])}, ${fmt(ri.parametric.lowerCi[1])}]` : "—"}
                 </td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>
-                  {ri.parametric?.upperCi ? `[${ri.parametric.upperCi[0].toFixed(2)}, ${ri.parametric.upperCi[1].toFixed(2)}]` : "—"}
+                  {ri.parametric?.upperCi ? `[${fmt(ri.parametric.upperCi[0])}, ${fmt(ri.parametric.upperCi[1])}]` : "—"}
                 </td>
               </tr>
             );
@@ -501,7 +505,7 @@ function SummaryTable({ results, labels, t }) {
                   <div key={m} style={{ display: "flex", gap: 8, marginLeft: 8, fontSize: 12 }}>
                     <span style={{ fontFamily: "'DM Mono',monospace", color: t.tx }}>{m}:</span>
                     <span style={{ color: zColor(z) }}>
-                      {combined[m].stats.mean.toFixed(2)} vs {n.values[m].mean} (z={z.toFixed(2)})
+                      {fmt(combined[m].stats.mean)} vs {n.values[m].mean} (z={fmt(z)})
                     </span>
                   </div>
                 );

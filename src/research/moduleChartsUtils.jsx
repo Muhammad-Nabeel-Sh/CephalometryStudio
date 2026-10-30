@@ -1,3 +1,4 @@
+import { fmtNum } from "../lib/utils.js";
 /* eslint-disable react-refresh/only-export-components */
 
 // ─── Safe Number Guard ─────────────────────────────────────────────────────────
@@ -71,5 +72,5 @@ export function wrapLabel(label, maxLen = 16) {
 export function fmtP(p) {
   if (p == null || !isFinite(p)) return "\u2014";
   if (p < 0.001) return "<.001";
-  return p.toFixed(3).replace(/^0(?=\.)/, "");
+  return fmtNum(p, 3).replace(/^0(?=\.)/, "");
 }

@@ -189,6 +189,33 @@ describe("imageStore", () => {
     });
   });
 
+  // ─── Encryption at rest (DB v2) ─────────────────────────────────────────
+  it("stores new images encrypted, not as plain blobs", async () => {
+    await withFakeIdb(async (m) => {
+      await m.storeImageBlob("id1", "data:image/png;base64,AAAA");
+      const rec = window.indexedDB._stores.get("images").get("id1");
+      expect(rec.enc).toBe(true);
+      expect(rec.type).toBe("image/png");
+      expect(rec.iv).toBeTruthy();
+    });
+  });
+
+  it("encryptLegacyImages converts images stored before v2 and keeps them readable", async () => {
+    await withFakeIdb(async (m) => {
+      await m.storeImageBlob("new", "data:image/png;base64,AAAA"); // opens the DB
+      const images = window.indexedDB._stores.get("images");
+      images.set("old", new Blob([new Uint8Array([137, 80, 78, 71, 1, 2, 3])], { type: "image/png" }));
+      const before = await m.getImageDataUrl("old"); // legacy blobs still read
+      expect(before.startsWith("data:image/png;base64,")).toBe(true);
+
+      expect(await m.encryptLegacyImages()).toEqual({ encrypted: 1, failed: 0 });
+      expect(images.get("old").enc).toBe(true);
+      expect(await m.getImageDataUrl("old")).toBe(before);
+      // Recorded as done: the next visit doesn't rescan every image.
+      expect(await m.encryptLegacyImages()).toEqual({ encrypted: 0, failed: 0 });
+    });
+  });
+
   it("clearImageBlobs removes every blob", async () => {
     await withFakeIdb(async (m) => {
       await m.storeImageBlob("k1", "data:image/png;base64,AAAA");

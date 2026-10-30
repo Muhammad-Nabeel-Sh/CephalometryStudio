@@ -1,7 +1,6 @@
 import { Component } from "react";
 import { logError } from "../lib/logger.js";
-
-const STORAGE_KEY = "cephalometry_projects";
+import { downloadBackup, clearAllLocalData } from "../storage/projectStore.js";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -17,19 +16,14 @@ export default class ErrorBoundary extends Component {
     logError("[ErrorBoundary]", error, info);
   }
 
-  downloadBackup = () => {
+  // A readable backup of every case (the same file as "Back up all cases"),
+  // restorable with Import once the app starts again.
+  downloadBackup = async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        alert("No local backup found.");
-        return;
-      }
-      const blob = new Blob([raw], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `Cephalometry Studio_backup_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-    } catch {
+      const { count } = await downloadBackup();
+      if (!count) alert("No saved cases were found.");
+    } catch (e) {
+      logError("[ErrorBoundary] backup", e);
       alert("Failed to export backup.");
     }
   };
@@ -41,12 +35,9 @@ export default class ErrorBoundary extends Component {
       )
     )
       return;
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* best-effort */
-    }
-    window.location.reload();
+    clearAllLocalData()
+      .catch((e) => logError("[ErrorBoundary] clear", e))
+      .finally(() => window.location.reload());
   };
 
   render() {

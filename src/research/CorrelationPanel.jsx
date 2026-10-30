@@ -6,6 +6,7 @@ import { useState } from "react";
 import { InfoBox, Chip, TabBar } from "../ui/ui.jsx";
 import PlotlyChart, { heatmapLayout, heatmapData } from "./PlotlyChart.jsx";
 import { LabelSelector } from "./LabelSelector.jsx";
+import { fmtNum } from "../lib/utils.js";
 
 
 export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
@@ -245,9 +246,9 @@ export function CorrelationConfig({ study, sessions, onUpdateStudy, t }) {
 function formatP(p) {
   if (p == null || !isFinite(p)) return "—";
   if (p < 0.001) return "<0.001***";
-  if (p < 0.01) return p.toFixed(3) + "**";
-  if (p < 0.05) return p.toFixed(3) + "*";
-  return p.toFixed(3);
+  if (p < 0.01) return fmtNum(p, 3) + "**";
+  if (p < 0.05) return fmtNum(p, 3) + "*";
+  return fmtNum(p, 3);
 }
 
 
@@ -326,8 +327,8 @@ function CorrelationHeatmap({ results, t }) {
       const d = matrix[vars[i]]?.[vars[j]];
       if (!d) continue;
       z[i][j] = d.r;
-      displayTxt[i][j] = d.r.toFixed(2);
-      hoverTxt[i][j] = `r=${d.r.toFixed(3)}${d.sigAdj ? "*" : " (ns)"}`;
+      displayTxt[i][j] = fmtNum(d.r, 2);
+      hoverTxt[i][j] = `r=${fmtNum(d.r, 3)}${d.sigAdj ? "*" : " (ns)"}`;
     }
   }
   const data = heatmapData(z, vars, vars, displayTxt, {
@@ -451,7 +452,7 @@ function CorrelationTable({ results, t }) {
                       fontWeight: d.sigAdj ? 700 : 400,
                     }}
                   >
-                    {i === j ? "—" : `${d.r.toFixed(3)}${d.sigAdj ? "*" : ""}`}
+                    {i === j ? "—" : `${fmtNum(d.r, 3)}${d.sigAdj ? "*" : ""}`}
                   </td>
                 );
               })}
@@ -557,7 +558,7 @@ function PartialCorrelationTable({ results, t }) {
                         color: d.p < 0.05 ? t.acc : t.tx2,
                       }}
                     >
-                      {d.r.toFixed(3)}
+                      {fmtNum(d.r, 3)}
                       {d.p < 0.05 ? "*" : ""}
                     </td>
                   );
@@ -616,16 +617,16 @@ function DescriptiveSummary({ results, t }) {
                 <td
                   style={{ padding: "5px 6px", color: t.tx, fontWeight: 700 }}
                 >
-                  {d.mean.toFixed(2)}
+                  {fmtNum(d.mean, 2)}
                 </td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>
-                  {d.sd.toFixed(2)}
+                  {fmtNum(d.sd, 2)}
                 </td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>
-                  {d.min.toFixed(2)}
+                  {fmtNum(d.min, 2)}
                 </td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>
-                  {d.max.toFixed(2)}
+                  {fmtNum(d.max, 2)}
                 </td>
               </tr>
             );

@@ -4,12 +4,13 @@
 // belong to the open case and are saved with it.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "./Modal.jsx";
 import { THEMES } from "../data/constants.js";
 import { useUIStore } from "../state/uiStore.js";
 import { LANDMARK_MODEL } from "../data/landmarkModelInfo.js";
 import { clearModelCache } from "../storage/modelCache.js";
+import { storageStatus, requestPersistentStorage } from "../storage/projectStore.js";
 import { askConfirm, notify } from "../ui/dialogs.js";
 
 const COLORS = [
@@ -73,14 +74,27 @@ function readLogo(file) {
   });
 }
 
+const MB = n => (n == null ? "" : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(0.1, n / 1e6).toFixed(1)} MB`);
+
 const selStyle = t => ({ padding: "5px 8px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 13, fontFamily: "inherit" });
 
-export default function SettingsModal({ t, theme, setTheme, angleMode, setAngleMode, facingSetting, setFacingSetting, resolvedFacing, magnifierOn, toggleMagnifier, storageEncrypted, onClose }) {
+export default function SettingsModal({ t, theme, setTheme, angleMode, setAngleMode, facingSetting, setFacingSetting, resolvedFacing, magnifierOn, toggleMagnifier, storageEncrypted, onBackup, onDrive, onClose }) {
   const ui = useUIStore();
   const set = patch => useUIStore.setState(patch);
   const toggle = k => () => useUIStore.setState(s => ({ [k]: !s[k] }));
   const [sign, unit] = (angleMode || "signed-deg").split("-");
   const [busy, setBusy] = useState(false);
+  const [store, setStore] = useState(null);
+  useEffect(() => {
+    let live = true;
+    storageStatus().then(s => { if (live) setStore(s); });
+    return () => { live = false; };
+  }, []);
+  const askPersist = async () => {
+    const ok = await requestPersistentStorage();
+    setStore(s => (s ? { ...s, persisted: ok } : s));
+    notify(ok ? "The browser will keep this site's data when space runs low." : "The browser did not agree. Installing the app, or using it often, makes this more likely.", { tone: ok ? "ok" : "info" });
+  };
 
   const removeModel = async () => {
     if (!(await askConfirm({ title: "Remove the downloaded AI model?", message: "It is downloaded again (about 30 MB) the next time you use AI Trace.", confirmLabel: "Remove" }))) return;
@@ -209,9 +223,31 @@ export default function SettingsModal({ t, theme, setTheme, angleMode, setAngleM
       <Section t={t} title="Data and privacy">
         <div style={{ fontSize: 13, color: storageEncrypted ? t.tx2 : t.warn, lineHeight: 1.5 }}>
           {storageEncrypted
-            ? "Cases are stored only in this browser, with patient identifiers encrypted. Nothing is uploaded."
+            ? "Cases and images are stored only in this browser, encrypted. Nothing is uploaded."
             : "⚠ This browser cannot encrypt stored data; patient identifiers are stored unencrypted. Avoid real patient data on shared devices."}
         </div>
+        {store?.usage != null && (
+          <Row t={t} label="Space used" hint={store.backend === "ls" ? "In the browser's small local storage — this browser can't use its database here." : "In the browser's database for this site."}>
+            <span style={{ fontSize: 13, color: t.tx2 }}>{MB(store.usage)}{store.quota ? ` of ${MB(store.quota)}` : ""}</span>
+          </Row>
+        )}
+        {store?.canPersist && (
+          <Row t={t} label="Keep data when space runs low" hint="Otherwise the browser may clear this site's data when the disk is nearly full.">
+            {store.persisted
+              ? <span style={{ fontSize: 13, color: t.ok }}>On</span>
+              : <button onClick={askPersist} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 13, cursor: "pointer" }}>Ask the browser</button>}
+          </Row>
+        )}
+        {onBackup && (
+          <Row t={t} label="Backup" hint="One file with every case and its images. Restore it with Import on the home page.">
+            <button onClick={onBackup} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 13, cursor: "pointer" }}>Back up all cases</button>
+          </Row>
+        )}
+        {onDrive && (
+          <Row t={t} label="Google Drive" hint="Encrypted backups in your own Google Drive. Restore them from the home page.">
+            <button onClick={() => { onClose(); onDrive(); }} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 13, cursor: "pointer" }}>Back up to Drive…</button>
+          </Row>
+        )}
         <div style={{ fontSize: 12, color: t.tx3 }}>To delete everything, use “Clear all local data” on the home page.</div>
       </Section>
     </Modal>

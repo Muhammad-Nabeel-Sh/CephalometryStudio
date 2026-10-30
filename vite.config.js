@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { configDefaults } from "vitest/config";
 
 // Same-origin requests under a path prefix (for runtime caching rules).
 const under = prefix => ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith(prefix);
@@ -16,7 +17,9 @@ export default defineConfig({
       injectRegister: false,
       manifest: false,              // public/site.webmanifest is kept as is
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,woff2,png,webmanifest}"],
+        // wasm: the DICOM decoders (~400 KB) so DICOM files open offline too;
+        // the AI runtime under /ort/ is excluded below and cached on use.
+        globPatterns: ["**/*.{js,css,html,svg,woff2,png,webmanifest,wasm}"],
         globIgnores: ["models/**", "ort/**", "fonts/**", "splash-*.png", "og-image.png", "contribute.html", "404.html"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: "index.html",
@@ -39,6 +42,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.js",
+    // Results/ holds local AI training outputs (incl. a copy of the app).
+    exclude: [...configDefaults.exclude, "Results/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html"],

@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { ChartCard, FONT, FONT_STACK, PALETTE, fmtP } from "./moduleChartsUtils.jsx";
 import PlotlyChart, { heatmapLayout, heatmapData } from "./PlotlyChart.jsx";
+import { fmtNum } from "../lib/utils.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RELIABILITY CHARTS
@@ -74,7 +75,7 @@ function ICCBarPlot({ details, t }) {
   const chartable = details.filter(d => d.icc != null);
   if (chartable.length === 0) return null;
   const sorted = [...chartable].sort((a, b) => b.icc - a.icc);
-  const labels = sorted.map(d => `${d.label}  [${d.icc.toFixed(3)}]`);
+  const labels = sorted.map(d => `${d.label}  [${fmtNum(d.icc, 3)}]`);
   const iccVals = sorted.map(d => d.icc);
   const ciL = sorted.map(d => d.ci95?.[0] ?? d.icc - 0.2);
   const ciU = sorted.map(d => d.ci95?.[1] ?? d.icc + 0.2);
@@ -86,7 +87,7 @@ function ICCBarPlot({ details, t }) {
     type: "bar", orientation: "h",
     y: labels, x: iccVals,
     marker: { color: colors, opacity: 0.75 },
-    text: iccVals.map(v => v.toFixed(3)),
+    text: iccVals.map(v => fmtNum(v, 3)),
     textposition: "outside",
     textfont: { size: 9, color: t.tx2, family: FONT_STACK },
     hovertemplate: "%{y}: %{x:.3f} [%{customdata[0]:.3f}, %{customdata[1]:.3f}]<extra></extra>",
@@ -185,10 +186,10 @@ function ErrorMapPlot({ results, t }) {
 
   const sdTrace = {
     type: "bar", orientation: "h",
-    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)} ${e.unit})`),
+    y: sorted.map(e => `${e.label}  (SD=${fmtNum(e.sd, 2)} ${e.unit})`),
     x: sorted.map(e => e.sd),
     marker: { color: t.acc, opacity: 0.7 },
-    text: sorted.map(e => e.sd.toFixed(2)),
+    text: sorted.map(e => fmtNum(e.sd, 2)),
     textposition: "outside",
     textfont: { size: 9, color: t.tx3, family: FONT_STACK },
     showlegend: false,
@@ -196,7 +197,7 @@ function ErrorMapPlot({ results, t }) {
   };
   const meanTrace = {
     type: "scatter", mode: "markers",
-    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)} ${e.unit})`),
+    y: sorted.map(e => `${e.label}  (SD=${fmtNum(e.sd, 2)} ${e.unit})`),
     x: sorted.map(e => e.mean),
     marker: { color: t.warn, size: 8, symbol: "diamond", line: { width: 1, color: t.bg } },
     showlegend: true, name: "Mean Error",
@@ -204,7 +205,7 @@ function ErrorMapPlot({ results, t }) {
   };
   const maxTrace = {
     type: "scatter", mode: "markers",
-    y: sorted.map(e => `${e.label}  (SD=${e.sd.toFixed(2)} ${e.unit})`),
+    y: sorted.map(e => `${e.label}  (SD=${fmtNum(e.sd, 2)} ${e.unit})`),
     x: sorted.map(e => e.max),
     marker: { color: t.err, size: 6, symbol: "circle", line: { width: 1, color: t.bg } },
     showlegend: true, name: "Max Error",
@@ -365,7 +366,7 @@ function DistributionsChart({ combined, labels, t }) {
             annotations: [
               {
                 x: 0.02, y: 0.92, xref: "paper", yref: "paper",
-                text: `<b>${label}</b>  n=${s.n}  μ=${s.mean.toFixed(1)}${combined[label]?.unit || ""}`,
+                text: `<b>${label}</b>  n=${s.n}  μ=${fmtNum(s.mean, 1)}${combined[label]?.unit || ""}`,
                 showarrow: false, xanchor: "left", yanchor: "top",
                 font: { size: 10, color },
               },
@@ -487,10 +488,10 @@ function ZScoresProfileChart({ results, t }) {
 
   const trace = {
     type: "bar", orientation: "h",
-    y: sorted.map(d => `${d.label}  (z=${d.z >= 0 ? "+" : ""}${d.z.toFixed(2)})`),
+    y: sorted.map(d => `${d.label}  (z=${d.z >= 0 ? "+" : ""}${fmtNum(d.z, 2)})`),
     x: sorted.map(d => d.z),
     marker: { color: colors, opacity: 0.75 },
-    text: sorted.map(d => (d.z >= 0 ? "+" : "") + d.z.toFixed(2)),
+    text: sorted.map(d => (d.z >= 0 ? "+" : "") + fmtNum(d.z, 2)),
     textposition: "outside",
     textfont: { size: 9, color: t.tx3, family: FONT_STACK },
     hovertemplate: "%{y}: z=%{x:.2f}<extra></extra>",
@@ -1210,8 +1211,8 @@ function CorrelationMatrixPlot({ results, t }) {
       const d = matrix[vars[i]]?.[vars[j]];
       if (!d) continue;
       z[i][j] = d.r;
-      displayTxt[i][j] = d.r.toFixed(2);
-      hoverTxt[i][j] = `r=${d.r.toFixed(3)}${d.sigAdj ? "*" : " (ns)"}`;
+      displayTxt[i][j] = fmtNum(d.r, 2);
+      hoverTxt[i][j] = `r=${fmtNum(d.r, 3)}${d.sigAdj ? "*" : " (ns)"}`;
     }
   }
   const data = heatmapData(z, vars, vars, displayTxt, {
@@ -1251,7 +1252,7 @@ function ScatterPairPlot({ results, t }) {
   }));
 
   const hoverTexts = validIdx.map(idx =>
-    selected.map(v => `${v}=${rawPairs[v][idx].toFixed(2)}`).join(", ")
+    selected.map(v => `${v}=${fmtNum(rawPairs[v][idx], 2)}`).join(", ")
   );
 
   const annotations = [];
@@ -1275,7 +1276,7 @@ function ScatterPairPlot({ results, t }) {
           x: 0.5, y: 0.5,
           xref: `x${j + 1} domain`,
           yref: `y${i + 1} domain`,
-          text: `r=${r.r.toFixed(2)}${r.sigAdj ? "*" : ""}`,
+          text: `r=${fmtNum(r.r, 2)}${r.sigAdj ? "*" : ""}`,
           showarrow: false,
           font: { size: 10, color: t.bg },
           bgcolor: t.tx,
@@ -1359,7 +1360,7 @@ function ResidualDiagnosticPlot({ results, t }) {
 
   return (
     <ChartCard title="Residual Diagnostics" t={t}>
-      <div style={{ fontSize: FONT.sm, color: t.tx2, marginBottom: 4 }}>n = {n}  |  Mean residual: {residuals.reduce((a, b) => a + b, 0) / n.toFixed(3)}</div>
+      <div style={{ fontSize: FONT.sm, color: t.tx2, marginBottom: 4 }}>n = {n}  |  Mean residual: {fmtNum(residuals.reduce((a, b) => a + b, 0) / n, 3)}</div>
       <PlotlyChart data={[resTrace]} layout={resLayout} style={{ height: 280 }} />
       {cookArr.length > 0 && (
         <div style={{ marginTop: 12 }}>
@@ -1406,7 +1407,7 @@ function ROCCurvePlot({ results, t }) {
     yaxis: { title: "Sensitivity (TPR)", range: [0, 1], gridcolor: t.surf3, zeroline: false, dtick: 0.25 },
     width: 400, height: 400,
   };
-  return <ChartCard title={`ROC Curve — AUC = ${auc.toFixed(3)}`} t={t}><PlotlyChart data={traces} layout={layout} style={{ width: 400, height: 400 }} /></ChartCard>;
+  return <ChartCard title={`ROC Curve — AUC = ${fmtNum(auc, 3)}`} t={t}><PlotlyChart data={traces} layout={layout} style={{ width: 400, height: 400 }} /></ChartCard>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1488,7 +1489,7 @@ function DiagnosticAUCComparison({ results, t }) {
       arrayminus: diffs.map((v, i) => v - ciLower[i]),
       color: sigColors,
     },
-    text: diffs.map((v, i) => `${v.toFixed(3)} ${comparisons[i].significant ? "*" : ""}`),
+    text: diffs.map((v, i) => `${fmtNum(v, 3)} ${comparisons[i].significant ? "*" : ""}`),
     textposition: "right",
     textfont: { size: 10, color: t.tx2, family: FONT_STACK },
     hovertemplate: "%{y}: %{x:.4f} [%{customdata[0]:.4f}, %{customdata[1]:.4f}]<extra></extra>",
@@ -1614,7 +1615,7 @@ function DisplacementBarPlot({ displacements, t }) {
     y: sorted.map(d => d.label),
     x: sorted.map(d => d.lenMm),
     marker: { color: colors, line: { width: 0 } },
-    text: sorted.map(d => d.lenMm.toFixed(2) + " " + d.unit),
+    text: sorted.map(d => fmtNum(d.lenMm, 2) + " " + d.unit),
     textposition: "outside",
     textfont: { size: 10, color: t.tx2, family: FONT_STACK },
     customdata: sorted.map(d => d.unit || ""),
@@ -1666,7 +1667,7 @@ function DisplacementPolarPlot({ displacements, t }) {
         const wrap = Math.min(diff, 360 - diff);
         return wrap < best.diff ? { ...dir, diff } : best;
       }, { diff: Infinity });
-      return `${d.lenMm.toFixed(2)} ${d.unit} (${closest.label})`;
+      return `${fmtNum(d.lenMm, 2)} ${d.unit} (${closest.label})`;
     }),
     textposition: "outside",
     textfont: { size: 10, color: t.tx2, family: FONT_STACK },
@@ -1717,7 +1718,7 @@ function DisplacementVectorField({ displacements, t }) {
     x: pts.map(d => d.baseX),
     y: pts.map(d => d.baseY),
     marker: { color: pts.map(d => d.lenMm < 2 ? "#22c55e" : d.lenMm < 5 ? "#eab308" : "#ef4444"), size: 7, symbol: "circle", line: { width: 1, color: t.bg } },
-    text: pts.map(d => `${d.label}: ${d.lenMm.toFixed(2)} mm`),
+    text: pts.map(d => `${d.label}: ${fmtNum(d.lenMm, 2)} mm`),
     hovertemplate: "%{text}<extra></extra>",
     showlegend: false,
   });
@@ -1959,11 +1960,11 @@ export function AirwayCharts({ results, t }) {
         return "#ef4444";
       }),
     },
-    text: measurements.map(m => m.value != null ? m.value.toFixed(2) + " " + (m.unit || "") : "—"),
+    text: measurements.map(m => m.value != null ? fmtNum(m.value, 2) + " " + (m.unit || "") : "—"),
     textposition: "outside",
     textfont: { size: 10, color: t.tx2, family: FONT_STACK },
     hovertemplate: "%{y}: %{x:.2f} %{customdata}<extra></extra>",
-    customdata: measurements.map(m => (m.normMean != null ? `norm ${m.normMean.toFixed(1)} ± ${(m.normSD != null ? m.normSD.toFixed(1) : "—")}` : "")),
+    customdata: measurements.map(m => (m.normMean != null ? `norm ${fmtNum(m.normMean, 1)} ± ${(m.normSD != null ? fmtNum(m.normSD, 1) : "—")}` : "")),
     showlegend: false,
   };
 
@@ -2010,7 +2011,7 @@ export function AirwayCharts({ results, t }) {
                 <div style={{ fontSize: 10, color: t.tx2, marginTop: 2 }}>{m.clinicalNote}</div>
                 {m.value != null && (
                   <div style={{ fontSize: 9, color: t.tx3, marginTop: 2, fontFamily: "'DM Mono',monospace" }}>
-                    Value: {m.value.toFixed(2)} {m.unit}  |  Z-score: {(m.zScore >= 0 ? "+" : "") + m.zScore.toFixed(2)}
+                    Value: {fmtNum(m.value, 2)} {m.unit}  |  Z-score: {(m.zScore >= 0 ? "+" : "") + fmtNum(m.zScore, 2)}
                   </div>
                 )}
               </div>

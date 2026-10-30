@@ -140,7 +140,7 @@ function PatientsSection({t,projects,onOpen,onNewCase}){
   );
 }
 
-export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onImport,storageEncrypted,onClearLocalData}){
+export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onImport,storageEncrypted,onClearLocalData,onBackup,onDrive,profileMenu}){
   const[hov,setHov]=useState(null);
   const isMobile=useMediaQuery("(max-width: 640px)");
   // flow: null | {proj, phase:"form", initial?} | {proj, phase:"wizard", caseData:{name,meta}}
@@ -177,8 +177,9 @@ export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onIm
             </button>
           ))}
           <div style={{width:1,height:20,background:t.bdr,margin:"0 4px"}}/>
+          {profileMenu}
           <input ref={fileRef} type="file" accept=".cephx" style={{display:"none"}} onChange={e=>{if(e.target.files[0])onImport(e.target.files[0]);e.target.value="";}}/>
-          <Btn t={t} small onClick={()=>fileRef.current?.click()}>↑ Import .cephx</Btn>
+          <Btn t={t} small onClick={()=>fileRef.current?.click()} title="Open a case (.cephx) or restore a backup">↑ Import .cephx</Btn>
         </div>
       </header>
 
@@ -268,9 +269,21 @@ export default function HomePage({t,theme,setTheme,projects,onOpen,onCreate,onIm
           {/* PHI storage notice + clear-all-local-data (P1) */}
           {(!isMobile||!storageEncrypted)&&<p style={{fontSize:11,color:storageEncrypted?t.tx3:t.warn,lineHeight:1.6,margin:"12px 0 0"}}>
             {storageEncrypted
-              ? "Patient identifiers in your projects are stored locally in this browser and encrypted at rest. They are not uploaded. Use a private device, anonymize before sharing, and clear local data when done."
+              ? "Your cases, images and patient identifiers are stored only in this browser, encrypted at rest. They are not uploaded. Use a private device, anonymize before sharing, keep a backup, and clear local data when done."
               : "⚠ This browser does not support secure storage (requires HTTPS + a modern browser). Patient identifiers in your projects are stored UNENCRYPTED locally. Do not enter real PHI on a shared device."}
           </p>}
+          {onBackup && projects.length>0 && (
+            <button onClick={onBackup}
+              style={{marginTop:12,marginRight:8,padding:"6px 14px",borderRadius:6,border:`1px solid ${t.bdr}`,background:"transparent",color:t.tx2,fontSize:11,fontWeight:600,cursor:"pointer"}}>
+              Back up all cases
+            </button>
+          )}
+          {onDrive && (
+            <button onClick={onDrive}
+              style={{marginTop:12,marginRight:8,padding:"6px 14px",borderRadius:6,border:`1px solid ${t.bdr}`,background:"transparent",color:t.tx2,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              Google Drive backup
+            </button>
+          )}
           {onClearLocalData && (
             <button onClick={onClearLocalData}
               style={{marginTop:12,padding:"6px 14px",borderRadius:6,border:`1px solid ${t.bdr}`,background:"transparent",color:t.tx2,fontSize:11,fontWeight:600,cursor:"pointer"}}>

@@ -29,6 +29,7 @@ import { ALL_SESSION_TYPES } from "./dataPreview.js";
 import { saveStudyDefaults, copySettings } from "./studyDefaults.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { Icon } from "../ui/icons.jsx";
+import { fmtNum } from "../lib/utils.js";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -218,7 +219,7 @@ function RunPanel({ t, study, status, running, now, onRun, onCancel, blinding })
         </div>
       ) : running ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 13, color: t.tx }} role="status">Running… {running.label ? `${running.label} · ` : ""}{Math.round(p * 100)}% · {elapsed.toFixed(1)} s{eta != null ? ` · about ${Math.ceil(eta)} s left` : ""}</div>
+          <div style={{ fontSize: 13, color: t.tx }} role="status">Running… {running.label ? `${running.label} · ` : ""}{Math.round(p * 100)}% · {fmtNum(elapsed, 1)} s{eta != null ? ` · about ${Math.ceil(eta)} s left` : ""}</div>
           <div style={{ height: 8, borderRadius: 4, background: t.surf3, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.round(p * 100)}%`, background: t.acc, transition: "width 0.15s" }} />
           </div>

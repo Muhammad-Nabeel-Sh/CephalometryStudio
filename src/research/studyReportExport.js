@@ -10,13 +10,14 @@ import { summarizeStudy, methodsText, resultsText, referencesFor, stripTags } fr
 import { buildResultsTables } from "./resultsExport.js";
 import { collectStudyWarnings } from "./studyWarnings.js";
 import { STUDY_TYPES } from "./studyModel.js";
+import { fmtNum } from "../lib/utils.js";
 
 export const fmtCell = v => {
   if (v == null || v === "") return "";
   if (typeof v === "number") {
     if (!isFinite(v)) return "";
     if (Math.abs(v) > 0 && Math.abs(v) < 0.001) return v.toExponential(2);
-    return Number.isInteger(v) ? String(v) : v.toFixed(3);
+    return Number.isInteger(v) ? String(v) : fmtNum(v, 3);
   }
   return String(v);
 };

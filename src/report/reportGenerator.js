@@ -518,8 +518,16 @@ export function calibrationStatement(calibration, projection) {
     return "Not calibrated: distances and areas are in image pixels and are not compared with norms (norms are in mm). Angles and ratios are unaffected.";
   }
   const ppm = Number(calibration.pxPerMm);
-  const how = calibration.knownMm ? `from a ruler of ${calibration.knownMm} mm on the image` : "manually";
-  const mag = projection === "lateral" || projection === "ap" || !projection
+  const ceph = projection === "lateral" || projection === "ap" || !projection;
+  if (calibration.method === "dicom") {
+    const mag = calibration.magnificationCorrected
+      ? " The spacing is in the patient: the device corrected it for radiographic magnification."
+      : ceph ? " The spacing is at the detector, so radiographic magnification (typically 8–15% on cephalograms) is included in these values." : "";
+    return `Calibrated from the DICOM file (${calibration.source}): ${ppm.toFixed(2)} px/mm (${(1 / ppm).toFixed(3)} mm per pixel).${mag}`;
+  }
+  const how = calibration.method === "ticks" ? `from the tick marks of a ruler on the image (${calibration.source})`
+    : calibration.knownMm ? `from a ruler of ${calibration.knownMm} mm on the image` : "manually";
+  const mag = ceph
     ? " Radiographic magnification (typically 8–15% on cephalograms) is included in these values unless the ruler was at the midsagittal plane."
     : "";
   return `Calibrated ${how}: ${ppm.toFixed(2)} px/mm (${(1 / ppm).toFixed(3)} mm per pixel).${mag}`;

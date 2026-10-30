@@ -46,6 +46,11 @@ export function onFormulaEngineReady(fn) {
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+// toFixed for values from study results: statistics that can't be computed
+// (e.g. SD of one value) are NaN, and saved results turn NaN into null — both
+// show "—" instead of crashing.
+export const fmtNum = (v, d = 2) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(d) : "—");
+
 export const onEnter = (fn) => (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(e); } };
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));

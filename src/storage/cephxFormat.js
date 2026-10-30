@@ -222,6 +222,81 @@ export function importCephxPayload(payload) {
   return { ok: true, project, version: CEPHX_VERSION, warnings };
 }
 
+// ─── .cephx export ────────────────────────────────────────────────────────
+// Strip session image data from any objects nested in research study results.
+function sanitizeResults(obj, depth = 0) {
+  if (depth > 20 || !obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map((v) => sanitizeResults(v, depth + 1));
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v && typeof v === "object") {
+      // If it looks like a session object (has image.dataUrl), strip the image data
+      if (v.image?.dataUrl) {
+        out[k] = { ...v, image: { ...v.image, dataUrl: "[stripped]" } };
+      } else if (v.session && typeof v.session === "object" && v.session.image?.dataUrl) {
+        out[k] = { ...v, session: { ...v.session, image: { ...v.session.image, dataUrl: "[stripped]" } } };
+      } else if (k === "sessions" && Array.isArray(v)) {
+        // Array of session objects — strip image data
+        out[k] = v.map((s) => (s?.image?.dataUrl ? { ...s, image: { ...s.image, dataUrl: "[stripped]" } } : s));
+      } else {
+        out[k] = sanitizeResults(v, depth + 1);
+      }
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+// The .cephx payload for one case. Image dataUrls must already be filled in
+// (projectStore.hydrateProjectImages) — the case records keep them out.
+export function buildCephxPayload(project) {
+  let cleaned = { ...project };
+  if (cleaned.images) cleaned.images = undefined;
+  // Normalize session images via the shared import/export helper so the two
+  // paths can't drift (D4). Coerces legacy session.image → session.images[].
+  if (cleaned.sessions) cleaned.sessions = cleaned.sessions.map((s) => normalizeSessionImages(s));
+  if (cleaned.researchStudies) {
+    cleaned.researchStudies = cleaned.researchStudies.map((rs) => ({
+      ...rs,
+      results: rs.results ? sanitizeResults(rs.results) : rs.results,
+    }));
+  }
+  return { format: CEPHX_FORMAT, version: CEPHX_VERSION, exported: Date.now(), project: cleaned };
+}
+
+// ─── Backup of every case (one file) ──────────────────────────────────────
+// { format: "cephx-backup", version: "1.0", exported, cases: [<.cephx payload>, …] }
+// Each entry is exactly a .cephx payload, so restoring runs every case
+// through `importCephxPayload` like a single-case import.
+export const BACKUP_FORMAT = "cephx-backup";
+export const BACKUP_VERSION = "1.0";
+
+export function isBackupPayload(payload) {
+  return !!payload && typeof payload === "object" && payload.format === BACKUP_FORMAT;
+}
+
+// Returns { ok:true, projects[], warnings[], skipped } or { ok:false, error }.
+// A broken entry is skipped (and counted) rather than failing the restore.
+export function parseBackupPayload(payload) {
+  if (!isBackupPayload(payload) || !Array.isArray(payload.cases)) {
+    return { ok: false, error: "Not a valid Cephalometry Studio backup file." };
+  }
+  const projects = [], warnings = [];
+  let skipped = 0;
+  for (const entry of payload.cases) {
+    const res = importCephxPayload(entry);
+    if (!res.ok) { skipped++; warnings.push(`A case was skipped: ${res.error}`); continue; }
+    projects.push(res.project);
+    const name = res.project.name || "untitled";
+    for (const w of res.warnings || []) warnings.push(`${name}: ${w}`);
+  }
+  if (payload.version && payload.version !== BACKUP_VERSION) {
+    warnings.unshift(`Unknown backup version "${payload.version}" — restored best-effort.`);
+  }
+  return { ok: true, projects, warnings, skipped };
+}
+
 // ─── .cepht validation (enhanced for D5) ──────────────────────────────────
 // Returns null if valid, or a human-readable error string. Distinguishes the
 // 1.0 (definitions only) and 2.0 (with coords) variants and validates the

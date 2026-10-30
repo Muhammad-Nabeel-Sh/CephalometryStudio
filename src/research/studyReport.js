@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { ICC_MODELS } from "./reliability.js";
+import { fmtNum } from "../lib/utils.js";
 
 export const stripTags = html => String(html)
   .replace(/<sub>(.*?)<\/sub>/g, "$1").replace(/<[^>]+>/g, "")
@@ -23,13 +24,13 @@ const h = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").repl
 export function apaP(p) {
   if (!fin(p)) return "<i>p</i> = n/a";
   if (p < 0.001) return "<i>p</i> &lt; .001";
-  return `<i>p</i> = ${p.toFixed(3).replace(/^0/, "")}`;
+  return `<i>p</i> = ${fmtNum(p, 3).replace(/^0/, "")}`;
 }
 export const num = (v, d = 2) => (fin(v) ? v.toFixed(d) : "n/a");
 // For statistics bounded in [−1, 1]: no leading zero.
 export const bounded = (v, d = 2) => (fin(v) ? v.toFixed(d).replace(/^(-?)0\./, "$1.") : "n/a");
 const ci = (lo, hi, f = num, unit = "") => (fin(lo) && fin(hi) ? `95% CI [${f(lo)}, ${f(hi)}]${unit ? " " + unit : ""}` : "");
-const dfStr = df => (fin(df) ? (Number.isInteger(df) ? String(df) : df.toFixed(2)) : "?");
+const dfStr = df => (fin(df) ? (Number.isInteger(df) ? String(df) : fmtNum(df, 2)) : "?");
 const u = unit => (unit && unit !== "°" ? ` ${unit}` : unit === "°" ? "°" : "");
 
 const REFS = {
@@ -133,7 +134,7 @@ export function summarizeStudy(study) {
       headline = done.length ? `${changed.length} of ${done.length} measurement${done.length > 1 ? "s" : ""} change significantly over time.` : "No measurement could be analyzed.";
       for (const [l, lr] of done) {
         const parts = [];
-        if (lr.rmAnova) parts.push(`RM-ANOVA F = ${num(lr.rmAnova.F)}, p ${lr.rmAnova.pValue < 0.001 ? "< .001" : "= " + lr.rmAnova.pValue.toFixed(3).replace(/^0/, "")}`);
+        if (lr.rmAnova) parts.push(`RM-ANOVA F = ${num(lr.rmAnova.F)}, p ${lr.rmAnova.pValue < 0.001 ? "< .001" : "= " + fmtNum(lr.rmAnova.pValue, 3).replace(/^0/, "")}`);
         const slope = lr.lmm?.fixedEffects?.[1];
         if (slope) parts.push(`growth ${num(slope.estimate)}${u(lr.unit)} per ${lr.lmm.timeUnit} [${num(slope.ci95[0])}, ${num(slope.ci95[1])}]`);
         const cs = lr.changeScores?.[lr.changeScores.length - 1];
@@ -162,7 +163,7 @@ export function summarizeStudy(study) {
       const sig = pairs.filter(p => (p.sigAdj ?? p.p < alpha));
       headline = pairs.length ? `${sig.length} of ${pairs.length} correlation${pairs.length > 1 ? "s" : ""} significant (${res.method || "pearson"}, n = ${res.n}).` : (res.note || "No correlations computed.");
       for (const p of pairs.sort((x, y) => Math.abs(y.r) - Math.abs(x.r)).slice(0, 12)) {
-        findings.push({ label: `${p.a} × ${p.b}`, flag: (p.sigAdj ?? p.p < alpha) ? "sig" : "ok", text: `r = ${bounded(p.r)}, p ${p.p < 0.001 ? "< .001" : "= " + p.p.toFixed(3).replace(/^0/, "")}.` });
+        findings.push({ label: `${p.a} × ${p.b}`, flag: (p.sigAdj ?? p.p < alpha) ? "sig" : "ok", text: `r = ${bounded(p.r)}, p ${p.p < 0.001 ? "< .001" : "= " + fmtNum(p.p, 3).replace(/^0/, "")}.` });
       }
       if (res.regression?.r2 != null) findings.push({ label: `Regression → ${res.regression.dependentVar}`, flag: res.regression.pF < alpha ? "sig" : "ok", text: `R² = ${bounded(res.regression.r2)}, adjusted R² = ${bounded(res.regression.r2adj)}, F(${res.regression.df1}, ${res.regression.df2}) = ${num(res.regression.F)}.` });
       break;

@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **793 tests (Vitest)**
+- **No TypeScript**, **870 tests (Vitest)**
 
 ---
 
@@ -81,7 +81,18 @@ src/
 │   ├── useKatex.jsx            KaTeX rendering (useKatex, KatexSpan, LatexFloatingPanel; CSS bundled from npm)
 │   ├── useMediaQuery.js        Responsive breakpoint hook
 │   ├── useFormulaEngine.js     Loads mathjs on first use; re-renders when ready
+│   ├── useSourceWindow.js      Window & level on the original 12–16-bit pixels (live preview, saved as a new image id)
+│   ├── useDriveSync.js         Sync status/actions for the active profile (root): sign-in, setup/unlock, auto-sync
 │   └── useDialogA11y.js        Focus/Tab trap/Escape for dialogs (shared stack, used by Modal)
+│
+├── imaging/                    Image import (DICOM, TIFF) and display
+│   ├── readImage.js            readImageFile (every import path): PNG/JPEG as is; DICOM/TIFF → PNG + original pixels
+│   ├── dicom.js                DICOM decode (dicom-parser): transfer syntaxes, stored values, VOI, dicomCalibration
+│   ├── codecs.js               Lazy decoders: CharLS (JPEG-LS), OpenJPEG (JPEG 2000) WASM, JPEG Lossless, browser JPEG
+│   ├── tiff.js                 TIFF decode (UTIF): 16-bit grayscale kept, others → RGBA
+│   ├── voi.js                  Modality/VOI LUT, windows, auto window, 8-bit rendering (pure)
+│   ├── ruler.js                Tick-spacing detection along a drawn line (autocorrelation, sub-pixel)
+│   └── format.js               File sniffing + ImageImportError (keeps decoders out of the main bundle)
 │
 ├── lib/                        Core utilities
 │   ├── utils.js                Geometry, math, formatting, export (dist, angle3pt, buildPDF, etc.)
@@ -114,6 +125,9 @@ src/
 │   ├── NormogramPanel.jsx      Normogram visualization
 │   ├── HomePage.jsx            Home screen: new case, patients (search + timelines)
 │   ├── SettingsModal.jsx       All settings in one dialog
+│   ├── DriveBackupDialog.jsx   Google Drive backup / restore (home page; Settings backup-only)
+│   ├── ProfileMenu.jsx         Home header: profiles (switch/add/rename/remove) + sync status and actions
+│   ├── SyncSetupDialog.jsx     First-device sync setup (optional passphrase) / unlock on a new device
 │   ├── StartupWizard.jsx       First-run wizard
 │   ├── Modal.jsx               Reusable modal
 │   ├── AnonModal.jsx           Anonymization dialog
@@ -189,10 +203,15 @@ src/
 │   └── workspaceStore.js       Compat layer (re-exports stores + useStoreDispatch + useWorkspaceStore)
 │
 ├── storage/                    Data persistence
-│   ├── cephxFormat.js          Import/export validation
-│   ├── imageStore.js           IndexedDB image storage
+│   ├── appDB.js                The app's IndexedDB database (version, migrations, stores: images/projects/meta)
+│   ├── projectStore.js         Cases: encrypted per-case records, localStorage migration, backup, status
+│   ├── driveBackup.js          Google Drive: GIS sign-in (drive.file), Drive REST helpers, backups (.csb encrypted / .cephx)
+│   ├── driveSync.js            Cross-device sync engine (per-case/per-image files, rev + hash, conflicts, tombstones)
+│   ├── profiles.js             Profiles: list/active (localStorage), per-profile DB/key/legacy names, switch (reload)
+│   ├── cephxFormat.js          .cephx import/export (buildCephxPayload) + backup format
+│   ├── imageStore.js           Encrypted image storage (+ one-time encryption of older images)
 │   ├── modelCache.js           ONNX model download + SHA-256 + Cache Storage
-│   └── secureStorage.js        Encrypted local storage
+│   └── secureStorage.js        AES-GCM key (non-extractable) + encrypt/decrypt
 │
 ├── ui/                         Shared UI components
 │   ├── Modal.jsx               Reusable modal
@@ -211,9 +230,9 @@ src/
 │   ├── autoTrace.js            AI auto-trace orchestration + batch insert
 │   ├── aiReview.js             AI review state, review queue, provenance
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
-│   └── images.js               Image loading + drop handling
+│   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (793 tests; realistic fixtures in test/helpers/)
+└── test/                       Vitest test files (870 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -532,6 +551,14 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Offline + fonts (Phase 2, item 17 part 1)**: `vite-plugin-pwa` (config in `vite.config.js`) precaches the app shell (~5 MB: JS, CSS, HTML, icons, woff2); `/ort/` is cached on use (NetworkFirst) and `/fonts/` (PDF fonts) CacheFirst; `public/models`, splash images and the model are not precached (the model has its own cache in `storage/modelCache.js`). `registerType: "prompt"` — `src/pwa.js` shows a Reload toast; dev server has no service worker. Test with `npm run build && npm run preview`. Fonts come from `src/fonts.js`; `vercel.json` CSP has no Google hosts and `sw.js` is served `no-cache`.
 
+- **Profiles + cross-device sync (cloud stage 2)**: `storage/profiles.js` — profiles in localStorage (`cephalo_profiles_v1`), the active one fixed per page; `storageNames(id)` gives each profile its own IDB database (`Cephalometry Studio::<id>`), key id in the shared key DB (`profile_<id>`) and legacy key; the default profile keeps the original names (no migration). Switching = `switchProfile` (root `switchToProfile` saves first) + reload; a fresh Google sign-in is handed over via sessionStorage (`takeTokenHandoff`, read once). `clearSecureStorage` deletes only this profile's keys. Sync: `storage/driveSync.js` `syncCases` (pure, injected `drive`/`images`/`cipher`; per-device state `{cases: {id: {fileId, rev, hash}}}` in META "sync"), `applySyncResult` leaves cases edited during a sync alone; folder "Cephalometry Studio sync" with `sync.json` (optional encryption: random AES-GCM data key wrapped by PBKDF2(passphrase), unlocked once per device and kept as a non-extractable key `sync_<profile>`), `case-<id>` and `image-<key>` files with appProperties (cephCase/rev/deleted, cephImage). Deletions from other devices need `confirmRemovals`; never automatic. `hooks/useDriveSync.js` runs it (load with token, 30 s after changes/periodically while idle). UI: `panels/ProfileMenu.jsx`, `panels/SyncSetupDialog.jsx`. Tests: `src/test/driveSync.test.js` (two simulated devices), `src/test/profiles.test.js`. `Results/` (local AI training outputs) is ignored by git, ESLint and Vitest.
+
+- **Google Drive backup (cloud stage 1)**: `storage/driveBackup.js` + `panels/DriveBackupDialog.jsx`. Client ID from `VITE_GOOGLE_CLIENT_ID` (`.env.local` / Vercel env; `driveConfigured()` hides the UI without it; setup in `docs/GOOGLE_DRIVE_SETUP.md`). Google Identity Services token model, scope `drive.file`, token in memory only (≈1 h; `connect()` must run in a click — the dialog preloads GIS). The `buildBackupBlob` file is encrypted client-side (PBKDF2-SHA-256 600k + AES-GCM, header authenticated; container "CSB1", `encryptBackup`/`decryptBackup`) and uploaded resumably into the "Cephalometry Studio backups" folder; `passphrase-check.csb` detects a changed passphrase. Restore → `parseBackupPayload` → App `restoreBackup` (home page only). Never auto-deletes; "Trash" moves to the Drive trash. Tests: `src/test/driveBackup.test.js` (in-memory fake Drive via `_setTransport`). Study results views format numbers with `fmtNum` (`lib/utils.js`) so NaN/null statistics show "—" (`src/test/studyResultsRender.test.jsx`).
+
+- **DICOM/TIFF import (Phase 2, item 15)**: all import paths (Open image, drop, setup wizard, batch import) go through `imaging/readImage.readImageFile` via `workspace/images.importImageFile`. DICOM (`imaging/dicom.js`, dicom-parser; first frame; native LE/BE, RLE, JPEG baseline/lossless, JPEG-LS, JPEG 2000 — WASM decoders lazy in `imaging/codecs.js`, precached by the service worker) and TIFF (`imaging/tiff.js`, UTIF) are rendered to a PNG `dataUrl`, so canvas/AI/report/export are unchanged. 12–16-bit grayscale keeps its stored values encrypted in the image store under `raw:<id>` (`imageStore.storeRawPixels`/`getRawPixels`; referenced via `entry.raw.key`, kept by GC); `entry.raw` holds bits, range, window and presets, `entry.source` non-PHI device info. `hooks/useSourceWindow.js` previews a new window (drawn via `previewFor` in `getProcessed`) and saves it as a NEW image id (shared ids in other sessions stay unchanged). Calibration from DICOM (`dicomCalibration`): `{ done, pxPerMm, method: "dicom", source, magnificationCorrected }`; ruler tick detection (`imaging/ruler.js`, CalibModal "Detect Ticks") sets `method: "ticks"`; `calibrationStatement` reports both. Patient attributes are never read from DICOM. Tests: `src/test/imaging.test.js` (incl. JPEG-LS/J2K encoded with the codecs' full builds and a real JPEG Lossless file from `jpeg-lossless-decoder-js`). Not done: 12-bit JPEG Extended, deflate, multi-frame beyond the first frame, palette colour, TIFF resolution as calibration.
+
+- **Encrypted IndexedDB storage (Phase 2, item 17 part 2)**: cases live in `storage/projectStore.js` (not App.jsx): one AES-GCM record per case in the `projects` store of `appDB.js` (DB v2; v1 tabs are fenced off by VersionError). Saves write only changed cases and delete only cases this tab loaded and removed, in one transaction; failed loads never delete. `loadProjects` (once per page) migrates the localStorage envelope with read-back verification, keeps it until a later load, and merges newer cases if an older build wrote it again (fingerprint in `meta.projects`). No usable IndexedDB → the localStorage envelope stays the store (never overwritten if unreadable). Images are encrypted records (`imageStore.js`); `runStorageMaintenance` encrypts older blobs once and sweeps orphans only if unreferenced on two reads a minute apart. Backups: `downloadBackup`/`buildBackupBlob` (format `cephx-backup`, entries are .cephx payloads, restored via `parseBackupPayload`); exports fill images through `hydrateProjectImages`. Tests: `src/test/projectStore.test.js` (fake-indexeddb + WebCrypto).
+
 - **Design consistency**: shared controls in `ui/ui.jsx` — `Btn` (with `SMALL_BTN` from `ui/tokens.js` for compact ones), `Chip` (toggle/segmented choices), `TabBar` (underlined tabs), `GuideBtn` ("?"), `RemoveBtn` (×), `FieldLabel`; dialogs use `Modal` or `DialogShell` (`panels/Modal.jsx`, same overlay/panel/header, `BACKDROP`); icons come from `ui/icons.jsx`, not emoji; no inline font size under 12 px in panels/research setup (the readable-text CSS floor is only a fallback).
 
 - **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`. Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. Formulas are drawn as equations via the injected `renderLatex` (`report/latexCapture.js`) from `f.latex` or `formulaTex(expression)` (`lib/utils.js`, mathjs `toTex`, multi-letter names as `\mathrm`). 13 tests in `src/test/reportGaps.test.js`.
@@ -544,7 +571,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 793 tests pass (50 test files, 0 failures)
+- `npm test` — 870 tests pass (57 test files, 0 failures)
 
 
 

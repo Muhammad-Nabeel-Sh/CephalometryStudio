@@ -9,6 +9,7 @@ import { addSession } from "../model/project.js";
 import { ICC_MODELS } from "./reliability.js";
 import { LabelSelector } from "./LabelSelector.jsx";
 import { SMALL_BTN } from "../ui/tokens.js";
+import { fmtNum } from "../lib/utils.js";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -654,9 +655,9 @@ function ICCView({ details, t }) {
             return (
               <tr key={r.label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
                 <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{r.label}</td>
-                <td style={{ padding: "5px 6px", color: intColor, fontWeight: 700 }}>{r.icc != null ? r.icc.toFixed(4) : "—"}</td>
+                <td style={{ padding: "5px 6px", color: intColor, fontWeight: 700 }}>{r.icc != null ? fmtNum(r.icc, 4) : "—"}</td>
                 <td style={{ padding: "5px 6px", color: t.tx2 }}>
-                  {r.ci95?.[0] != null ? `[${r.ci95[0].toFixed(3)}, ${r.ci95[1].toFixed(3)}]` : "—"}
+                  {r.ci95?.[0] != null ? `[${fmtNum(r.ci95[0], 3)}, ${fmtNum(r.ci95[1], 3)}]` : "—"}
                 </td>
                 <td style={{ padding: "5px 6px" }}>
                   <span style={{
@@ -767,9 +768,9 @@ function ErrorMapView({ results, t }) {
               <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{label}</td>
               <td style={{ padding: "5px 6px", color: t.tx3 }}>{lm.unit || "—"}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.n}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.meanError.toFixed(2)} {lm.unit || ""}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.sdError.toFixed(2)} {lm.unit || ""}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.maxError.toFixed(2)} {lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmtNum(lm.meanError, 2)} {lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmtNum(lm.sdError, 2)} {lm.unit || ""}</td>
+              <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmtNum(lm.maxError, 2)} {lm.unit || ""}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.major?.toFixed(2) || "—"} {lm.ellipse?.unit || lm.unit || ""}</td>
               <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.minor?.toFixed(2) || "—"} {lm.ellipse?.unit || lm.unit || ""}</td>
             </tr>
@@ -849,5 +850,5 @@ function iccColor(val) {
 function fmtP(p) {
   if (p == null || !isFinite(p)) return "—";
   if (p < 0.001) return "<0.001";
-  return p.toFixed(3);
+  return fmtNum(p, 3);
 }

@@ -44,6 +44,14 @@ describe("PDF report — measurements", () => {
     expect(s).toMatch(/magnification/);
   });
 
+  it("names DICOM and ruler-tick calibration sources", () => {
+    const detector = calibrationStatement({ done: true, pxPerMm: 10, method: "dicom", source: "Imager Pixel Spacing (detector plane)", magnificationCorrected: false }, "lateral");
+    expect(detector).toMatch(/DICOM file \(Imager Pixel Spacing \(detector plane\)\)/);
+    expect(detector).toMatch(/magnification .* is included/);
+    expect(calibrationStatement({ done: true, pxPerMm: 11, method: "dicom", source: "x", magnificationCorrected: true }, "lateral")).toMatch(/corrected it for radiographic magnification/);
+    expect(calibrationStatement({ done: true, pxPerMm: 7.3, knownMm: "", method: "ticks", source: "46 ticks, 1 mm apart" }, "lateral")).toMatch(/tick marks of a ruler on the image \(46 ticks, 1 mm apart\): 7\.30 px\/mm/);
+  });
+
   it("lists AI provenance and flags unreviewed landmarks", async () => {
     const pts = [
       pointMarkup("S", 10, 10),

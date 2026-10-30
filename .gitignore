@@ -50,3 +50,6 @@ audit_output*.zip
 *.pth
 *.ckpt
 best*.zip
+
+# Local AI training outputs (models, datasets, evaluations)
+Results/

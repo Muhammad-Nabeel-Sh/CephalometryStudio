@@ -7,6 +7,7 @@ import { REGISTRATIONS } from "./superimposition.js";
 import { InfoBox, Chip, TabBar } from "../ui/ui.jsx";
 import { DELTA_NORMS } from "./superimposition.js";
 import { LabelSelector } from "./LabelSelector.jsx";
+import { fmtNum } from "../lib/utils.js";
 
 const TAB_DEFS = [
   { id: "displacement", label: "Displacements" },
@@ -272,17 +273,17 @@ export function SuperimpositionResults({ results, t }) {
                   <td style={{ padding: "3px 6px", fontFamily: "'DM Mono',monospace", color: t.tx }}>{d.label}</td>
                   <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "'DM Mono',monospace" }}>
                     <span style={{ color: d.lenMm < 2 ? t.ok : d.lenMm < 5 ? t.warn : t.err, fontWeight: 600 }}>
-                      {d.lenMm.toFixed(2)} {d.unit}
+                      {fmtNum(d.lenMm, 2)} {d.unit}
                     </span>
                   </td>
                   <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx2 }}>
                     {d.angle?.toFixed(0)}°
                   </td>
                   <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx2 }}>
-                    {d.dxMm != null ? `${d.dxMm > 0 ? "+" : ""}${d.dxMm.toFixed(1)}` : "—"}
+                    {d.dxMm != null ? `${d.dxMm > 0 ? "+" : ""}${fmtNum(d.dxMm, 1)}` : "—"}
                   </td>
                   <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "'DM Mono',monospace", color: t.tx2 }}>
-                    {d.dyMm != null ? `${d.dyMm > 0 ? "+" : ""}${d.dyMm.toFixed(1)}` : "—"}
+                    {d.dyMm != null ? `${d.dyMm > 0 ? "+" : ""}${fmtNum(d.dyMm, 1)}` : "—"}
                   </td>
                   <td style={{ padding: "3px 6px", textAlign: "center" }}>
                     <span style={{

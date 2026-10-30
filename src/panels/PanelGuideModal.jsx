@@ -327,7 +327,7 @@ const GUIDES = {
     sections: [
       {
         heading: "Window & Level",
-        body: 'Adjust the grayscale mapping of the radiograph. "W Center" sets the midpoint of the visible grayscale range; "W Width" sets the range around that center. Narrower widths increase contrast for a specific density range — useful for examining soft tissue vs bone in the same image.',
+        body: 'Adjust the grayscale mapping of the radiograph. "W Center" (Level) sets the midpoint of the visible grayscale range; "W Width" sets the range around that center. Narrower widths increase contrast for a specific density range — useful for examining soft tissue vs bone in the same image. For 12–16-bit DICOM and TIFF images the sliders work on the original data, not the 8-bit copy, so no depth is lost: choose the file\'s own windows (e.g. a soft-tissue preset), Auto (the bulk of the image) or Full range. The chosen window is saved with the session and used by the AI, the report and exports.',
         icon: "sliders",
       },
       {
@@ -342,7 +342,7 @@ const GUIDES = {
       },
       {
         heading: "Scale & Calibration",
-        body: "Shows the current calibration (px/mm) if set. Use the ruler tool (R key) to draw a line of known length on the image, then click Calibrate to set the scale. The on-screen scale bar renders a calibrated ruler directly on the canvas.",
+        body: "Shows the current calibration (px/mm) if set, and where it came from. DICOM images with a pixel spacing are calibrated when opened; the line below says whether radiographic magnification is included. Otherwise use the ruler tool (R key) to draw a line of known length, or along a ruler's tick marks, then open Calibration. The on-screen scale bar renders a calibrated ruler directly on the canvas.",
         icon: "ruler",
       },
       {
@@ -443,13 +443,23 @@ const GUIDES = {
         icon: "ruler",
       },
       {
+        heading: "Detect ticks",
+        body: 'Draw the ruler line along the radiographic ruler\'s tick marks (over at least 8 ticks), choose the tick spacing (usually 1 mm) and press Detect ticks. The app measures the repeat distance of the ticks across the whole line, so it is more precise than placing two end points by hand. A low pattern match means the line missed the ticks or the ruler is faint.',
+        icon: "ruler",
+      },
+      {
+        heading: "DICOM files",
+        body: 'DICOM images are calibrated automatically when they carry a pixel spacing. In order of preference: Pixel Spacing (0028,0030) marked as geometry- or fiducial-calibrated; Imager Pixel Spacing (0018,1164) divided by the Estimated Radiographic Magnification Factor (0018,1114); a Pixel Spacing the device has corrected. These are anatomical size. Without them the detector (or film) spacing is used and the app says that magnification is included. Non-square pixels are not calibrated automatically.',
+        icon: "image",
+      },
+      {
         heading: "Manual method",
-        body: 'Enter px/mm directly from DICOM metadata. Most DICOM files store PixelSpacing (0018,1164) in mm. For example, a value of 0.2 mm/pixel means 5 px/mm (1/0.2). This method is more accurate when DICOM metadata is available because it avoids ruler placement error.',
+        body: 'Enter px/mm directly, e.g. from a device specification. A spacing of 0.2 mm per pixel is 5 px/mm (1 ÷ 0.2).',
         icon: "keyboard",
       },
       {
         heading: "Important notes",
-        body: '• 2D cephalometric radiographs carry ~8–15% inherent magnification — linear measurements calibrated from a 2D image are NOT directly comparable to CBCT-derived measurements.\n• Calibration is session-specific. Loading a new image resets calibration — you must recalibrate.\n• The ruler method is only as accurate as your ruler placement. Use the widest known-distance available.\n• Manual DICOM-based calibration is preferred when available: it eliminates ruler placement error.',
+        body: '• 2D cephalometric radiographs carry ~8–15% inherent magnification — linear measurements calibrated from a 2D image are NOT directly comparable to CBCT-derived measurements.\n• Calibration is session-specific. Loading a new image resets calibration (a DICOM image brings its own).\n• The ruler method is only as accurate as your ruler placement. Use the widest known-distance available, or Detect ticks.\n• A ruler at the midsagittal plane gives anatomical size; detector-plane spacing includes magnification.',
         icon: "warning",
       },
     ],
@@ -539,7 +549,7 @@ const GUIDES = {
       {
         heading: "Workflow",
         items: [
-          "1. Prepare your images (PNG, JPEG, TIFF) and optional CSV sidecar in the same folder",
+          "1. Prepare your images (PNG, JPEG, TIFF or DICOM) and optional CSV sidecar in the same folder; DICOM images are calibrated from their pixel spacing",
           "2. Click Batch Import from the Sessions panel toolbar",
           "3. Select the images first, then optionally select the CSV file",
           "4. Review the merged table — each row shows the image preview and parsed metadata",

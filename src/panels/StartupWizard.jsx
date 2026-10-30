@@ -3,6 +3,8 @@ import { PREDEFINED } from "../data/constants.js";
 import { Btn, Tag, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { notify } from "../ui/dialogs.js";
+import { IMAGE_ACCEPT } from "../imaging/readImage.js";
+import { importImageFile, importErrorMessage } from "../workspace/images.js";
 
 const projectionKeyMap={
   "Submentovertex (SMV)":"smv",
@@ -33,15 +35,20 @@ function StepImage({ t, initialPreview, onImage, onNext }) {
   const [preview, setPreview] = useState(initialPreview || null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
+  const [reading, setReading] = useState(false);
 
+  // PNG/JPEG, DICOM and TIFF (DICOM brings its own calibration).
   const load = useCallback((file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreview(e.target.result);
-      onImage({ file, dataUrl: e.target.result });
-    };
-    reader.readAsDataURL(file);
+    if (!file) return;
+    setReading(true);
+    importImageFile(file)
+      .then(({ entry, read }) => {
+        setPreview(entry.dataUrl);
+        onImage({ file, dataUrl: entry.dataUrl, entry, calibration: read.calibration });
+        if (read.notes.length) notify(read.notes.join(" "), { tone: "info", duration: 12000 });
+      })
+      .catch((e) => notify(importErrorMessage(file, e), { tone: "err" }))
+      .finally(() => setReading(false));
   }, [onImage]);
 
   return (
@@ -65,7 +72,7 @@ function StepImage({ t, initialPreview, onImage, onNext }) {
           transition: "all 0.15s", marginBottom: 16,
         }}
       >
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
+        <input ref={fileRef} type="file" accept={IMAGE_ACCEPT} style={{ display: "none" }}
           onChange={(e) => { if (e.target.files[0]) load(e.target.files[0]); e.target.value = ""; }}
         />
         {preview ? (
@@ -76,8 +83,8 @@ function StepImage({ t, initialPreview, onImage, onNext }) {
         ) : (
           <div style={{ color: t.tx3, fontSize: 14 }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>+</div>
-            <div style={{ fontWeight: 600, color: t.tx2, marginBottom: 4 }}>Click or drop image here</div>
-            <div style={{ fontSize: 11 }}>Supports PNG and JPEG</div>
+            <div style={{ fontWeight: 600, color: t.tx2, marginBottom: 4 }}>{reading ? "Reading the image…" : "Click or drop image here"}</div>
+            <div style={{ fontSize: 12 }}>PNG, JPEG, DICOM and TIFF</div>
           </div>
         )}
       </div>
@@ -96,8 +103,8 @@ function StepImage({ t, initialPreview, onImage, onNext }) {
   );
 }
 
-function StepCalibrate({ t, imageDataUrl, onCalibrate }) {
-  const [mode, setMode] = useState("ruler");
+function StepCalibrate({ t, imageDataUrl, dicomCalibration, onCalibrate }) {
+  const [mode, setMode] = useState(dicomCalibration ? "dicom" : "ruler");
   const [rulerStart, setRulerStart] = useState(null);
   const [rulerEnd, setRulerEnd] = useState(null);
   const [knownMm, setKnownMm] = useState("10");
@@ -128,7 +135,7 @@ function StepCalibrate({ t, imageDataUrl, onCalibrate }) {
       ) / parseFloat(knownMm)
     : null;
 
-  const finalPpm = mode === "ruler" ? pxPerMm : (manualPpm ? parseFloat(manualPpm) : null);
+  const finalPpm = mode === "dicom" ? dicomCalibration?.pxPerMm : mode === "ruler" ? pxPerMm : (manualPpm ? parseFloat(manualPpm) : null);
   const calibrated = finalPpm && isFinite(finalPpm) && finalPpm > 0;
 
   return (
@@ -190,14 +197,22 @@ function StepCalibrate({ t, imageDataUrl, onCalibrate }) {
       )}
 
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-        {["ruler", "manual"].map((m) => (
+        {[...(dicomCalibration ? ["dicom"] : []), "ruler", "manual"].map((m) => (
           <Btn key={m} t={t} small active={mode === m} onClick={() => { setMode(m); setRulerStart(null); setRulerEnd(null); }} style={{ flex: 1 }}>
-            {m === "ruler" ? "From Ruler" : "Manual px/mm"}
+            {m === "dicom" ? "From DICOM" : m === "ruler" ? "From Ruler" : "Manual px/mm"}
           </Btn>
         ))}
       </div>
 
-      {mode === "ruler" ? (
+      {mode === "dicom" ? (
+        <div style={{ fontSize: 13, color: t.tx2, lineHeight: 1.5 }}>
+          <div style={{ color: t.ok, fontFamily: "'DM Mono',monospace" }}>{dicomCalibration.pxPerMm.toFixed(3)} px/mm</div>
+          <div>From the file's {dicomCalibration.source}.</div>
+          {!dicomCalibration.magnificationCorrected && (
+            <div style={{ color: t.warn, marginTop: 4 }}>Measured at the detector: radiographic magnification (about 8–15%) is included in distances.</div>
+          )}
+        </div>
+      ) : mode === "ruler" ? (
         <div>
           {!rulerStart ? (
             <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", marginBottom: 12 }}>
@@ -242,7 +257,9 @@ function StepCalibrate({ t, imageDataUrl, onCalibrate }) {
           Skip Calibration
         </Btn>
         <Btn t={t} onClick={() => {
-          if (mode === "ruler") {
+          if (mode === "dicom") {
+            onCalibrate(dicomCalibration);
+          } else if (mode === "ruler") {
             onCalibrate({ pxPerMm: finalPpm, knownMm: parseFloat(knownMm) });
           } else {
             onCalibrate({ pxPerMm: finalPpm, knownMm: "" });
@@ -399,6 +416,7 @@ function StepTemplate({ t, projection, onPick }) {
 }
 
 function buildImgEntry(imageData) {
+  if (imageData?.entry) return imageData.entry;
   return imageData ? {
     id: Math.random().toString(36).slice(2, 10),
     name: imageData.file.name,
@@ -410,7 +428,9 @@ function buildImgEntry(imageData) {
 }
 
 function buildCalib(result) {
-  return result ? { done: true, pxPerMm: result.pxPerMm, knownMm: result.knownMm } : { done: false, pxPerMm: 1, knownMm: "" };
+  if (!result) return { done: false, pxPerMm: 1, knownMm: "" };
+  const { method, source, magnificationCorrected } = result;
+  return { done: true, pxPerMm: result.pxPerMm, knownMm: result.knownMm, ...(method ? { method, source, magnificationCorrected } : {}) };
 }
 
 function buildResult(name, imageData, calib, type, analysis, templateData, imageName) {
@@ -480,14 +500,14 @@ export default function StartupWizard({ t, projection, onComplete, onCancel }) {
           {step === 0 && <StepPickProjection t={t} onPick={handlePickProjection}/>}
           {step === 1 && <StepImage t={t} initialPreview={imageData?.dataUrl} onImage={handleImage} onNext={() => imageData && setStep(2)}/>}
           {step === 2 && imageData && (
-            <StepCalibrate t={t} imageDataUrl={imageData.dataUrl} onCalibrate={handleCalibrate}/>
+            <StepCalibrate t={t} imageDataUrl={imageData.dataUrl} dicomCalibration={imageData.calibration} onCalibrate={handleCalibrate}/>
           )}
         </>
       ) : (
         <>
           {step === 0 && <StepImage t={t} initialPreview={imageData?.dataUrl} onImage={handleImage} onNext={() => imageData && setStep(1)}/>}
           {step === 1 && imageData && (
-            <StepCalibrate t={t} imageDataUrl={imageData.dataUrl} onCalibrate={handleCalibrate}/>
+            <StepCalibrate t={t} imageDataUrl={imageData.dataUrl} dicomCalibration={imageData.calibration} onCalibrate={handleCalibrate}/>
           )}
           {step === 2 && <StepTemplate t={t} projection={projection} onPick={handlePick}/>}
         </>

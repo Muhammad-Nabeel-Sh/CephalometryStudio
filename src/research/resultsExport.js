@@ -1,3 +1,4 @@
+import { fmtNum } from "../lib/utils.js";
 // ─── Results tables + CSV / clipboard export for all study types ──────────────
 // buildResultsTables(study) → [{ title, header, rows }] is the single source for
 // every export (CSV, copy-to-clipboard, PDF/Word report). Values are raw
@@ -37,7 +38,7 @@ function reliabilityTables(res) {
   const rows = details.map(d => [
     d.label, d.unit || "", d.icc, d.ci95?.[0], d.ci95?.[1],
     d.F, d.df1, d.df2, d.pValue,
-    d.meanDiff, d.sdDiff, d.cv != null ? d.cv.toFixed(2) : "",
+    d.meanDiff, d.sdDiff, d.cv != null ? fmtNum(d.cv, 2) : "",
     d.dahlberg, d.sem, d.mdc, d.n,
   ]);
   return [{ title: "Reliability", header: ["Label", "Unit", "ICC", "CI_Lower", "CI_Upper", "F", "df1", "df2", "p_Value", "Mean_Diff", "SD_Diff", "CV%", "Dahlberg", "SEM", "MDC", "n"], rows }];
