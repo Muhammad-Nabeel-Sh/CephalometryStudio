@@ -574,3 +574,22 @@ validation split from Aariz `valid` + ISBI `test`, which are also the reported
 evaluation sets, so checkpoint selection sees the test data (E1 had the same
 design). Select on a slice of ISBI `train` + Aariz `valid`, report on ISBI `test`
 and Aariz `test`.
+
+### Step 25 — `kaggle-multidomain29.ipynb` hardened before the E2 run
+
+- **Held-out evaluation:** `valid` = Aariz `valid` + 40 ISBI `train` images (seeded);
+  reported on Aariz `test` (29) and ISBI `test` (19 shared). The cell asserts no image
+  is both trained/selected on and reported.
+- **INT8 calibration from both domains:** 16 Aariz + 16 ISBI (sorted order alone
+  picked only `aariz_*` files).
+- **One comparison table** (`audit/comparison.csv`): md29 INT8 and FP32, md19 (E1,
+  current app) and the original cepha29, all fetched from Hugging Face (SHA-256
+  checked) and scored on the same held-out sets — ISBI, Aariz shared-19, Aariz extra-10.
+- **`best_md29.pt` saved** in `deliverables_md29/` (base for later fine-tunes, e.g.
+  more landmarks).
+- **CephaloHRNet pinned** to `a852d46` (the mask patch applies cleanly there).
+- Pog' stays supervised on ISBI (decision: no masking).
+
+Validated locally: all code cells parse; cells 4/7/12 run on a synthetic Aariz/ISBI
+tree (splits 110/40 ISBI, no overlap, 6+16 calibration, table builds); the pinned
+fetch + mask patch apply cleanly.
