@@ -3,9 +3,6 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { configDefaults } from "vitest/config";
 
-// Same-origin requests under a path prefix (for runtime caching rules).
-const under = prefix => ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith(prefix);
-
 export default defineConfig({
   plugins: [
     react(),
@@ -25,11 +22,13 @@ export default defineConfig({
         navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/contribute\.html/, /^\/models\//, /^\/ort\//, /^\/fonts\//],
         cleanupOutdatedCaches: true,
+        // Matchers are copied into sw.js as source text, so they must be
+        // self-contained: no closures over variables from this file.
         runtimeCaching: [
           // Runtime JS + wasm (~11 MB): fresh when online, cached copy offline.
-          { urlPattern: under("/ort/"), handler: "NetworkFirst", options: { cacheName: "ort-runtime", expiration: { maxEntries: 8 } } },
+          { urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/ort/"), handler: "NetworkFirst", options: { cacheName: "ort-runtime", expiration: { maxEntries: 8 } } },
           // Amiri / Noto Sans for the PDF report.
-          { urlPattern: under("/fonts/"), handler: "CacheFirst", options: { cacheName: "report-fonts", expiration: { maxEntries: 8 } } },
+          { urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/fonts/"), handler: "CacheFirst", options: { cacheName: "report-fonts", expiration: { maxEntries: 8 } } },
         ],
       },
     }),
