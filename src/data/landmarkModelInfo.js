@@ -75,13 +75,13 @@ export const CEPHA29_MODEL = {
 //
 // It cannot output the 10 Aariz-only landmarks (Co, LIA, LMT, LPM, N`, Pn, R,
 // UIA, UMT, UPM); analyses that need them queue those points for manual placement.
-// Local file: public/models/landmarks-md19.int8.onnx (gitignored). For deployment,
-// host it and update `url`.
+// Hosted on Hugging Face (same repo as CEPHA29); the local copy in public/models/
+// is gitignored and never deployed.
 export const CEPHA19_MODEL = {
   ...SHARED,
   version: "md19-hrnet-w32-v1",
   landmarkSet: "cepha19",
-  url: "/models/landmarks-md19.int8.onnx",
+  url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-md19.int8.onnx",
   sha256: "aabfddcebdb0aad0f14bc99bba7498fd2a7f9a57135d86180820c91c57ed7315",
 };
 

@@ -559,3 +559,18 @@ a masked channel does not change the loss.
 
 Next: run `kaggle-multidomain29.ipynb` on Kaggle and compare with E1 (ISBI SDR@2
 64.7%) and the 29-model baseline (50.6%).
+
+### Step 24 — `cepha19` weights hosted on Hugging Face
+
+The active model's `url` pointed at the gitignored local file, so deployed builds
+fell back to the demo detector. `landmarks-md19.int8.onnx` is now in
+`MuhammadNabeelSh/cephalometry-landmarks` and `CEPHA19_MODEL.url` points there
+(SHA-256 unchanged, `aabfddce…7315`; CORS `*`; redirect host `us.aws.cdn.hf.co`
+is covered by the `*.hf.co` CSP entry). Verified in the dev app: download →
+ONNX session (backend `onnx`, not mock) → 19 landmarks.
+
+**Evaluation caveat for E2 (masked 29):** `kaggle-multidomain29.ipynb` builds the
+validation split from Aariz `valid` + ISBI `test`, which are also the reported
+evaluation sets, so checkpoint selection sees the test data (E1 had the same
+design). Select on a slice of ISBI `train` + Aariz `valid`, report on ISBI `test`
+and Aariz `test`.
