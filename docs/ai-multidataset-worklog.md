@@ -593,3 +593,11 @@ and Aariz `test`.
 Validated locally: all code cells parse; cells 4/7/12 run on a synthetic Aariz/ISBI
 tree (splits 110/40 ISBI, no overlap, 6+16 calibration, table builds); the pinned
 fetch + mask patch apply cleanly.
+
+### Step 26 — Deliverables uploaded to a private Hugging Face repo
+
+`kaggle-multidomain29.ipynb` gained an optional last code cell: with the Kaggle secret
+`HF_TOKEN` (write token), it uploads `deliverables_md29/` to the private repo
+`MuhammadNabeelSh/cephalometry-training` under `md29/<UTC date-time>/`. Without the
+secret it prints a note; an upload error is printed and never fails the run. Use with
+a committed version (Save & Run All) so nothing depends on keeping the editor open.
