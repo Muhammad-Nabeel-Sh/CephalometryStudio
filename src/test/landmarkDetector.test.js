@@ -122,8 +122,9 @@ describe("shouldRefine", () => {
 // refinement ships disabled. The residual is still computed for quality/hypothesis
 // ranking; the band gate remains available as a config option.
 describe("production refine policy", () => {
-  it("ships the multi-domain 19-landmark model by default", () => {
-    expect(LANDMARK_MODEL.landmarkSet).toBe("cepha19");
+  it("ships the masked multi-domain 29-landmark model by default", () => {
+    expect(LANDMARK_MODEL.landmarkSet).toBe("cepha29");
+    expect(LANDMARK_MODEL.version).toBe("md29-hrnet-w32-v1");
   });
 
   it("ships with shape refinement disabled (raw predictions)", () => {

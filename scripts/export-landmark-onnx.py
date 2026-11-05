@@ -127,9 +127,9 @@ def quantize_web(fp32_path, out_path, calib_dir, size, channels):
                     per_channel=True, weight_type=QuantType.QInt8, activation_type=QuantType.QUInt8)
 
     # Sanity check: a broken quantization yields near-constant heatmaps whose peaks
-    # sit on the image border (observed on Kaggle with ORT 1.23). Compare the INT8
-    # peak of every channel with the FP32 peak on one calibration image; refuse to
-    # emit a model that does not track it.
+    # sit on the image border (observed on Kaggle, cause not established). Compare the
+    # INT8 peak of every channel with the FP32 peak on one calibration image; refuse
+    # to emit a model that does not track it, or that could not be checked.
     try:
         x = tensor_of(files[0])
         s32 = ort.InferenceSession(fp32_path, providers=["CPUExecutionProvider"])
@@ -142,12 +142,14 @@ def quantize_web(fp32_path, out_path, calib_dir, size, channels):
         d = np.sqrt(((p32 % w - p8 % w) ** 2 + (p32 // w - p8 // w) ** 2).astype(np.float64))
         match = float((d <= 8).mean())
         print(f"INT8 sanity: peak match {match * 100:.1f}% within 8 px (std {float(o8.std()):.6f})")
-        if float(o8.std()) < 1e-5 or match < 0.5:
+        if float(o8.std()) < 1e-5 or match < 0.9:
             os.remove(out_path)
             print(f"ERROR: quantized model is degenerate; removed {out_path}")
             return False
     except Exception as e:
-        print("INT8 sanity check skipped:", e)
+        os.remove(out_path)
+        print(f"ERROR: INT8 sanity check failed ({e}); removed {out_path}")
+        return False
     return True
 
 

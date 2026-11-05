@@ -613,7 +613,8 @@ The masked 29 run (`md29/20261103-2152`) produced a correct **FP32** model but a
   `orientation_mirrored_frac` 0.26, `polarity_inverted_frac` 0.48 (garbage heatmaps
   make the hypothesis ranking random).
 - E1 (`md19_int8`, current app): ISBI 2.05 / 1.34 / 64.74%; Aariz shared-19 0.96.
-- Original (`cepha29_int8`): ISBI 3.93 / 1.91 / 52.11%; Aariz 2.51.
+- Original (`cepha29_int8`): ISBI 3.93 / 1.91 / 52.11%; Aariz shared-19 3.01,
+  extra-10 1.54, all 2.51.
 
 Direct ONNX comparison on a sample confirmed it: FP32 peaks cluster on the face
 (e.g. ch00 1.009 at 129,94); Kaggle INT8 peaks sit on the border (ch00 0.945 at 58,1;
@@ -641,3 +642,30 @@ shipped prior (n=700), so nothing changes there.
 but **not active**: the file is not in `MuhammadNabeelSh/cephalometry-landmarks`
 yet (404). Until it is uploaded, AI Trace would fall back to the demo detector.
 After uploading, set `LANDMARK_MODEL = MD29_MODEL`.
+
+### Step 28 — md29 goes live
+
+Independent check of Step 27 before switching:
+
+- **Fixed INT8 vs FP32** on 24 held-out images (12 Aariz, 12 ISBI), all 29 channels:
+  mean peak difference ~0.5 heatmap px, max 3.0. The Kaggle INT8 was 131-166 px off.
+- **Against md19** (FP32, same 50 ISBI images): +0.09 mm per image (95% CI 0.04-0.14,
+  worse on 36/50), so "match or beat" is narrowly missed on MRE; SDR@2 for the fixed
+  INT8 is tied at 64.74%. Aariz shared-19 is tied (0.97 vs 0.96).
+- **Against the original** on the extra 10: 1.33 vs 1.54 mm, better on all 10.
+- **Decision:** switch. Ten more landmarks need no manual placement, at a very small
+  accuracy cost.
+
+Corrections to Step 27: Aariz `valid` also chose the checkpoint, so it is not a
+held-out score, and the fixed INT8 has not been scored on Aariz `test`. An identical
+op set is not a health signal (the broken model has the same counts).
+
+Still open:
+
+- **Why the Kaggle quantization broke.** Its activation scales are ~70x too wide
+  (median 0.80 vs 0.012). Not established; mixed-domain calibration and the unpinned
+  `onnxruntime` are both suspects. The export check now requires 90% peak agreement
+  and fails if it cannot run.
+- **ISBI Pog' and B** are worse than the original model (8.06 vs 3.76, 5.19 vs 2.73
+  mm), as they were in md19. Pog' has mean ≈ median, which suggests a consistent
+  offset, possibly an annotation difference between datasets. Not confirmed.

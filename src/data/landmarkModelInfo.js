@@ -3,10 +3,9 @@
 //
 // Three models ship:
 //   CEPHA19_MODEL — multi-domain HRNet-W32 (Aariz + ISBI 2015), 19 shared landmarks.
-//                   ACTIVE by default: measured better cross-domain and in-domain.
 //   CEPHA29_MODEL — original Aariz-only 29-landmark HRNet-W32 (HF-hosted).
 //   MD29_MODEL    — masked multi-domain 29-landmark retrain (all 29 outputs).
-//                   Ready; activate after its weights are uploaded to Hugging Face.
+//                   ACTIVE by default.
 //
 // Weights are SHA-256 verified and cached (storage/modelCache.js). The ONNX
 // Runtime UMD build is self-hosted under public/ort/ and loaded via a <script>.
@@ -91,15 +90,16 @@ export const CEPHA19_MODEL = {
 // CEPHA29 with per-sample visibility masks: ISBI images supervise only their 19
 // shared landmarks, so the 10 Aariz-only channels are never taught from ISBI.
 //
-// Measured (INT8, raw — the app default):
-//   external ISBI 2015 test (50 held out): MRE 2.13 mm, median 1.32, SDR@2 64.7%
-//   in-domain Aariz valid (shared 19):      MRE 0.94 mm, median 0.66, SDR@2 90.6%
-//   (original 29-landmark model:            ISBI SDR@2 52.1%, Aariz 2.51 mm)
-// It outputs all 29 landmarks, so nothing is queued for manual placement.
-//
-// NOT ACTIVE UNTIL HOSTED: upload `landmarks-md29.int8.onnx` (the file whose
-// SHA-256 is below) to the Hugging Face repo, then set LANDMARK_MODEL to this.
-// A missing URL makes AI Trace fall back to the deterministic demo detector.
+// Measured on held-out test sets (raw — the app default):
+//   ISBI 2015 test (50), INT8:    MRE 2.13 mm, median 1.32, SDR@2 64.7%
+//   Aariz test (150), FP32:       MRE 1.10 mm, median 0.73, SDR@2 87.4% (all 29)
+//                                 shared 19: 0.97 mm, extra 10: 1.33 mm
+//   Same sets, md19:              ISBI 2.05 mm, 64.7%; Aariz shared 19: 0.96 mm
+//   Same sets, original cepha29:  ISBI 3.93 mm, 52.1%; Aariz shared 19: 3.01 mm,
+//                                 extra 10: 1.54 mm
+// The hosted INT8 has not been scored on Aariz test. Its heatmap peaks stay within
+// ~0.5 heatmap px of FP32 on held-out images from both domains, on all 29 channels.
+// It outputs all 29 landmarks, so none are queued for manual placement.
 export const MD29_MODEL = {
   ...SHARED,
   version: "md29-hrnet-w32-v1",
@@ -108,9 +108,9 @@ export const MD29_MODEL = {
   sha256: "bf50dbfe0445a5c3dde178fab6946fd223b60efe239d46575ca625059d69ee60",
 };
 
-// The model the app uses. Switch to MD29_MODEL once its weights are uploaded;
-// switch to CEPHA29_MODEL to revert to the original 29-landmark baseline.
-export const LANDMARK_MODEL = CEPHA19_MODEL;
+// The model the app uses. Switch to CEPHA19_MODEL to revert to the 19-landmark
+// model, or to CEPHA29_MODEL for the original 29-landmark baseline.
+export const LANDMARK_MODEL = MD29_MODEL;
 
 export function isModelConfigured(model = LANDMARK_MODEL) {
   return Boolean(model?.url && model?.ortUrl);

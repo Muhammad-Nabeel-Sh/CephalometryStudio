@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased] - 29-landmark AI model
+
+### Changed
+- **AI Trace now detects all 29 landmarks** with a new model trained on two datasets (Aariz and
+  ISBI 2015), so the 10 landmarks the 19-landmark model could not detect no longer need manual
+  placement. Held-out accuracy is close to the previous model: on ISBI 2015, 2.13 mm vs 2.05 mm
+  mean error, with the same 64.7% within 2 mm. On the Aariz test set the 29-landmark weights
+  score 0.97 mm vs 0.96 mm on the shared 19.
+
 ## [Unreleased] - What's new
 
 ### Added
