@@ -15,6 +15,29 @@ describe("sha256Hex", () => {
 });
 
 describe("loadModelAsset", () => {
+  it("reports a download start only when the model is not cached", async () => {
+    const onDownloadStart = vi.fn();
+    vi.stubGlobal("caches", { open: async () => ({ match: async () => ({ arrayBuffer: async () => ABC_BUF }), put: async () => {} }) });
+    vi.stubGlobal("fetch", vi.fn());
+    await loadModelAsset({ url: "https://example.test/m.onnx", sha256: ABC_SHA, onDownloadStart });
+    expect(onDownloadStart).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+
+    vi.stubGlobal("caches", undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, headers: { get: () => null }, arrayBuffer: async () => ABC_BUF })));
+    await loadModelAsset({ url: "https://example.test/m.onnx", sha256: ABC_SHA, onDownloadStart });
+    expect(onDownloadStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the abort signal to the download", async () => {
+    vi.stubGlobal("caches", undefined);
+    const aborted = new DOMException("Aborted", "AbortError");
+    vi.stubGlobal("fetch", vi.fn(async (_url, opts) => { if (opts?.signal?.aborted) throw aborted; }));
+    const c = new AbortController();
+    c.abort();
+    await expect(loadModelAsset({ url: "https://example.test/m.onnx", signal: c.signal })).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("rejects when no URL is configured", async () => {
     await expect(loadModelAsset({})).rejects.toThrow(/No model URL/);
   });

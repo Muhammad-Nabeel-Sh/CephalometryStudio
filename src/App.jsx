@@ -72,6 +72,7 @@ import { createRedraw } from "./canvas/redraw.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { autoCreateMeasurements, applyAnalysis, deriveNorms } from "./workspace/template.js";
 import { runAutoTrace, findAnalysis } from "./workspace/autoTrace.js";
+import { AITraceOverlay } from "./panels/AITraceOverlay.jsx";
 import { LANDMARK_MODEL } from "./data/landmarkModelInfo.js";
 import {
   refreshAutoMeasurements,
@@ -4596,6 +4597,7 @@ function Workspace({
     }));
   }, [autoTraceSessionId]);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const traceAbort = useRef(null);
   const handleAutoTrace = useCallback(async (traceOpts = {}) => {
     const target = sessionImage?.[0] ? imgRefs.current[sessionImage[0].id] : null;
     if (!target) {
@@ -4604,6 +4606,8 @@ function Workspace({
     }
     const forceHypothesis = traceOpts?.forceHypothesis || null;
     setAutoTraceBusy(true);
+    useUIStore.setState({ aiTrace: { phase: "preparing" } });
+    traceAbort.current = new AbortController();
     setAutoTraceInfo({ message: forceHypothesis ? "Re-tracing with the selected image transform…" : "Detecting landmarks…", tone: "info" });
     try {
       const summary = await runAutoTrace({
@@ -4612,6 +4616,18 @@ function Workspace({
         store: useSessionStore.getState(),
         forceHypothesis,
         suppressUndo: !!traceOpts.suppressUndo,
+        signal: traceAbort.current.signal,
+        onPhase: (phase) => useUIStore.setState({
+          aiTrace: phase === "downloading" ? { phase, received: 0, total: 0, startedAt: Date.now() } : { phase },
+        }),
+        onProgress: (_fraction, received, total) => {
+          // One update per percent (or per MB when the size is unknown).
+          const step = total ? total / 100 : 1e6;
+          const prev = useUIStore.getState().aiTrace;
+          if (prev?.phase === "downloading" && received - prev.received >= step) {
+            useUIStore.setState({ aiTrace: { ...prev, received, total, elapsedMs: Date.now() - prev.startedAt } });
+          }
+        },
       });
       setAutoTraceQuality(summary.quality || null);
       if (summary.backend === "mock") {
@@ -4645,9 +4661,14 @@ function Workspace({
       });
       setShowAnalysisModal(true);
     } catch (e) {
-      setAutoTraceInfo({ message: `Auto-trace failed: ${e?.message || e}`, tone: "err" });
+      if (e?.name === "AbortError") {
+        setAutoTraceInfo({ message: "Model download cancelled. AI Trace downloads it again the next time you use it.", tone: "info" });
+      } else {
+        setAutoTraceInfo({ message: `Auto-trace failed: ${e?.message || e}`, tone: "err" });
+      }
     } finally {
       setAutoTraceBusy(false);
+      useUIStore.setState({ aiTrace: null });
     }
   }, [sessionImage, calibration, setAutoTraceInfo, setAutoTraceQuality]);
 
@@ -5974,6 +5995,7 @@ function Workspace({
         </Suspense>
       )}
 
+      <AITraceOverlay t={t} onCancelDownload={() => traceAbort.current?.abort()} />
       {showAnalysisModal && (
         <AnalysisModal
           t={t}

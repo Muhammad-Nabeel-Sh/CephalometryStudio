@@ -22,6 +22,82 @@ body {
 }
 
 /* ═════════════════════════════════════════════════════════════════
+   AI Trace. Inference blocks the main thread: animate only opacity and
+   transform on HTML elements, which keep running on the compositor.
+   One 3.6 s cycle: the scan descends for 80% of it (2.88 s), so a dot's
+   delay in AITraceOverlay.jsx is its height on the film × 2.88 s.
+   ═════════════════════════════════════════════════════════════════ */
+@keyframes ai-trace-reveal {
+  0% { transform: translateY(-100%); opacity: 1; }
+  80% { transform: translateY(0); opacity: 1; }
+  92%, 100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes ai-trace-reveal-inner {
+  0% { transform: translateY(100%); }
+  80%, 100% { transform: translateY(0); }
+}
+@keyframes ai-trace-dot {
+  0% { transform: scale(2.4); opacity: 1; }
+  8% { transform: scale(1); opacity: 1; }
+  55% { transform: scale(1); opacity: 1; }
+  70%, 100% { transform: scale(1); opacity: 0.3; }
+}
+.ai-trace-reveal, .ai-trace-reveal-inner, .ai-trace-scan {
+  will-change: transform, opacity;
+  transition: transform 0.25s linear;
+}
+.ai-trace-scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 82%, rgba(185, 223, 236, 0.2) 99%, #e6f6fb 100%);
+  pointer-events: none;
+}
+.ai-trace-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: #e6f6fb;
+  box-shadow: 0 0 8px rgba(185, 223, 236, 0.8);
+  opacity: 0.3;
+  will-change: transform, opacity;
+  transition: opacity 0.25s linear;
+}
+.ai-trace-looping .ai-trace-reveal { animation: ai-trace-reveal 3.6s linear infinite; }
+.ai-trace-looping .ai-trace-reveal-inner { animation: ai-trace-reveal-inner 3.6s linear infinite; }
+.ai-trace-looping .ai-trace-scan { animation: ai-trace-reveal 3.6s linear infinite; }
+.ai-trace-looping .ai-trace-dot { animation: ai-trace-dot 3.6s linear infinite; }
+.ai-trace-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.15s, filter 0.15s;
+}
+.ai-trace-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 0 0 4px var(--ai-ring);
+}
+.ai-trace-btn:active:not(:disabled) { filter: brightness(0.94); }
+.ai-trace-btn:disabled { cursor: progress; opacity: 0.75; }
+@media (prefers-reduced-motion: reduce) {
+  .ai-trace-looping .ai-trace-reveal,
+  .ai-trace-looping .ai-trace-reveal-inner,
+  .ai-trace-looping .ai-trace-dot { animation: none; opacity: 1; }
+  .ai-trace-looping .ai-trace-scan { animation: none; opacity: 0; }
+}
+
+/* ═════════════════════════════════════════════════════════════════
    Responsive utilities
    ═════════════════════════════════════════════════════════════════ */
 @media (max-width: 767px) {

@@ -7,6 +7,7 @@ import { useSessionStore } from "../state/sessionStore.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 import { aiReviewSummary, confidenceTier, markReviewed } from "../workspace/aiReview.js";
 import { Icon } from "../ui/icons.jsx";
+import { AITraceButton } from "./AITraceOverlay.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKUPS PANEL
@@ -56,14 +57,13 @@ export function MarkupsPanel({ markups, t, theme, selectedId, onSelect, onReview
 
   return (
     <div>
+      {onAutoTrace && (
+        <div style={{ padding: "10px 10px 0" }}>
+          <AITraceButton t={t} busy={autoTraceBusy} onClick={() => onAutoTrace()} />
+        </div>
+      )}
       <div style={{ padding: "8px 10px", display: "flex", gap: 4, borderBottom: `1px solid ${t.bdr}`, flexShrink: 0, flexWrap: "nowrap", overflowX: "auto" }}>
         <Btn t={t} small onClick={onAddPoint} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>+ Point</Btn>
-        {onAutoTrace && (
-          <Btn t={t} small onClick={autoTraceBusy ? undefined : () => onAutoTrace()} title="AI auto-trace landmarks"
-            style={{ whiteSpace: "nowrap", flexShrink: 0, background: autoTraceBusy ? t.surf2 : t.accMuted, color: autoTraceBusy ? t.tx3 : t.acc, border: `1px solid ${t.acc}` }}>
-            {autoTraceBusy ? "Tracing…" : "AI Trace"}
-          </Btn>
-        )}
         {!placingMode && placingQueue.length === 0 && <Btn t={t} small onClick={onResumePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>▶ Start</Btn>}
         {!placingMode && placingQueue.length > 0 && <Btn t={t} small onClick={onResumePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>▶ Resume</Btn>}
         {placingMode && <Btn t={t} small onClick={onPausePlacing} style={{ whiteSpace: "nowrap", flexShrink: 0, background: t.warn + "22", color: t.warn, border: `1px solid ${t.warn}` }} title="Pause placing"><Icon name="pause" size={14} /></Btn>}

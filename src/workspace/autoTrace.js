@@ -95,10 +95,33 @@ export function applyDetections(store, detections, templateName, calibration, la
 
 let _readyPromise = null;
 
+// Inference blocks the main thread, so let the browser paint the new phase first.
+// The timeout covers a hidden tab, where animation frames do not fire.
+function nextPaint() {
+  return new Promise((resolve) => {
+    const done = () => resolve();
+    if (typeof requestAnimationFrame === "undefined") return done();
+    const timer = setTimeout(done, 100);
+    requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(timer); done(); }));
+  });
+}
+
+// "12 of 30 MB, about 40 seconds left" for the model download.
+export function describeDownload(received, total, elapsedMs) {
+  const mb = (n) => Math.round(n / 1e6);
+  if (!total) return `${mb(received)} MB downloaded`;
+  const done = `${mb(received)} of ${mb(total)} MB`;
+  if (elapsedMs < 2000 || !received || received >= total) return done;
+  const seconds = ((total - received) / received) * (elapsedMs / 1000);
+  if (seconds < 60) return `${done}, about ${Math.max(5, Math.round(seconds / 5) * 5)} seconds left`;
+  const minutes = Math.round(seconds / 60);
+  return `${done}, about ${minutes} minute${minutes === 1 ? "" : "s"} left`;
+}
+
 // Prepare the detector: configure the landmark set, load the ONNX runtime +
 // weights when configured, otherwise leave the worker on its demo backend.
 // Cached after first call.
-export function ensureDetectorReady(onProgress) {
+export function ensureDetectorReady(onProgress, { onPhase, signal } = {}) {
   if (_readyPromise) return _readyPromise;
   _readyPromise = (async () => {
     const opts = {
@@ -118,10 +141,18 @@ export function ensureDetectorReady(onProgress) {
         url: LANDMARK_MODEL.url,
         sha256: LANDMARK_MODEL.sha256,
         onProgress,
+        signal,
+        onDownloadStart: () => onPhase?.("downloading"),
       });
     }
+    onPhase?.("preparing");
+    await nextPaint();
     return initDetector(opts);
   })().catch((err) => {
+    if (err?.name === "AbortError") {
+      _readyPromise = null;
+      throw err;
+    }
     logWarn("AI auto-trace: model unavailable — run scripts/convert-hrnet19-onnx.py, npm run setup:ort, and place the .onnx in public/models/. Using demo detector.", err);
     _lastLoadError = err?.message || String(err);
     return "mock";
@@ -147,13 +178,16 @@ export function demoDetectorAllowed() {
 // search could not find a good match (e.g. a mirrored film the user knows about).
 // `suppressUndo` is set by the re-trace retry, which already pushed a snapshot
 // covering the removal of the previous trace, so the replace stays one undo step.
-export async function runAutoTrace({ imageInput, calibration, store, onProgress, forceHypothesis, suppressUndo = false }) {
-  const backend0 = await ensureDetectorReady(onProgress);
+// `onPhase` reports "downloading" (first use only), "preparing" and "detecting".
+export async function runAutoTrace({ imageInput, calibration, store, onProgress, onPhase, signal, forceHypothesis, suppressUndo = false }) {
+  const backend0 = await ensureDetectorReady(onProgress, { onPhase, signal });
   if (backend0 !== "onnx" && isModelConfigured() && !demoDetectorAllowed()) {
     const why = _lastLoadError || getDetectorDebug() || "model download or runtime failed";
     _lastLoadError = null;
     throw new Error(`AI model unavailable (${why}). Check your connection and try again.`);
   }
+  onPhase?.("detecting");
+  await nextPaint();
   const { landmarks, backend, orientation, polarity, quality, hypotheses, refined } = await detectLandmarks(imageInput, {
     landmarkSet: LANDMARK_MODEL.landmarkSet,
     forceHypothesis,

@@ -22,6 +22,7 @@ try {
 } catch { /* localStorage unavailable or corrupt */ }
 
 export const useUIStore = create(() => ({
+  aiTrace: null, // running AI Trace: { phase, received, total, startedAt, elapsedMs }
   showScaleBar: false,
   showDefTooltips: true,
   showLUT: false,

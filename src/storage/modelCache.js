@@ -23,8 +23,8 @@ async function openCache() {
   }
 }
 
-export async function fetchWithProgress(url, onProgress) {
-  const res = await fetch(url);
+export async function fetchWithProgress(url, onProgress, signal) {
+  const res = await fetch(url, signal ? { signal } : undefined);
   if (!res.ok) throw new Error(`Model download failed (HTTP ${res.status})`);
   if (!res.body || !onProgress) return res.arrayBuffer();
   const total = Number(res.headers.get("content-length")) || 0;
@@ -48,8 +48,10 @@ export async function fetchWithProgress(url, onProgress) {
 }
 
 // Returns an ArrayBuffer for the model, preferring the cache. `sha256` is
-// verified on both cache hits and fresh downloads when provided.
-export async function loadModelAsset({ url, sha256, onProgress, force = false } = {}) {
+// verified on both cache hits and fresh downloads when provided. `onDownloadStart`
+// runs only when the model has to be downloaded; aborting `signal` stops the
+// download and rejects with an AbortError.
+export async function loadModelAsset({ url, sha256, onProgress, onDownloadStart, signal, force = false } = {}) {
   if (!url) throw new Error("No model URL configured");
   const cache = await openCache();
 
@@ -61,7 +63,8 @@ export async function loadModelAsset({ url, sha256, onProgress, force = false } 
     }
   }
 
-  const buffer = await fetchWithProgress(url, onProgress);
+  onDownloadStart?.();
+  const buffer = await fetchWithProgress(url, onProgress, signal);
   if (sha256) {
     const hex = await sha256Hex(buffer);
     if (hex && hex !== sha256) throw new Error("Model checksum mismatch");

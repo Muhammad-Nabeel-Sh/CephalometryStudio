@@ -45,6 +45,7 @@ const P = {
   save: <><path d="M5 3h11l3 3v15H5z" /><path d="M8 3v5h7V3" /><rect x="8" y="13" width="8" height="8" /></>,
   play: <path d="m7 4 13 8-13 8z" />,
   sparkle: <path d="m12 3 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" />,
+  aiTrace: <><path d="M8 3c4 0 7 2 8 6l3 4-2 1v3c0 2-1 3-3 3h-2v2" /><path d="M4 9.5h8" /><circle cx="4" cy="9.5" r="1.4" fill="currentColor" /><circle cx="12" cy="9.5" r="1.4" fill="currentColor" /><circle cx="16" cy="9" r="1.4" fill="currentColor" /></>,
   check: <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9M17 6l3 3" /></>,
   eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,

@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **870 tests (Vitest)**
+- **No TypeScript**, **881 tests (Vitest)**
 
 ---
 
@@ -116,6 +116,7 @@ src/
 │   ├── Toolbar.jsx             Desktop (mode tabs, labelled tools) + mobile toolbar
 │   ├── UndoHistory.jsx         Undo history list (under Undo/Redo)
 │   ├── PlacingGuide.jsx        Guided tracing banner, reference map, magnifier
+│   ├── AITraceOverlay.jsx      AI Trace button + loading screen (download warning/progress, cancel)
 │   ├── TopBar.jsx              Top bar (home, logo, save)
 │   ├── RightPanelSidebar.jsx   Vertical tab sidebar
 │   ├── SessionFilmstrip.jsx    Bottom-center thumbnail bar
@@ -235,7 +236,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (870 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (881 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -566,6 +567,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`. Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. Formulas are drawn as equations via the injected `renderLatex` (`report/latexCapture.js`) from `f.latex` or `formulaTex(expression)` (`lib/utils.js`, mathjs `toTex`, multi-letter names as `\mathrm`). 13 tests in `src/test/reportGaps.test.js`.
 
+- **AI Trace loading screen**: `panels/AITraceOverlay.jsx` shows the phase from uiStore `aiTrace` (`runAutoTrace` `onPhase`: downloading, preparing, detecting). The download warning appears only when `loadModelAsset` really downloads (`onDownloadStart`), and Cancel aborts it via `signal`. Inference blocks the main thread, so animate only opacity/transform on HTML elements (`ai-trace-*` in `index.css`). 7 tests in `src/test/aiTraceOverlay.test.jsx` + `modelCache.test.js`.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -574,7 +577,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 870 tests pass (57 test files, 0 failures)
+- `npm test` — 881 tests pass (58 test files, 0 failures)
 
 
 

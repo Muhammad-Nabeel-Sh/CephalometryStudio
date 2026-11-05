@@ -8,6 +8,10 @@
   placement. Held-out accuracy is close to the previous model: on ISBI 2015, 2.13 mm vs 2.05 mm
   mean error, with the same 64.7% within 2 mm. On the Aariz test set the 29-landmark weights
   score 0.97 mm vs 0.96 mm on the shared 19.
+- **AI Trace has a loading screen**: a skull map is traced while the model loads and landmarks
+  are detected. The first use warns about the one-time model download (about 30 MB) and shows
+  its progress and time left, with a Cancel button. The AI Trace button is now a full-width
+  primary button above the Markups toolbar.
 
 ## [Unreleased] - What's new
 
