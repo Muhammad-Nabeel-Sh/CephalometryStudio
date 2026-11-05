@@ -601,3 +601,43 @@ fetch + mask patch apply cleanly.
 `MuhammadNabeelSh/cephalometry-training` under `md29/<UTC date-time>/`. Without the
 secret it prints a note; an upload error is printed and never fails the run. Use with
 a committed version (Save & Run All) so nothing depends on keeping the editor open.
+
+### Step 27 — E2 run audited: good FP32, broken Kaggle INT8, fixed by local re-quantization
+
+The masked 29 run (`md29/20261103-2152`) produced a correct **FP32** model but a
+**degenerate INT8** model:
+
+- `md29_fp32`: ISBI test MRE 2.14 / median 1.32 / SDR@2 63.68%; Aariz shared-19
+  0.97, extra-10 1.33, all 1.10 / median 0.73 / SDR@2 87.45%.
+- `md29_int8` (Kaggle): ISBI 157.29 / SDR@2 0.0%; Aariz 111.2 / SDR@2 0.0%;
+  `orientation_mirrored_frac` 0.26, `polarity_inverted_frac` 0.48 (garbage heatmaps
+  make the hypothesis ranking random).
+- E1 (`md19_int8`, current app): ISBI 2.05 / 1.34 / 64.74%; Aariz shared-19 0.96.
+- Original (`cepha29_int8`): ISBI 3.93 / 1.91 / 52.11%; Aariz 2.51.
+
+Direct ONNX comparison on a sample confirmed it: FP32 peaks cluster on the face
+(e.g. ch00 1.009 at 129,94); Kaggle INT8 peaks sit on the border (ch00 0.945 at 58,1;
+ch01 1.006 at 1,48).
+
+**Fix:** re-quantized the good FP32 locally with `onnxruntime.quantization`
+(static QDQ, per-channel, QInt8/QUInt8, 16 calibration images). The result tracks
+FP32 within 1 px on every checked channel:
+
+- ISBI test: MRE 2.129 / median 1.322 / **SDR@2 64.74%** (0 mirror, 0 invert).
+- Aariz valid (shared 19; the local split): MRE 0.942 / median 0.664 / SDR@2 90.60%,
+  vs FP32 0.920 / 0.656 / 90.56% on the same images.
+- Op set is identical to the browser-verified md19 INT8 (293 Conv, 1085
+  DequantizeLinear, 499 QuantizeLinear, 169 Add, 36 Constant, 28 Resize), and a
+  headless-Chrome ORT-web run created the session and produced non-constant,
+  plausible heatmaps.
+
+The fixed file is `Results 2/.../landmarks-md29.int8.onnx` (29,745,709 bytes,
+SHA-256 `bf50dbfe…ee60`). `export-landmark-onnx.py` now sanity-checks every INT8
+export (peak agreement with FP32; a degenerate model is removed) so this cannot ship
+silently again. The rebuilt `shapeModel.cepha29.json` is byte-identical to the
+shipped prior (n=700), so nothing changes there.
+
+`MD29_MODEL` is added to `src/data/landmarkModelInfo.js` with the HF URL + SHA,
+but **not active**: the file is not in `MuhammadNabeelSh/cephalometry-landmarks`
+yet (404). Until it is uploaded, AI Trace would fall back to the demo detector.
+After uploading, set `LANDMARK_MODEL = MD29_MODEL`.

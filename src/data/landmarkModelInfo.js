@@ -1,10 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // Landmark model manifests
 //
-// Two models ship:
+// Three models ship:
 //   CEPHA19_MODEL — multi-domain HRNet-W32 (Aariz + ISBI 2015), 19 shared landmarks.
 //                   ACTIVE by default: measured better cross-domain and in-domain.
 //   CEPHA29_MODEL — original Aariz-only 29-landmark HRNet-W32 (HF-hosted).
+//   MD29_MODEL    — masked multi-domain 29-landmark retrain (all 29 outputs).
+//                   Ready; activate after its weights are uploaded to Hugging Face.
 //
 // Weights are SHA-256 verified and cached (storage/modelCache.js). The ONNX
 // Runtime UMD build is self-hosted under public/ort/ and loaded via a <script>.
@@ -85,7 +87,29 @@ export const CEPHA19_MODEL = {
   sha256: "aabfddcebdb0aad0f14bc99bba7498fd2a7f9a57135d86180820c91c57ed7315",
 };
 
-// The model the app uses. Switch to CEPHA29_MODEL to revert to 29 landmarks.
+// Masked multi-domain 29-landmark model (Aariz + ISBI 2015), fine-tuned from
+// CEPHA29 with per-sample visibility masks: ISBI images supervise only their 19
+// shared landmarks, so the 10 Aariz-only channels are never taught from ISBI.
+//
+// Measured (INT8, raw — the app default):
+//   external ISBI 2015 test (50 held out): MRE 2.13 mm, median 1.32, SDR@2 64.7%
+//   in-domain Aariz valid (shared 19):      MRE 0.94 mm, median 0.66, SDR@2 90.6%
+//   (original 29-landmark model:            ISBI SDR@2 52.1%, Aariz 2.51 mm)
+// It outputs all 29 landmarks, so nothing is queued for manual placement.
+//
+// NOT ACTIVE UNTIL HOSTED: upload `landmarks-md29.int8.onnx` (the file whose
+// SHA-256 is below) to the Hugging Face repo, then set LANDMARK_MODEL to this.
+// A missing URL makes AI Trace fall back to the deterministic demo detector.
+export const MD29_MODEL = {
+  ...SHARED,
+  version: "md29-hrnet-w32-v1",
+  landmarkSet: "cepha29",
+  url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-md29.int8.onnx",
+  sha256: "bf50dbfe0445a5c3dde178fab6946fd223b60efe239d46575ca625059d69ee60",
+};
+
+// The model the app uses. Switch to MD29_MODEL once its weights are uploaded;
+// switch to CEPHA29_MODEL to revert to the original 29-landmark baseline.
 export const LANDMARK_MODEL = CEPHA19_MODEL;
 
 export function isModelConfigured(model = LANDMARK_MODEL) {
