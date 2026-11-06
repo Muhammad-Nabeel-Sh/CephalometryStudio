@@ -101,7 +101,9 @@ export function Tag({ color, children }) {
         padding: "2px 8px",
         fontSize: 12,
         fontWeight: 700,
-        fontFamily: "'DM Mono', monospace"
+        fontFamily: "'DM Mono', monospace",
+        whiteSpace: "nowrap",
+        flexShrink: 0
       }}
     >
       {children}

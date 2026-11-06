@@ -130,6 +130,40 @@ body {
   .topbar-logo img { width: 26px; height: 26px; }
 }
 .topbar-logo img { width: 40px; height: 40px; display: block; }
+.topbar-title { display: inline-flex; white-space: nowrap; }
+/* One button for every action: same square and same icon size, on every screen. */
+.topbar-btn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.topbar-btn svg { width: 20px; height: 20px; display: block; flex-shrink: 0; }
+@media (hover: hover) {
+  .topbar-btn:not([aria-pressed="true"]):hover { background: rgba(128, 128, 128, 0.18); }
+}
+.topbar-btn:not([aria-pressed="true"]):active { background: rgba(128, 128, 128, 0.28); }
+/* The name needs room: below this the logo alone identifies the app. */
+@media (max-width: 1280px) {
+  .topbar-title { display: none; }
+}
+/* Tablets and phones: finger-sized buttons. The theme swatches and label-size
+   slider are too small for a finger and are in Settings, so they leave the bar. */
+@media (max-width: 1024px), (pointer: coarse) {
+  .topbar { gap: 4px; }
+  .topbar-btn { width: 44px; height: 44px; }
+  .topbar-btn svg { width: 22px; height: 22px; }
+  .topbar-logo img { width: 32px; height: 32px; }
+  .topbar-pointer-only { display: none !important; }
+}
 
 /* ═════════════════════════════════════════════════════════════════
    Mobile chrome + viewport height utilities

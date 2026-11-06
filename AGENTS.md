@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **872 tests (Vitest)**
+- **No TypeScript**, **924 tests (Vitest)**
 
 ---
 
@@ -65,7 +65,8 @@ src/
 │   ├── imageProcessor.worker.js Web worker for image processing
 │   ├── landmarkClient.js       What the app calls: runs the detector in a worker (cancel, threads, main-thread fallback)
 │   ├── landmarkDetector.worker.js Worker around landmarkDetector.js
-│   └── landmarkDetector.js     ONNX landmark detection (ORT module in the worker, UMD via <script> on the main thread)
+│   ├── landmarkDetector.js     ONNX landmark detection (ORT module in the worker, UMD via <script> on the main thread)
+│   └── canvasGestures.js       Pointer events → workspace actions: pen, finger and mouse rules, palm rejection, pen-only mode (pure)
 │
 ├── airway/                     Airway analysis: registry, geometry, references, compute, edge suggestions
 │
@@ -239,7 +240,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (872 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (924 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -574,6 +575,10 @@ Recommended settings for `.vscode/settings.json`:
 
 - **AI runtime (Phase 1, item 10)**: inference runs in a module worker (`canvas/landmarkClient.js` + `landmarkDetector.worker.js`), importing `/ort/ort.wasm.min.mjs` at run time by absolute URL (the dev server refuses a root-relative import of a public file); if the worker fails, `landmarkDetector.js` runs on the main thread. Cancelling terminates the worker, so `autoTrace.js` reloads the model on the next trace. Threads: `numThreads` up to 8 when `crossOriginIsolated`, from the `Document-Isolation-Policy` header (`vercel.json`, `vite.config.js`). Do not use COOP: it would break the Google sign-in popup. **WebGPU is not used**: ORT 1.22 rejects the INT8 model (`DequantizeLinear` on int32), so it would need the 114 MB FP32 model. 7 tests in `src/test/landmarkClient.test.js`.
 
+- **Pen and touch input**: the main canvas uses pointer events (not mouse/touch); `canvas/canvasGestures.js` decides what each gesture means and App's `gestureEnv.actions` carries it out. Mouse and pen act on contact; a finger acts on lift, because a landing finger may still become a pan, pinch or long press. Never call `press` from a finger landing. Palm rejection: a touch is ignored while the pen is down or within `PALM_GUARD_MS` of pen activity, including hover. Pen-only mode (uiStore `penOnly`, a saved pref; `PenOnlyBtn` in `Toolbar.jsx`, Settings → Tracing): fingers only pan, zoom and undo. Two-finger tap undoes; the eraser end (`button 5` / `buttons & 32`) deletes the hit markup, except locked ones or during placement. `touchstart` is still cancelled to stop the browser's own callouts and synthetic clicks. Native `dblclick` counts only for the mouse. `ExamplesPanel` keeps its own mouse handlers. Do not read `Touch.touchType`: Chromium lacks it. 47 tests in `src/test/canvasGestures.test.js` + `penOnlyBtn.test.jsx`.
+
+- **Top bar**: every action uses `BarBtn` (`panels/TopBar.jsx`), sized in `index.css` (`.topbar-btn`): 36 px with a 20 px icon, or 44 px with a 22 px icon at 1024 px and below or on coarse pointers. Icons use `currentColor`, so active states stay readable. The app name hides at 1280 px and below; the theme swatches and label-size slider leave the bar on touch sizes (both are in Settings). 5 tests in `src/test/topBar.test.jsx`.
+
 - **Airway module (`src/airway/`, plan in `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: `definitions.js` is the single registry of landmarks, traced walls and measures; `geometry.js` is pure; `compute.js` (`computeAirway`) returns results with provenance; `norms.js` holds references checked against each paper's page, each tied to one construction. Don't add a reference without its paper, table and page, and don't attach one to a similar-sounding measure: papers define SPAS, MAS and IAS differently. Walls are found by `airwayRole`, points only by label on `type: "point"`. Mislik's p and t are `medianIqr`: no z-score, no flag. No OSA wording or risk score. `edges.js` only ever produces a preview. The overlay and report draw `computeAirway` output. Research reads airway values through `withAirwayMeasures` (in-memory `airwayValue` markups, added in `ResearchWorkspace`, never saved). Saved results from before go through `airwayResultsForDisplay`. `Data/Airway.csv` must list the registry's landmarks (tested).
 
 ### Ongoing
@@ -584,7 +589,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 872 tests pass (59 test files, 0 failures)
+- `npm test` — 924 tests pass (62 test files, 0 failures)
 
 
 
