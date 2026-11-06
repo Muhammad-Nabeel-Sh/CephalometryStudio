@@ -70,6 +70,7 @@ import { MarkupProps } from "./panels/MarkupProps.jsx";
 import { ExamplesPanel } from "./panels/ExamplesPanel.jsx";
 import { loadNormLibrary, saveNormLibrary } from "./data/normLibrary.js";
 import { createRedraw } from "./canvas/redraw.js";
+import { createCanvasGestures } from "./canvas/canvasGestures.js";
 import { useMediaQuery } from "./hooks/useMediaQuery.js";
 import { autoCreateMeasurements, applyAnalysis, deriveNorms } from "./workspace/template.js";
 import { runAutoTrace, findAnalysis } from "./workspace/autoTrace.js";
@@ -1784,7 +1785,6 @@ function Workspace({
   const hoveredPtRef = useRef(null);
   const mouseCanvasRef = useRef({ x: 0, y: 0 });
   const canvasSize = useRef({ w: 800, h: 600 });
-  const lastTapRef = useRef(0);
 
   // Auto-start placing mode when project has unplaced markups (from wizard)
   const placingInitRef = useRef(true);
@@ -4125,15 +4125,7 @@ function Workspace({
     c.addEventListener("wheel", onWheel, { passive: false });
     return () => c.removeEventListener("wheel", onWheel);
   }, [dispatch, getCanvasPos]);
-  const touchStartRef = useRef();
-  const touchMoveRef = useRef();
-  const touchEndRef = useRef();
-  const longPressTimerRef = useRef(null);
-  const longPressStartRef = useRef(null);
-  const stylusRef = useRef(false);
-  const gestureRef = useRef("none");
   const pinchRef = useRef(null);
-  const panCandidateRef = useRef(null);
   const syncZoomRef = useRef(false);
   const syncZoom = () => {
     if (!syncZoomRef.current) {
@@ -4144,221 +4136,126 @@ function Workspace({
       });
     }
   };
-  touchStartRef.current = (e) => {
-    const touches = e.touches;
-    if (touches.length === 1) {
-      if (gestureRef.current === "pinch") return;
-      const t2 = touches[0];
-      // C5: a stylus (Apple Pencil) acts like a mouse — precise drags and
-      // placement, no double-tap zoom or one-finger panning.
-      if (t2.touchType === "stylus") {
-        gestureRef.current = "single";
-        panCandidateRef.current = null;
-        stylusRef.current = true;
-        handleMouseDown({ button: 0, clientX: t2.clientX, clientY: t2.clientY });
-        return;
-      }
-      stylusRef.current = false;
-      const now = Date.now();
-      if (now - lastTapRef.current < 300) {
-        lastTapRef.current = 0;
-        gestureRef.current = "none";
-        const canFinish =
-          ["polygon", "curve", "polyline", "bezier"].includes(activeTool) &&
-          currentDraw?.points.length >= 2;
-        if (canFinish) {
-          handleDblClick();
-        } else {
-          const sp = getCanvasPos({ clientX: t2.clientX, clientY: t2.clientY });
-          const cz = zoomRef.current,
-            nz = clamp(cz * 1.5, 0.05, 15);
-          zoomRef.current = nz;
-          const prev = panRef.current;
-          panRef.current = {
-            x: sp.x - (sp.x - prev.x) * (nz / cz),
-            y: sp.y - (sp.y - prev.y) * (nz / cz),
-          };
-          scheduleRedrawRef.current();
-          syncZoom();
-        }
-        return;
-      }
-      lastTapRef.current = now;
-      gestureRef.current = "single";
-      panCandidateRef.current = null;
-      const sp = getCanvasPos({ clientX: t2.clientX, clientY: t2.clientY });
-      const ip = toImage(sp.x, sp.y);
-      const hit = hitTest(markups, ip, zoomRef.current, undefined, FINGER_SLOP);
-      if (activeTool === "select" && !hit) {
-        panCandidateRef.current = { x: t2.clientX, y: t2.clientY };
-      } else {
-        handleMouseDown({
-          button: 0,
-          clientX: t2.clientX,
-          clientY: t2.clientY,
-          fromFinger: true,
-        });
-      }
-      longPressStartRef.current = { x: t2.clientX, y: t2.clientY };
-      longPressTimerRef.current = setTimeout(() => {
-        longPressTimerRef.current = null;
-        if (navigator.vibrate) navigator.vibrate(20);
-        setContextMenu({
-          x: t2.clientX,
-          y: t2.clientY,
-          markupId: hit || null,
-          imageX: ip.x,
-          imageY: ip.y,
-        });
-      }, 500);
-    }
-    if (touches.length === 2) {
-      if (gestureRef.current === "single") {
-        if (panCandidateRef.current) panCandidateRef.current = null;
-        isDragging.current = false;
-        isPanning.current = false;
-        silhouetteAction.current = null;
-        multiDragIdsRef.current = null;
-      }
-      gestureRef.current = "pinch";
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-      const a = touches[0],
-        b = touches[1];
-      const cx = (a.clientX + b.clientX) / 2,
-        cy = (a.clientY + b.clientY) / 2;
+  // Pointer input: canvas/canvasGestures.js decides what a pen, finger or mouse
+  // gesture means; these actions carry it out with the current render's values.
+  const lastPointerTypeRef = useRef("mouse");
+  const gestureEnv = useRef({}).current;
+  gestureEnv.getState = () => ({
+    placing: placingMode && placingQueue.length > 0 && placingIdx < placingQueue.length,
+    tool: activeTool,
+    canFinishShape:
+      ["polygon", "curve", "polyline", "bezier"].includes(activeTool) &&
+      currentDraw?.points.length >= 2,
+    penOnly: useUIStore.getState().penOnly,
+    menuOpen: !!useUIStore.getState().contextMenu,
+    hitAt: (x, y) => {
+      const sp = getCanvasPos({ clientX: x, clientY: y });
+      return !!hitTest(markups, toImage(sp.x, sp.y), zoomRef.current, undefined, FINGER_SLOP);
+    },
+  });
+  gestureEnv.actions = {
+    press: handleMouseDown,
+    move: handleMouseMove,
+    release: handleMouseUp,
+    panStart: (x, y) => {
+      isPanning.current = true;
+      panStart.current = { px: panRef.current.x, py: panRef.current.y, mx: x, my: y };
+    },
+    pinchStart: (a, b) => {
       const r = canvasRef.current.getBoundingClientRect();
-      const ip = toImage(cx - r.left, cy - r.top);
       pinchRef.current = {
-        d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        d: Math.hypot(a.x - b.x, a.y - b.y),
         nz: zoomRef.current,
-        ip,
+        ip: toImage((a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top),
       };
-      if (
-        (activeTool === "curve" ||
-          activeTool === "polyline" ||
-          activeTool === "polygon") &&
-        currentDraw?.points.length >= 2
-      ) {
-        handleMouseDown({ button: 0, clientX: cx, clientY: cy, ctrlKey: true });
-      }
-    }
-  };
-  touchMoveRef.current = (e) => {
-    // A fingertip always jitters a little; only a real move (> 10 px) cancels
-    // the long-press context menu (C5).
-    if (longPressTimerRef.current) {
-      const t0 = e.touches[0], st = longPressStartRef.current;
-      if (!t0 || !st || e.touches.length > 1 || Math.hypot(t0.clientX - st.x, t0.clientY - st.y) > 10) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-    }
-    if (stylusRef.current && e.touches.length === 1) {
-      handleMouseMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
-      return;
-    }
-    if (
-      gestureRef.current === "pinch" &&
-      e.touches.length >= 2 &&
-      pinchRef.current
-    ) {
-      const a = e.touches[0],
-        b = e.touches[1];
-      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    },
+    pinchMove: (a, b) => {
+      if (!pinchRef.current) return;
       const nz = clamp(
-        pinchRef.current.nz * (d / pinchRef.current.d),
+        pinchRef.current.nz * (Math.hypot(a.x - b.x, a.y - b.y) / pinchRef.current.d),
         0.05,
         15,
       );
       zoomRef.current = nz;
-      const cx = (a.clientX + b.clientX) / 2,
-        cy = (a.clientY + b.clientY) / 2;
       const r = canvasRef.current.getBoundingClientRect();
-      const sp = { x: cx - r.left, y: cy - r.top };
       panRef.current = {
-        x: sp.x - pinchRef.current.ip.x * nz,
-        y: sp.y - pinchRef.current.ip.y * nz,
+        x: (a.x + b.x) / 2 - r.left - pinchRef.current.ip.x * nz,
+        y: (a.y + b.y) / 2 - r.top - pinchRef.current.ip.y * nz,
       };
       scheduleRedrawRef.current();
       syncZoom();
-      return;
-    }
-    if (e.touches.length === 1) {
-      const t2 = e.touches[0];
-      if (panCandidateRef.current) {
-        const dx = t2.clientX - panCandidateRef.current.x,
-          dy = t2.clientY - panCandidateRef.current.y;
-        if (Math.hypot(dx, dy) > 8) {
-          isPanning.current = true;
-          panStart.current = {
-            px: panRef.current.x,
-            py: panRef.current.y,
-            mx: t2.clientX,
-            my: t2.clientY,
-          };
-          panCandidateRef.current = null;
-        }
-      }
-      handleMouseMove({ clientX: t2.clientX, clientY: t2.clientY });
-    }
+    },
+    doubleTapZoom: (x, y) => {
+      const sp = getCanvasPos({ clientX: x, clientY: y });
+      const cz = zoomRef.current,
+        nz = clamp(cz * 1.5, 0.05, 15);
+      zoomRef.current = nz;
+      const prev = panRef.current;
+      panRef.current = {
+        x: sp.x - (sp.x - prev.x) * (nz / cz),
+        y: sp.y - (sp.y - prev.y) * (nz / cz),
+      };
+      scheduleRedrawRef.current();
+      syncZoom();
+    },
+    finishShape: handleDblClick,
+    longPress: (x, y) => {
+      const sp = getCanvasPos({ clientX: x, clientY: y });
+      const ip = toImage(sp.x, sp.y);
+      if (navigator.vibrate) navigator.vibrate(20);
+      setContextMenu({
+        x,
+        y,
+        markupId: hitTest(markups, ip, zoomRef.current, undefined, FINGER_SLOP) || null,
+        imageX: ip.x,
+        imageY: ip.y,
+      });
+    },
+    undo,
+    // The pen's eraser end. Undoable like any delete; never touches a locked
+    // markup, and does nothing during guided placement.
+    erase: (x, y) => {
+      if (placingMode) return;
+      const sp = getCanvasPos({ clientX: x, clientY: y });
+      const hit = hitTest(markups, toImage(sp.x, sp.y), zoomRef.current);
+      const target = hit && markups.find((m) => m.id === hit);
+      if (!target || target.locked) return;
+      pushUndo();
+      updSession({ markups: refreshAutoMeas(markups.filter((m) => m.id !== hit)) });
+      dispatch({ type: "SET", payload: { selectedIds: [], selectedId: null } });
+    },
   };
-  touchEndRef.current = (e) => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
+  const [gestures] = useState(() =>
+    createCanvasGestures({
+      getState: () => gestureEnv.getState(),
+      actions: Object.fromEntries(
+        ["press", "move", "release", "panStart", "pinchStart", "pinchMove", "doubleTapZoom", "finishShape", "longPress", "undo", "erase"]
+          .map((name) => [name, (...args) => gestureEnv.actions[name](...args)]),
+      ),
+    }),
+  );
+  useEffect(() => () => gestures.dispose(), [gestures]);
+  const onCanvasPointerDown = (e) => {
+    lastPointerTypeRef.current = e.pointerType;
+    // Touch is captured implicitly. Capture keeps a pen or mouse drag alive
+    // when it slips off the canvas.
+    if (e.pointerType !== "touch") {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     }
-    if (stylusRef.current) {
-      stylusRef.current = false;
-      gestureRef.current = "none";
-      handleMouseUp();
-      return;
-    }
-    if (gestureRef.current === "pinch") {
-      if (e.touches.length === 0) {
-        gestureRef.current = "none";
-        pinchRef.current = null;
-        handleMouseUp();
-      }
-      return;
-    }
-    if (panCandidateRef.current) {
-      const ct = e.changedTouches[0];
-      panCandidateRef.current = null;
-      handleMouseDown({ button: 0, clientX: ct.clientX, clientY: ct.clientY });
-    }
-    gestureRef.current = "none";
-    handleMouseUp();
+    gestures.pointerDown(e);
   };
+  // Pointer events keep firing when touchstart is cancelled; cancelling it stops
+  // the browser's own long-press callout, zoom and synthetic clicks.
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
     const opts = { passive: false };
-    const onStart = (e) => {
-      e.preventDefault();
-      touchStartRef.current(e);
-    };
-    const onMove = (e) => {
-      e.preventDefault();
-      touchMoveRef.current(e);
-    };
-    const onEnd = (e) => {
-      touchEndRef.current(e);
-    };
-    const onCancel = (e) => {
-      touchEndRef.current(e);
-    };
-    c.addEventListener("touchstart", onStart, opts);
-    c.addEventListener("touchmove", onMove, opts);
-    c.addEventListener("touchend", onEnd, opts);
-    c.addEventListener("touchcancel", onCancel, opts);
+    const stop = (e) => e.preventDefault();
+    c.addEventListener("touchstart", stop, opts);
+    c.addEventListener("touchmove", stop, opts);
     return () => {
-      c.removeEventListener("touchstart", onStart);
-      c.removeEventListener("touchmove", onMove);
-      c.removeEventListener("touchend", onEnd);
-      c.removeEventListener("touchcancel", onCancel);
+      c.removeEventListener("touchstart", stop);
+      c.removeEventListener("touchmove", stop);
     };
   }, []);
 
@@ -5049,13 +4946,18 @@ function Workspace({
                   touchAction: "none",
                   background: "transparent",
                 }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onPointerDown={onCanvasPointerDown}
+                onPointerMove={(e) => gestures.pointerMove(e)}
+                onPointerUp={(e) => gestures.pointerUp(e)}
+                onPointerCancel={(e) => gestures.pointerCancel(e)}
+                onPointerLeave={(e) => gestures.pointerLeave(e)}
+                onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); /* no middle-click autoscroll */ }}
                 onAuxClick={(e) => e.preventDefault()}
-                onDoubleClick={handleDblClick}
-                onContextMenu={handleCanvasContextMenu}
+                onDoubleClick={() => { if (lastPointerTypeRef.current === "mouse") handleDblClick(); /* pen and finger: canvasGestures */ }}
+                onContextMenu={(e) => {
+                  if (lastPointerTypeRef.current === "touch") e.preventDefault(); // long press: canvasGestures
+                  else handleCanvasContextMenu(e);
+                }}
               />
               {loadingImages && (
                 <div

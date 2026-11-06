@@ -7,6 +7,7 @@ import { useToolStore, useUIStore } from "../state/workspaceStore.js";
 import { TOOL_MODES, NAV_TOOLS, TOOL_INFO, toolKey, toolTitle, modeOfTool } from "../data/toolModes.js";
 import { UndoHistoryButton } from "./UndoHistory.jsx";
 import { Icon } from "../ui/icons.jsx";
+import { notify } from "../ui/dialogs.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tool icons (shared by the desktop rail and the mobile sheet)
@@ -14,6 +15,22 @@ import { Icon } from "../ui/icons.jsx";
 const svg = (children, { size = 24, stroke = 1.5, viewBox = "0 0 24 24" } = {}) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox={viewBox} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
 );
+
+// Pen-only drawing: shown where fingers can touch the canvas (or to turn it back off).
+export function PenOnlyBtn({ t, theme, style }) {
+  const penOnly = useUIStore(s => s.penOnly);
+  if (!penOnly && !(navigator.maxTouchPoints > 0)) return null;
+  const toggle = () => {
+    useUIStore.setState({ penOnly: !penOnly });
+    notify(penOnly ? "Fingers can draw again." : "Pen only: the pen draws, fingers pan, zoom and undo.");
+  };
+  return (
+    <button onClick={toggle} aria-pressed={penOnly} aria-label="Pen-only drawing" title="Pen-only drawing: fingers pan, zoom and undo"
+      style={{ border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: penOnly ? t.acc : "transparent", color: penOnly ? (theme === "light" ? "#fff" : t.bg) : t.tx2, ...style }}>
+      <Icon name="pencil" size={18} />
+    </button>
+  );
+}
 
 function toolIcons(t) {
   return {
@@ -142,6 +159,7 @@ export default function Toolbar({
           <ToolBtn key={id} tool={toolOf(icons, id)} active={activeTool === id} onClick={() => selTool(id)} theme={theme} t={t} style={{ flexShrink: 0 }} />
         ))}
         <div style={{ width: 1, height: 28, background: t.bdr, flexShrink: 0 }} />
+        <PenOnlyBtn t={t} theme={theme} style={{ width: 42, height: 42, borderRadius: 8 }} />
         <button onClick={undo} disabled={!canUndo} aria-label="Undo" style={{ width: 42, height: 42, borderRadius: 8, border: "none", background: "transparent", color: canUndo ? t.tx2 : t.bdr, cursor: canUndo ? "pointer" : "not-allowed", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Undo">↶</button>
         <button onClick={redo} disabled={!canRedo} aria-label="Redo" style={{ width: 42, height: 42, borderRadius: 8, border: "none", background: "transparent", color: canRedo ? t.tx2 : t.bdr, cursor: canRedo ? "pointer" : "not-allowed", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Redo">↷</button>
         <div style={{ width: 1, height: 28, background: t.bdr, flexShrink: 0 }} />
@@ -225,6 +243,7 @@ export default function Toolbar({
         </div>
         {/* Separator */}
         <div style={{ width: "100%", height: 1, background: t.bdr, margin: "4px 0" }} />
+        <PenOnlyBtn t={t} theme={theme} style={{ width: "100%", height: 32, borderRadius: 6 }} />
         {/* Undo | Redo */}
         <div style={{ display: "flex", gap: 1 }}>
           <button onClick={undo} disabled={!canUndo} aria-label="Undo (Ctrl+Z)" style={{ flex: 1, height: 32, borderRadius: 6, border: "none", background: "transparent", color: canUndo ? t.tx2 : t.bdr, cursor: canUndo ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Undo (Ctrl+Z)">{svg(<><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></>)}</button>

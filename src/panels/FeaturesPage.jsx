@@ -35,7 +35,7 @@ const SECTIONS = [
       ["target", "Guided tracing", "Place landmarks in order with a reference map of where each one sits, a magnifier, and Skip, Back or Unsure when a point is hard to see."],
       ["layers", "Tidy labels", "Labels move out of each other's way with leader lines, or show only for the active structure."],
       ["undo", "Visible undo", "Every change is listed, so you can see what an undo will take back."],
-      ["cursor", "Pen, touch and mouse", "Built for tablets with a stylus as well as desktops: finger panning, precise pen placement."],
+      ["cursor", "Pen, touch and mouse", "Works with a stylus, fingers or a mouse. Pen-only mode and palm rejection stop a resting hand marking the image, the pen's eraser end deletes, and a two-finger tap undoes."],
     ],
   },
   {

@@ -53,14 +53,14 @@ export default function ContextMenu({
       }
     };
     const onClickOutside = (e) => { if (!e.target.closest("[data-cmenu]")) close(); };
-    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("pointerdown", onClickOutside); // pointer: the canvas cancels touch's synthetic mouse events
     document.addEventListener("keydown", onKey);
     setTimeout(() => {
       const first = document.querySelector('[data-cmenu] [role="menuitem"]');
       if (first) first.focus();
     }, 0);
     return () => {
-      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("pointerdown", onClickOutside);
       document.removeEventListener("keydown", onKey);
       try { if (previous && document.contains(previous)) previous.focus(); } catch { /* element gone */ }
     };
