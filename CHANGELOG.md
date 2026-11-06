@@ -12,6 +12,9 @@
   are detected. The first use warns about the one-time model download (about 30 MB) and shows
   its progress and time left, with a Cancel button. The AI Trace button is now a full-width
   primary button above the Markups toolbar.
+- **AI Trace no longer freezes the page and is faster**: it runs in a background worker, can be
+  cancelled at any stage, and uses several CPU threads in Chrome and Edge (about 3 s instead of
+  10 s on the test machine). Other browsers use one thread, with the same landmarks.
 
 ## [Unreleased] - What's new
 

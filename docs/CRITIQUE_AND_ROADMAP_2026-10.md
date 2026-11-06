@@ -325,11 +325,11 @@ Phases 0 and 1 are done. This section says how each Phase 2/3 item would be buil
 - **Done:**
   - **Item 16:** guided tracing, task modes, label decluttering and in-app dialogs (B1–B6).
   - **Item 20 (most of it):** the patient-centred home (C1). Most of the report designer also landed with the PDF report work: clinic logo and name, section choice, session comparison, preview, light/dark themes, bookmarks.
-- **Still open from Phase 1, item 10** (deferred on purpose while the model is being trained):
-  - Inference runs on the main thread (`numThreads = 1`, WASM only, no worker or WebGPU).
-  - `vercel.json` has no COOP/COEP headers.
-  - The demo detector still ships in production.
-  - Items 12 and 13 depend on the worker, because a second refinement model would double the main-thread freeze.
+- **Phase 1, item 10 (AI runtime): done 2026-11-06.**
+  - Inference runs in a Web Worker and can be cancelled, with a main-thread fallback.
+  - Threads (up to 8) come from `Document-Isolation-Policy`, not COOP/COEP, because COOP would break the Google sign-in popup. Chrome and Edge only; other browsers run one thread.
+  - The demo detector no longer runs in production builds.
+  - **WebGPU is not used:** ORT 1.22 rejects the INT8 model (`DequantizeLinear` on int32). Retest with a newer ORT, or it would need the 114 MB FP32 model.
 
 ### 9.2 Phase 2
 

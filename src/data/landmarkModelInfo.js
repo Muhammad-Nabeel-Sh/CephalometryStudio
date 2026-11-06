@@ -55,6 +55,7 @@ const SHARED = {
   // `python scripts/eval-landmark-model.py --report-ood`.
   quality: null,
   ortUrl: "/ort/ort.wasm.min.js",
+  ortModuleUrl: "/ort/ort.wasm.min.mjs",
   wasmPaths: "/ort/",
 };
 

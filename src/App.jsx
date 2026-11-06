@@ -4662,7 +4662,14 @@ function Workspace({
       setShowAnalysisModal(true);
     } catch (e) {
       if (e?.name === "AbortError") {
-        setAutoTraceInfo({ message: "Model download cancelled. AI Trace downloads it again the next time you use it.", tone: "info" });
+        // A cancelled re-trace puts back the trace it had removed.
+        if (traceOpts.suppressUndo) useSessionStore.getState().undo();
+        setAutoTraceInfo({
+          message: useUIStore.getState().aiTrace?.phase === "downloading"
+            ? "Model download cancelled. AI Trace downloads it again the next time you use it."
+            : "AI Trace cancelled.",
+          tone: "info",
+        });
       } else {
         setAutoTraceInfo({ message: `Auto-trace failed: ${e?.message || e}`, tone: "err" });
       }
@@ -5995,7 +6002,7 @@ function Workspace({
         </Suspense>
       )}
 
-      <AITraceOverlay t={t} onCancelDownload={() => traceAbort.current?.abort()} />
+      <AITraceOverlay t={t} onCancel={() => traceAbort.current?.abort()} />
       {showAnalysisModal && (
         <AnalysisModal
           t={t}

@@ -3,7 +3,12 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { configDefaults } from "vitest/config";
 
+// Same as vercel.json: lets the AI use several threads where the browser supports it.
+const ISOLATION = { "Document-Isolation-Policy": "isolate-and-credentialless" };
+
 export default defineConfig({
+  server: { headers: ISOLATION },
+  preview: { headers: ISOLATION },
   plugins: [
     react(),
     // Service worker (production builds only): the app shell is precached so the
@@ -25,8 +30,9 @@ export default defineConfig({
         // Matchers are copied into sw.js as source text, so they must be
         // self-contained: no closures over variables from this file.
         runtimeCaching: [
-          // Runtime JS + wasm (~11 MB): fresh when online, cached copy offline.
-          { urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/ort/"), handler: "NetworkFirst", options: { cacheName: "ort-runtime", expiration: { maxEntries: 8 } } },
+          // Runtime JS + wasm (~11 MB): fresh when online, cached copy offline. ignoreVary:
+          // the worker and the page request these with different headers.
+          { urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/ort/"), handler: "NetworkFirst", options: { cacheName: "ort-runtime", expiration: { maxEntries: 8 }, matchOptions: { ignoreVary: true } } },
           // Amiri / Noto Sans for the PDF report.
           { urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/fonts/"), handler: "CacheFirst", options: { cacheName: "report-fonts", expiration: { maxEntries: 8 } } },
         ],

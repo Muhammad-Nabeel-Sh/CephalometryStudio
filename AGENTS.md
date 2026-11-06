@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **881 tests (Vitest)**
+- **No TypeScript**, **888 tests (Vitest)**
 
 ---
 
@@ -63,7 +63,9 @@ src/
 │   ├── drawMarkups.js          drawMarkup, drawMeasLabel, hitTest, drawAirwayOverlay
 │   ├── imageUtils.jsx          LUT processing, getProcessed
 │   ├── imageProcessor.worker.js Web worker for image processing
-│   └── landmarkDetector.js     ONNX landmark detection (main-thread, ORT UMD via <script>)
+│   ├── landmarkClient.js       What the app calls: runs the detector in a worker (cancel, threads, main-thread fallback)
+│   ├── landmarkDetector.worker.js Worker around landmarkDetector.js
+│   └── landmarkDetector.js     ONNX landmark detection (ORT module in the worker, UMD via <script> on the main thread)
 │
 ├── data/                       Constants, norms, presets
 │   ├── constants.js            THEMES, TOOLS, UNITS, PREDEFINED analyses
@@ -236,7 +238,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (881 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (888 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -567,7 +569,9 @@ Recommended settings for `.vscode/settings.json`:
 
 - **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`. Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. Formulas are drawn as equations via the injected `renderLatex` (`report/latexCapture.js`) from `f.latex` or `formulaTex(expression)` (`lib/utils.js`, mathjs `toTex`, multi-letter names as `\mathrm`). 13 tests in `src/test/reportGaps.test.js`.
 
-- **AI Trace loading screen**: `panels/AITraceOverlay.jsx` shows the phase from uiStore `aiTrace` (`runAutoTrace` `onPhase`: downloading, preparing, detecting). The download warning appears only when `loadModelAsset` really downloads (`onDownloadStart`), and Cancel aborts it via `signal`. Inference blocks the main thread, so animate only opacity/transform on HTML elements (`ai-trace-*` in `index.css`). 7 tests in `src/test/aiTraceOverlay.test.jsx` + `modelCache.test.js`.
+- **AI Trace loading screen**: `panels/AITraceOverlay.jsx` shows the phase from uiStore `aiTrace` (`runAutoTrace` `onPhase`: downloading, preparing, detecting). The download warning appears only when `loadModelAsset` really downloads (`onDownloadStart`), and Cancel aborts it via `signal`. Without the worker inference blocks the main thread, so animate only opacity/transform on HTML elements (`ai-trace-*` in `index.css`). 7 tests in `src/test/aiTraceOverlay.test.jsx` + `modelCache.test.js`.
+
+- **AI runtime (Phase 1, item 10)**: inference runs in a module worker (`canvas/landmarkClient.js` + `landmarkDetector.worker.js`), importing `/ort/ort.wasm.min.mjs` at run time by absolute URL (the dev server refuses a root-relative import of a public file); if the worker fails, `landmarkDetector.js` runs on the main thread. Cancelling terminates the worker, so `autoTrace.js` reloads the model on the next trace. Threads: `numThreads` up to 8 when `crossOriginIsolated`, from the `Document-Isolation-Policy` header (`vercel.json`, `vite.config.js`). Do not use COOP: it would break the Google sign-in popup. **WebGPU is not used**: ORT 1.22 rejects the INT8 model (`DequantizeLinear` on int32), so it would need the 114 MB FP32 model. 7 tests in `src/test/landmarkClient.test.js`.
 
 ### Ongoing
 
@@ -577,7 +581,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 881 tests pass (58 test files, 0 failures)
+- `npm test` — 888 tests pass (59 test files, 0 failures)
 
 
 

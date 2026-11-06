@@ -12,7 +12,7 @@ import { PREDEFINED } from "../data/constants.js";
 import { appLabelForSymbol } from "../data/landmarkMap.js";
 import { LANDMARK_MODEL, isModelConfigured } from "../data/landmarkModelInfo.js";
 import { autoCreateMeasurements } from "./template.js";
-import { detectLandmarks, initDetector, getDetectorDebug } from "../canvas/landmarkDetector.js";
+import { detectLandmarks, initDetector, getDetectorDebug } from "../canvas/landmarkClient.js";
 import { loadModelAsset } from "../storage/modelCache.js";
 
 export function findAnalysis(templateName) {
@@ -95,7 +95,8 @@ export function applyDetections(store, detections, templateName, calibration, la
 
 let _readyPromise = null;
 
-// Inference blocks the main thread, so let the browser paint the new phase first.
+// Hashing the model, and the main-thread fallback, block the page for a moment, so
+// let the browser paint the new phase first.
 // The timeout covers a hidden tab, where animation frames do not fire.
 function nextPaint() {
   return new Promise((resolve) => {
@@ -134,6 +135,7 @@ export function ensureDetectorReady(onProgress, { onPhase, signal } = {}) {
       robustness: LANDMARK_MODEL.robustness,
       quality: LANDMARK_MODEL.quality,
       ortUrl: LANDMARK_MODEL.ortUrl,
+      ortModuleUrl: LANDMARK_MODEL.ortModuleUrl,
       wasmPaths: LANDMARK_MODEL.wasmPaths,
     };
     if (isModelConfigured()) {
@@ -147,7 +149,7 @@ export function ensureDetectorReady(onProgress, { onPhase, signal } = {}) {
     }
     onPhase?.("preparing");
     await nextPaint();
-    return initDetector(opts);
+    return initDetector({ ...opts, signal });
   })().catch((err) => {
     if (err?.name === "AbortError") {
       _readyPromise = null;
@@ -188,10 +190,19 @@ export async function runAutoTrace({ imageInput, calibration, store, onProgress,
   }
   onPhase?.("detecting");
   await nextPaint();
-  const { landmarks, backend, orientation, polarity, quality, hypotheses, refined } = await detectLandmarks(imageInput, {
-    landmarkSet: LANDMARK_MODEL.landmarkSet,
-    forceHypothesis,
-  });
+  let detection;
+  try {
+    detection = await detectLandmarks(imageInput, {
+      landmarkSet: LANDMARK_MODEL.landmarkSet,
+      forceHypothesis,
+      signal,
+    });
+  } catch (e) {
+    // Cancelling or a crash ends the worker, and its loaded model with it.
+    _readyPromise = null;
+    throw e;
+  }
+  const { landmarks, backend, orientation, polarity, quality, hypotheses, refined } = detection;
   // Decoupled: place every detected landmark now (no template filter, no
   // measurements). The analysis + measurements are chosen afterwards from the
   // analysis-selection modal (workspace/template.applyAnalysis).

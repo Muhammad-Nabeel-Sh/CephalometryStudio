@@ -22,8 +22,8 @@ body {
 }
 
 /* ═════════════════════════════════════════════════════════════════
-   AI Trace. Inference blocks the main thread: animate only opacity and
-   transform on HTML elements, which keep running on the compositor.
+   AI Trace. Without the worker, inference blocks the main thread: animate only
+   opacity and transform on HTML elements, which keep running on the compositor.
    One 3.6 s cycle: the scan descends for 80% of it (2.88 s), so a dot's
    delay in AITraceOverlay.jsx is its height on the film × 2.88 s.
    ═════════════════════════════════════════════════════════════════ */

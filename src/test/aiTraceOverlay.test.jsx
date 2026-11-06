@@ -22,18 +22,20 @@ describe("describeDownload", () => {
 describe("TraceDialog", () => {
   it("warns about the first-use download, shows progress and can cancel", () => {
     const cancel = vi.fn();
-    render(<TraceDialog t={t} onCancelDownload={cancel} status={{ phase: "downloading", received: 15e6, total: 30e6, elapsedMs: 20000 }} />);
+    render(<TraceDialog t={t} onCancel={cancel} status={{ phase: "downloading", received: 15e6, total: 30e6, elapsedMs: 20000 }} />);
     expect(screen.getByText(/First use only/)).toBeTruthy();
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("50");
     fireEvent.click(screen.getByText("Cancel download"));
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it("drops the warning and Cancel when the model is already available", () => {
-    render(<TraceDialog t={t} onCancelDownload={() => {}} status={{ phase: "detecting" }} />);
+  it("drops the warning when the model is already available, and can still cancel", () => {
+    const cancel = vi.fn();
+    render(<TraceDialog t={t} onCancel={cancel} status={{ phase: "detecting" }} />);
     expect(screen.getByText("Finding landmarks")).toBeTruthy();
     expect(screen.queryByText(/First use only/)).toBeNull();
-    expect(screen.queryByText("Cancel download")).toBeNull();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(cancel).toHaveBeenCalledTimes(1);
     expect(document.querySelectorAll(".ai-trace-dot").length).toBe(29);
   });
 });

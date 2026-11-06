@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Landmark detector — loads the self-hosted ONNX Runtime UMD build via a <script>
-// tag and runs inference on the main thread.
+// Landmark detector — loads the self-hosted ONNX Runtime and runs inference. The
+// app reaches it through canvas/landmarkClient.js, which runs it in a Web Worker.
 //
-// Public/ files can only be referenced via HTML tags (not module imports), so
-// the runtime is injected as a classic script and exposed on `window.ort`. The
-// model itself is fetched (and cached) by storage/modelCache. When the runtime
-// or model is unavailable the deterministic demo detector is used instead.
+// In the worker the runtime's ES module is imported at run time. On the main thread
+// (the fallback) the UMD build is injected as a classic script and exposed on
+// `window.ort`. The model itself is fetched (and cached) by storage/modelCache. When
+// the runtime or model is unavailable the deterministic demo detector is used instead.
 //
 // Robustness layer: the trained model is orientation-specific and has never seen
 // an inverted film, so detection runs a small hypothesis search —
@@ -53,9 +53,18 @@ export function getDetectorDebug() {
   return _debug;
 }
 
-// Inject the ORT UMD build as a classic script (sets window.ort). Cached.
-function loadOrt(url) {
-  if (typeof document === "undefined") return Promise.resolve(null);
+// Worker: import the ORT module. Main thread: inject the UMD build as a classic
+// script (sets window.ort). Cached.
+function loadOrt(url, moduleUrl) {
+  if (typeof document === "undefined") {
+    if (!moduleUrl) return Promise.resolve(null);
+    // Absolute, because the dev server refuses a root-relative import of a public file.
+    _ortPromise ||= import(/* @vite-ignore */ new URL(moduleUrl, self.location.href).href).catch((e) => {
+      console.warn("AI runtime failed to load in the worker", e);
+      return null;
+    });
+    return _ortPromise;
+  }
   if (typeof window !== "undefined" && window.ort?.InferenceSession) return Promise.resolve(window.ort);
   if (!url) return Promise.resolve(null);
   if (_ortPromise) return _ortPromise;
@@ -81,7 +90,7 @@ export async function initDetector(opts = {}) {
   if (opts.robustness) _robustness = opts.robustness;
   if (opts.quality) _qualityThresholds = opts.quality;
 
-  const ort = await loadOrt(opts.ortUrl);
+  const ort = await loadOrt(opts.ortUrl, opts.ortModuleUrl);
   if (!ort || (!opts.modelBuffer && !opts.modelUrl)) {
     _backend = "mock";
     _debug = ort ? null : "onnxruntime-web not loaded";
@@ -90,7 +99,7 @@ export async function initDetector(opts = {}) {
   try {
     if (opts.wasmPaths && ort.env?.wasm) ort.env.wasm.wasmPaths = opts.wasmPaths;
     if (ort.env?.wasm) {
-      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.numThreads = opts.numThreads ?? 1;
       ort.env.wasm.proxy = false;
     }
     _session = await ort.InferenceSession.create(opts.modelBuffer || opts.modelUrl, {
@@ -108,7 +117,7 @@ export async function initDetector(opts = {}) {
   }
 }
 
-function readPixels(input) {
+export function readPixels(input) {
   if (!input) return null;
   if (input.pixels && input.width && input.height) {
     return { pixels: input.pixels, width: input.width, height: input.height };

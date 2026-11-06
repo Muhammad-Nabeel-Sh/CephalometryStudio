@@ -35,6 +35,7 @@ check.cjs
 # runtime (checksum-verified, cached), so they are not committed.
 public/ort/*
 !public/ort/ort.wasm.min.js
+!public/ort/ort.wasm.min.mjs
 !public/ort/ort-wasm-simd-threaded.mjs
 !public/ort/ort-wasm-simd-threaded.wasm
 public/models/

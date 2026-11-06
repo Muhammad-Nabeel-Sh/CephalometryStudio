@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // AI Trace: the button that starts a trace and the screen shown while it runs.
 //
-// Inference blocks the main thread (single-threaded wasm), so everything that
-// must keep moving during detection is a CSS opacity/transform animation on HTML
+// Inference runs in a worker, but on the main-thread fallback it blocks the page, so
+// everything that must keep moving is a CSS opacity/transform animation on HTML
 // elements (see "AI Trace" in index.css). SVG attributes and JS timers would freeze.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -73,16 +73,16 @@ function TraceFilm({ progress }) {
 
 // Shown while a trace runs; `aiTrace` in uiStore holds the phase and download
 // progress, so progress updates re-render only this component.
-export function AITraceOverlay({ t, onCancelDownload }) {
+export function AITraceOverlay({ t, onCancel }) {
   const status = useUIStore((s) => s.aiTrace);
   if (!status) return null;
-  return <TraceDialog t={t} status={status} onCancelDownload={onCancelDownload} />;
+  return <TraceDialog t={t} status={status} onCancel={onCancel} />;
 }
 
-export function TraceDialog({ t, status, onCancelDownload }) {
+export function TraceDialog({ t, status, onCancel }) {
   const { phase, received = 0, total = 0, elapsedMs = 0 } = status;
   const downloading = phase === "downloading";
-  const ref = useDialogA11y(downloading ? onCancelDownload : undefined);
+  const ref = useDialogA11y(onCancel);
   const percent = downloading && total ? Math.min(100, Math.round((received / total) * 100)) : null;
 
   return (
@@ -104,16 +104,16 @@ export function TraceDialog({ t, status, onCancelDownload }) {
                 <Icon name="warning" size={16} color={t.warn} style={{ marginTop: 1 }} />
                 <span>First use only: the model is about 30 MB and can take a few minutes on a slow connection. Keep this tab open. After this, AI Trace starts right away, even offline.</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-                <Btn t={t} small onClick={onCancelDownload}>Cancel download</Btn>
-              </div>
             </>
           ) : (
             <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.45, color: t.tx2 }}>
-              {phase === "detecting" && "This can take up to a minute on slower devices, and the page won't respond until it finishes. "}
+              {phase === "detecting" && "This can take up to a minute on slower devices. "}
               Your image stays on this device.
             </p>
           )}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <Btn t={t} small onClick={onCancel}>{downloading ? "Cancel download" : "Cancel"}</Btn>
+          </div>
         </div>
       </div>
     </div>
