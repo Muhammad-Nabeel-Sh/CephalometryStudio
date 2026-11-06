@@ -1,6 +1,6 @@
 # Airway Analysis Module: Audit and Rewrite Plan
 
-**Date:** 2026-11-06, revised the same day after reading the seven papers in `Research papers/`. **Status:** Phase 0 is done (see the changelog); the remaining phases are proposed.
+**Date:** 2026-11-06, revised twice after reading the 11 papers in `Research papers/`, most recently McNamara 1984, Riley 1983, Fujioka 1979 and Mislik 2014. **Status:** Phase 0 is done (see the changelog); the remaining phases are proposed.
 
 ## 1. Summary
 
@@ -17,7 +17,7 @@ Your suspicion is right. The module should be rewritten, not patched. The arithm
 1. Ship a small safety fix: hide the risk score and the z-scores we can't trust (§5, Phase 0; done).
 2. Rebuild around a small set of published measurements, each traceable to a source page, measured on traced airway walls (§4).
 
-Estimated effort is **5–7 weeks of development, plus your time as the clinical reviewer** (§5). The papers supply usable reference values for children aged 6–12 and for adults, but leave a gap for ages 13–17 (§3.9).
+Estimated effort is **5–7 weeks of development, plus your time as the clinical reviewer** (§5). The papers now cover every age from infancy for the adenoid ratio, ages 6–17 for airway widths, and adults, though Mislik warns that individual variation makes any airway reference questionable (§3.9, §4.2).
 
 ## 2. What exists today
 
@@ -40,14 +40,16 @@ Estimated effort is **5–7 weeks of development, plus your time as the clinical
 | # | Finding | Evidence |
 |---|---|---|
 | A1 | **N-PH norm is anatomically impossible.** Nasion to the posterior pharyngeal wall spans most of the head, but the norm is 24.3 ± 3.6 mm. | Reproduced: 73.4 mm, **z = +13.6**, shown as "Wider than average". A normal patient can never be normal. |
-| A2 | **Upper airway norm is attributed to the wrong source.** R-PAS uses 11.2 ± 2.4 mm, labelled McNamara 1984. Summaries of McNamara report 15–20 mm, but the papers measure much less with similar methods (§3.9). The number may be reasonable; its citation isn't. **Don't adopt 15–20 mm.** | Corrected after reading the papers. My first version treated this as a wrong value. |
+| A2 | **Upper and lower airway norms misuse McNamara.** R-PAS uses 11.2 ± 2.4 mm, labelled McNamara 1984. His adult upper pharynx is **17.4 mm** (SD 3.4–4.3), so a well-balanced adult would read about z = +2.6. The app's age and sex tables aren't in his paper. His lower pharynx (11.3 and 13.5 mm) does roughly match the app's 12.5. | McNamara 1984, Table I. **This reverses my previous revision**, which wrongly said not to use his values because I had only seen a summary. They are valid for adults measured his way (§3.8). |
 | A3 | **Generating boundaries changes the results.** The button adds curves, and those curves silently replace the landmark measurements. | Reproduced, same landmarks: R-PAS 16.2 → 14.0 mm; **R-RG 20.6 → 11.0 mm**, which moves it from "Wider than average" to "Normal". |
 | A4 | **The anterior boundary runs to the tongue tip.** Its order is PNS → SP → Vallecula → Epiglottis → **TT**, leaving the airway and crossing the mouth. Vallecula also comes before the epiglottis tip, which normally lies above it. | Reproduced: the generated wall ends at TT. |
-| A5 | **The OSA Risk Score isn't validated.** It averages correlated z-scores against thresholds with no source, on the flawed norms above. A lateral cephalogram can't establish OSA; the literature found supports association only. | One z above 2.5 gives "high", with text saying "multiple measurements". Reproduced: the mean direction was −2.3 (airway larger than the norm), yet the result was "high". |
+| A5 | **The OSA Risk Score isn't validated.** It averages correlated z-scores against thresholds with no source, on the flawed norms above. A lateral cephalogram can't establish OSA. In Riley 1983, OSA patients without mandibular deficiency had a posterior airway space of 9–13 mm, the same as controls, so a normal film can't rule it out. | One z above 2.5 gives "high", with text saying "multiple measurements". Reproduced: the mean direction was −2.3 (airway larger than the norm), yet the result was "high". |
 | A6 | **Min-CSA isn't measurable and usually doesn't compute.** It assumes a circular airway from one front-to-back width, but a sagittal film has no side-to-side information. The norm of 95 is simply that formula applied to about 11 mm, so it validates nothing. | Reproduced: with every landmark placed, the value is `null` and it says "Missing landmarks". The y-range uses the wrong array ends (`airway.js:786-787`). |
 | A7 | **"Abnormal" flags almost everyone.** The panel calls any \|z\| > 1 abnormal. About 32% of a healthy population is outside ±1 SD on each measure. | With 14 independent measures, about **99.5%** of healthy people would have at least one flag (they are correlated, so the true figure differs). |
 | A8 | **Pharyngeal area has no defined region.** The norm of 380 mm² contradicts the app's regional norms, which add up to 800 mm² (250 + 350 + 200). One paper reports 336 ± 86 mm², so 380 isn't absurd, but that paper's region differs from the app's, and area depends entirely on the region chosen. | Code plus Abdulhameed 2024. Reproduced: 1258 mm², z = +6.8, on a synthetic case with wide walls. |
 | A9 | **PNS-AD1's norm is far too low.** The app used 15 ± 3 mm. Spanish children average 23.3 ± 3.6 mm, a Vietnamese Class II sample 22.9 ± 2.8 mm, and Italian adults 17.3–21.1 mm. A typical 10-year-old would read about z = +3. PNS-AD2 has a smaller gap (18 ± 4 vs 20.4 ± 3.5 mm). | Pérez-Rodríguez 2021, Nguyen 2025, Sfondrini 2024. **Fixed in Phase 0** by withholding both. |
+| A11 | **Citations are false where we can check them.** McNamara 1984 has no R-PAS of 11.2, no age or sex tables, and no "Oropharyngeal Depth". Riley 1983 reports no airway area, so "Pharyngeal Area: Riley 1983" has no basis there. Fujioka's real ratio uses different landmarks from the app's. | Original papers. Solow, Schulhof, Lowe, Bibby, Pracharktam and Battagel remain unchecked. |
+| A12 | **The lower airway warning pointed the wrong way.** The app warned about R-RG < 5 mm. McNamara says a small lower pharynx "is not remarkable", while **more than 15 mm** suggests a forward tongue or enlarged tonsils. | McNamara 1984. The warning was removed in Phase 0. |
 | A10 | **An airway page appeared on non-airway cases.** A Steiner case with AI landmarks got an "Airway assessment" page holding only Mandibular Body Length, because Go and Me were placed. | Your `Case_001` report, page 6. **Fixed in Phase 0.** |
 
 ### 3.2 Definitions that disagree or don't make sense
@@ -109,7 +111,7 @@ The "Airway study" is one session's table, not a study. It has no groups, no rel
 
 ### 3.7 The papers in `Research papers/`
 
-Only the seven papers you provided were read in full. Anything else below is marked as unconfirmed.
+The 11 papers you provided were read from extracted text. Anything else is marked as unconfirmed.
 
 | Paper | Sample | What it adds | Cautions |
 |---|---|---|---|
@@ -129,7 +131,24 @@ Only the seven papers you provided were read in full. Anything else below is mar
 - **Show patterns, not single flags,** following Major's advice to look for several deviant measures.
 - **Sex matters less than the old tables implied.** Pérez-Rodríguez found no significant sex difference in children. Sfondrini found sex effects on MAS, IAS and PAS min in adults, with small R² (0.03–0.06).
 
-**Still unconfirmed, because the papers aren't in the folder:** McNamara 1984, Linder-Aronson & Henrikson 1973, Fujioka 1979, Riley 1983, Mislik 2014. The values I gave from memory in the first version of this plan, including Riley's PAS, MP-H and PNS-P, stay excluded until the papers are read.
+**The four original papers:**
+
+| Paper | Sample | What it adds | Cautions |
+|---|---|---|---|
+| **McNamara 1984**, Am J Orthod | 111 adults with well-balanced faces and Class I occlusion (Ann Arbor), mean age about 27–31; 8% enlargement | Defines upper and lower pharynx. Adults: upper 17.4 ± 3.4 (women), 17.4 ± 4.3 (men); lower 11.3 ± 3.3 (women), 13.5 ± 4.3 (men). Upper ≤ 5 mm is "only an indicator" for ENT evaluation. Lower > 15 mm suggests a forward tongue or enlarged tonsils. | Selected for good faces, not representative. **The ≤ 5 mm cue has weak support:** against nasal resistance, Major reports sensitivity 0.32 and specificity 0.83. Column order inferred from the table; check the PDF. |
+| **Mislik 2014**, Eur J Orthod | 880 healthy untreated Swiss schoolchildren, 6–17, randomly selected; 7.5% magnification; head stabilized, no swallowing | **Best sample for ages 6–17:** "p" (shortest soft palate to wall) and "t" (shortest tongue to wall), with median and IQR by age and sex. Minimal age effect and no real sex effect. ICC about 0.93–0.95. | **Its main conclusion is that high individual variation makes a mean reference questionable.** Values aren't normally distributed, so z-scores don't fit. Few children at ages 6 and 7 (11 and 21). Breathing problems weren't excluded. Tables 2–3 conflict with Tables 4–5 at several ages; 4–5 agree with the overall means. |
+| **Fujioka 1979**, AJR | 1,398 children, 1 month to 16 years | Defines the A/N ratio, with means and SDs by age. Peak 0.59 at 4.5 years, 0.38 at 15.5. No sex difference. Above 0.80 suggests enlarged adenoids (34 of 36 judged enlarged). **A ratio doesn't depend on magnification.** | Children referred for imaging, so not random. Validated against experts viewing the same films. Major records r = 0.11 against endoscopy in one study. |
+| **Riley 1983**, Sleep | 10 OSA patients and **5 control men** with cephalograms | PAS on the B-Go line, 11 ± 1 mm; PNS-P 37 ± 3 mm; MP-H 15.4 ± 3 mm. Natural head position, upright, teeth together. | **Too small for a norm.** The stated SDs don't match its own five controls (PAS about 1.7, MP-H about 4.7, from the table). All men. |
+
+**What these change:**
+
+- **McNamara's values are usable for adults,** using his exact method: the upper measurement is taken on the **anterior half** of the soft palate outline.
+- **Distinct measurements have been conflated.** McNamara's upper pharynx (17.4 mm in adults), Mislik's shortest palate-to-wall distance (about 9 mm in children), and SPAS (about 12 mm in adults) aren't interchangeable. This probably explains much of the spread I saw earlier. Pérez-Rodríguez and Uslu-Akcam cite McNamara but leave out "anterior half", so their values may not match his method.
+- **Reference presentation has to change.** Following Mislik, airway widths get a typical range (median and IQR, or percentiles) rather than a z-score, and no value is called abnormal for falling outside it.
+- **Riley's values stay out of the norm table.** Its finding about OSA without mandibular deficiency is the part worth keeping.
+- **Swallowing check:** McNamara says an inverted-V soft palate means the film was taken during swallowing, which limits the upper measurement. This goes in the film check.
+
+**Still not read:** Linder-Aronson & Henrikson 1973. It no longer blocks anything, because Pérez-Rodríguez defines its nasopharyngeal measures fully. The other sources cited in the old code (Solow, Schulhof, Lowe, Bibby, Pracharktam, Battagel, Samman) aren't needed, because none of their values is planned for the rewrite. The exception is that MP-H and SP-Length still show z-scores from Bibby and Lowe until Phase 2 replaces them. Sfondrini's adult values for the same measures are close.
 
 ### 3.8 The same names mean different things
 
@@ -142,26 +161,28 @@ This is the strongest finding, and the app's current definitions match none of t
 | **IAS / IPAS** | Epiglottis top, nearest perpendicular wall point | Through epiglottis tip, parallel to palatal plane | **On the B-Go line** | |
 | **PNS-Ad1** | NL: PNS to **posterior wall** on PNS-Ba | PNS-AD1: airway width on PNS-Ba | | PNS to **adenoid tissue** on PNS-Ba |
 | **Upper nasopharynx** | PD: PNS to wall, parallel to bispinal plane | PNS-AD2: along a "PNS-R" line | | PNS-H: PNS to hormion, perpendicular to S-Ba |
-| **Lower pharynx** | PAS min: tongue base on the Go-B line to wall | | | McNamara: tongue/mandible intersection to nearest wall (same in Uslu-Akcam) |
+| **Lower pharynx** | PAS min: tongue base on the Go-B line to wall (same line as Riley's PAS) | | | McNamara: tongue/mandible intersection to nearest wall (same in Uslu-Akcam) |
+| **Upper pharynx** | | | | "Posterior wall of the soft palate" to closest wall. **McNamara adds: on the anterior half of the outline.** Mislik's "p": shortest distance anywhere |
 
-**Consequence for the design:** a measurement in the registry isn't "SPAS". It is "SPAS (Sfondrini 2024)", with one construction, and only that paper's norm applies. Hormion also shares the label "H" with the hyoid in this app, so landmark labels must be namespaced.
+**Consequence for the design:** a measurement in the registry isn't "SPAS". It is "SPAS (Sfondrini 2024)", with one construction, and only that paper's reference applies. Hormion also shares the label "H" with the hyoid in this app, so landmark labels must be namespaced.
 
 ### 3.9 How the app's old values compare
 
-Means in mm. Sample and definitions differ between columns, so this is a plausibility check, not a validation.
+Means in mm. Samples and definitions differ between columns, so this is a plausibility check, not a validation.
 
-| App measure | Old norm | Children 6–12 (Pérez-Rodríguez) | Adolescents | Adults (Sfondrini; by class I/II/III) | Verdict |
-|---|---|---|---|---|---|
-| R-PAS / upper pharynx | 11.2 ± 2.4 | 9.4 ± 2.6 (7.5 at 6 → 11.4 at 12) | 10.1 ± 2.6 (Uslu-Akcam) | SPAS 12.0, 12.6, 11.3 (other definition) | Plausible; wrong citation; rewrite by age |
-| R-RG / lower pharynx | 12.5 ± 2.8 | 11.6 ± 2.6, stable with age | 8.4 ± 2.4 (Uslu-Akcam) | PAS min 11.1, 11.4, 11.2 (other definition) | A little high; samples disagree |
-| PNS-AD1 | 15 ± 3 | 23.3 ± 3.6 (19.6 at 6 → 26.2 at 12) | 22.9 ± 2.8 (Nguyen, 14–25) | NL 19.9, 21.1, 17.3 | **Too low** |
-| PNS-AD2 | 18 ± 4 | PNS-H 30.0 ± 2.6 (other construction) | 20.4 ± 3.5 (Nguyen) | PD 21.1, 22.0, 18.4 (other construction) | Definition unclear |
-| MAS | 9.8 ± 2.5 | | 10.6 ± 2.6 (Nguyen) | 9.0, 10.2, 10.1 | Plausible for Sfondrini's definition |
-| IAS | 11.6 ± 3.0 | | 11.0 ± 3.0 (Nguyen) | 10.7, 11.0, 10.3 | Plausible; definition varies |
-| SP-AW | 8.5 ± 1.8 | | | PT (thickness) 9.4, 9.4, 9.7 | **Confirms a thickness value, not an airway width** |
-| Soft palate length | 32.4 ± 3.2 | | | PL 33.3, 30.9, 30.9 (SD 4.3–5.8) | Plausible; SD too narrow |
-| MP-H | 12.3 ± 3.5 | | | MPH 12.8, 13.2, 14.6 (SD 4.2–5.3) | Plausible; SD too narrow |
-| N-PH | 24.3 ± 3.6 | | | | No support in any paper |
+| App measure | Old norm | Children and adolescents | Adults | Verdict |
+|---|---|---|---|---|
+| R-PAS / upper pharynx | 11.2 ± 2.4 | "p": 8.1 at 6 → 9.2 at 17 (Mislik). Upper airway: 7.5 at 6 → 11.4 at 12 (Pérez-Rodríguez). 10.1 ± 2.6 at about 14 (Uslu-Akcam) | **McNamara 17.4 ± 3.4–4.3.** SPAS 11.3–12.6 (Sfondrini, other method) | Fits no source's method; replace by method and age |
+| R-RG / lower pharynx | 12.5 ± 2.8 | "t": 9.3–11.2, no clear age trend (Mislik). 11.6 ± 2.6 (Pérez-Rodríguez). 8.4 ± 2.4 (Uslu-Akcam) | McNamara 11.3 and 13.5. PAS min 11.1–11.4 (Sfondrini) | Close to McNamara's adults; too high for children |
+| PNS-AD1 | 15 ± 3 | 23.3 ± 3.6 (19.6 at 6 → 26.2 at 12, Pérez-Rodríguez). 22.9 ± 2.8 (Nguyen, 14–25) | NL 17.3–21.1 (Sfondrini) | **Too low** |
+| PNS-AD2 | 18 ± 4 | PNS-H 30.0 ± 2.6 (other construction). 20.4 ± 3.5 (Nguyen) | PD 18.4–22.0 (other construction) | Definition unclear |
+| MAS | 9.8 ± 2.5 | 10.6 ± 2.6 (Nguyen) | 9.0–10.2 (Sfondrini) | Plausible for Sfondrini's definition |
+| IAS | 11.6 ± 3.0 | 11.0 ± 3.0 (Nguyen) | 10.3–11.0 (Sfondrini) | Plausible; definition varies |
+| SP-AW | 8.5 ± 1.8 | | PT (thickness) 9.4–9.7 (Sfondrini) | **A thickness value, not an airway width** |
+| Soft palate length | 32.4 ± 3.2 | | PL 30.9–33.3, SD 4.3–5.8 (Sfondrini). 37 ± 3 (Riley, 5 men) | Plausible; SD too narrow |
+| MP-H | 12.3 ± 3.5 | | MPH 12.8–14.6, SD 4.2–5.3 (Sfondrini). 15.4 ± 3 (Riley, 5 men) | Plausible; SD too narrow |
+| N-PH | 24.3 ± 3.6 | | | No support in any paper |
+| A/N ratio (app's) | none | Real Fujioka ratio: 0.33 at 1.5 months, peak 0.59 at 4.5 years, 0.38 at 15.5 | | App's ratio is a different measure; replace |
 
 ## 4. The new design
 
@@ -180,34 +201,44 @@ Final inclusion depends on Phase 1 confirming each source.
 
 | Region | Measure | Construction | Status |
 |---|---|---|---|
-| Region | Measure | Construction | Reference | Status |
+The measures shown depend on the patient's age, so a user sees one coherent set rather than several versions of "airway width":
+
+| Age | Region | Measure | Construction | Reference |
 |---|---|---|---|---|
-| Retropalatal | Upper pharynx (McNamara) | Posterior soft palate outline to nearest back-wall point | Ages 6–12: Pérez-Rodríguez 2021 by age. **Others: none yet** | Replaces R-PAS, McUP, Minimum PAS |
-| Retroglossal | Lower pharynx (McNamara) | Tongue/lower mandible border intersection to nearest back-wall point | Ages 6–12: Pérez-Rodríguez 2021. **Others: none yet** | Replaces R-RG, McLP |
-| Nasopharynx | PNS-Ad1 | PNS to adenoid surface on PNS-Ba | Ages 6–12: Pérez-Rodríguez 2021 by age | Rebuild as a constructed point |
-| Nasopharynx | Ad1-Ba, PNS-Ba, Ptm-Ba, PNS-H | As defined by Pérez-Rodríguez, after Mucedero | Ages 6–12 | Add |
-| Nasopharynx | Adenoid area | Soft tissue area bounded by a stated construction | None; **value only** | Add: best-supported adenoid measure (Major 2006) |
-| Oropharynx | SPAS, MAS, PAS min (Sfondrini) | Sfondrini's constructions | Adults 18–50 by skeletal class | Replaces the current MAS and IAS |
-| Hypopharynx | IAS, LPW (Sfondrini) | Sfondrini's constructions | Adults by class | Add |
-| Soft palate | PL, PT | Sfondrini's constructions | Adults by class | Keep length; add thickness |
-| Hyoid | MPH | Hyoid to mandibular plane (Go-Gn) | Adults by class | Replaces MP-H. Sfondrini's text gives two definitions of H1; settle before use |
-| Areas | Regional areas | Between traced walls and stated planes | None until one matches the construction | Rebuild |
+| **1 month–16 years** | Adenoid | **A/N ratio (Fujioka)** | Adenoid convexity to basiocciput line ÷ PNS to sphenobasioccipital synchondrosis | Fujioka by age. Unaffected by magnification. Above 0.80: suggests enlarged adenoids |
+| **6–17** | Retropalatal | **"p" (Mislik)** | Shortest soft palate to back wall | Median and IQR by age and sex |
+| **6–17** | Retroglossal | **"t" (Mislik)** | Shortest tongue to back wall | Median and IQR by age and sex |
+| **6–12** | Nasopharynx | PNS-Ad1, Ad1-Ba, PNS-Ba, Ptm-Ba, PNS-H | Pérez-Rodríguez's definitions | Mean ± SD by age |
+| **Children** | Adenoid | Adenoid area | Soft tissue area with a stated boundary | None; value only. Best-supported adenoid measure (Major) |
+| **Adults** | Retropalatal | **Upper pharynx (McNamara)** | Anterior half of soft palate outline to nearest back-wall point | McNamara by sex; well-balanced faces, 8% enlargement |
+| **Adults** | Retroglossal | **Lower pharynx (McNamara)** | Tongue/lower mandible border to nearest back-wall point | McNamara by sex |
+| **Adults** | Oropharynx | SPAS, MAS, PAS min | Sfondrini's constructions | Sfondrini by skeletal class |
+| **Adults** | Hypopharynx | IAS, LPW | Sfondrini's constructions | Sfondrini by skeletal class |
+| **Adults** | Soft palate | PL, PT | Sfondrini's constructions | Sfondrini by skeletal class |
+| **Adults** | Hyoid | MPH | Hyoid to mandibular plane (Go-Gn) | Sfondrini by skeletal class. Its text defines H1 two ways; settle before use |
+| **Any** | Areas | Regional areas | Between traced walls and stated planes | None until one matches the construction |
 
-**Reference gaps:** ages 13–17, children under 6, and McNamara's measures in adults. Mislik 2014 (ages 6–17) is the obvious next paper to fill the adolescent gap. Class III children have no reference here. Where no reference fits, the measurement shows a value only.
+**How each reference is shown:**
 
-**Skeletal class as a reference input:** Sfondrini reports adults by class, so adult comparisons need the patient's class, taken from ANB as that paper defines it. Keep the class-specific values rather than pooling them, and show which group was used.
+- **Airway widths in children ("p", "t"):** "typical range" from Mislik, stating that individual variation is high. No z-score, no flag.
+- **Other measures:** z-score only where the paper gives mean and SD and its distribution is plausibly normal. Note that the sample is defined narrowly where that applies (McNamara: well-balanced faces).
+- **Skeletal class:** Sfondrini's adult references need the patient's class, from ANB as that paper defines it. Keep the class values separate and show which group was used.
+- **Population:** every comparison names its sample ("880 Swiss schoolchildren, 1981–84"). These samples don't represent all populations, and the app never infers ethnicity.
 
-**Population labels:** every comparison names its sample ("480 Spanish children aged 6–12"). These samples don't represent all populations, and the app never infers ethnicity.
+**Magnification:** norms include their film's enlargement (McNamara 8%, Mislik 7.5%). If a film is calibrated at the midsagittal plane, its mm values exclude that enlargement, so at McNamara's 17.4 mm the mismatch is about 1.3 mm. Each reference stores its factor, and each comparison shows whether it matches the film's calibration. See decision 8.
+
+**Remaining gaps:** children under 6 have only the A/N ratio. Ages 13–17 have "p", "t" and the A/N ratio only. Sex-specific tables come from the paper as printed, including its small groups at ages 6 and 7, which get a warning.
 
 **Removed:**
 
 | Measurement | Why |
 |---|---|
-| N-PH | Impossible norm; no support in any paper here |
+| N-PH | Impossible norm; no support in any paper |
 | Min-CSA | Not measurable from a sagittal film |
 | OSA Risk Score | Not validated |
 | SP-AW, LP width | Incoherent as built, and SP-AW's norm is a thickness value |
-| Current MAS, IAS, SPAS | Replaced by Sfondrini's constructions |
+| Current MAS, IAS, SPAS, R-PAS, R-RG | Replaced by the constructions above |
+| App's "Adenoid/Nasopharynx Ratio" | Not Fujioka's ratio; replaced by it |
 | Vertical Airway Length, Eb-PNS, Oropharyngeal Depth | Duplicates |
 | Mandibular Body | Available from other analyses. Meisgeier links GoGn to airway size weakly (AUC 0.63), so it isn't an airway result |
 | Tongue Length, Hyoid-C3 | Return only with a confirmed definition and norm |
@@ -216,8 +247,8 @@ Final inclusion depends on Phase 1 confirming each source.
 
 Steps run in order, and each can be completed on its own:
 
-1. **Check the film:** record posture (upright or supine), head position, teeth and lips, tongue, swallowing or breathing instructions, calibration and magnification. Unknown is allowed, and is reported. Sfondrini, Nguyen and Meisgeier all treat these as affecting results, and supine data can't be compared with upright norms.
-2. **Bony references:** reuse existing points. AI Trace already provides S, N, PNS, Go, Me and B. Add Ba and any other point that's missing.
+1. **Check the film:** record posture (upright or supine), head position, teeth and lips, tongue, swallowing or breathing instructions, calibration and magnification. Unknown is allowed, and is reported. McNamara, Mislik, Riley, Sfondrini, Nguyen and Meisgeier all treat these as affecting results, and supine data can't be compared with upright norms. Include McNamara's check: an inverted-V soft palate suggests swallowing during exposure.
+2. **Bony references:** reuse existing points. AI Trace already provides S, N, PNS, Go, Me and B. Add Ba and, for the A/N ratio, the basiocciput line and sphenobasioccipital synchondrosis, with Fujioka's fallback when the synchondrosis isn't clear.
 3. **Trace three walls:** back wall, soft palate outline and tongue base, each as a named curve placed by the user. Curves stay in the order they were drawn, never sorted by height.
 4. **Soft tissue and hyoid points:** uvula tip, epiglottis tip, vallecula, hyoid.
 5. **Review:** measurement lines are drawn on the film, so each value can be checked by eye.
@@ -234,7 +265,8 @@ Most points that today need manual placement (Ad1–Ad4, PAS_lowest) become **ca
 
 - Group by region, with a compact range strip showing the value against the reference group and the group named.
 - Use three states: *within reference range* (±2 SD), *outside reference range*, or *no suitable reference*. Don't use "abnormal" or red for a single 1 SD difference.
-- For children's adenoid and nasopharynx measures, summarize patterns: "3 of 5 nasopharyngeal measures are outside the reference range. Consider ENT evaluation if there are clinical signs." This follows Major 2006. It's the only referral wording the evidence here supports, and thresholds need your approval.
+- For children's adenoid and nasopharynx measures, summarize patterns: "3 of 5 nasopharyngeal measures are outside the reference range. Consider ENT evaluation if there are clinical signs." This follows Major 2006. Thresholds need your approval.
+- Published cues appear only as cited statements, never as verdicts: A/N above 0.80 (Fujioka), upper pharynx ≤ 5 mm "only as an indicator" and lower pharynx above 15 mm (McNamara). A value outside these cues is never described as reassuring, since sensitivity is low.
 - Include a note in reports that a lateral film is 2D, and that widths relate only moderately to 3D airway size (r about 0.6–0.7 in Nguyen and Meisgeier).
 - Add a "how this was measured" line with the source, and the film's protocol if it differs from the source.
 
@@ -270,7 +302,7 @@ Estimates assume one developer with an AI assistant. The source review depends o
 | Phase | Work | Done when | Effort |
 |---|---|---|---|
 | **0. Safety fix (done)** | Removed the risk score, clinical notes and Min-CSA. Withheld z-scores except MP-H and SP-Length, for adults only. Generated curves no longer replace values. Added a "being revised" notice. Children never get adult norms. After reading the papers, also withheld PNS-AD1 and PNS-AD2, removed the stratified tables, and stopped Go-Me alone creating an airway report page. | Nothing misleading on screen or in reports | Done |
-| **1. Source review** | Partly done (§3.7–3.9). Get the five missing papers, resolve table errors with the PDFs open, build the norm table, and decide how to fill the 13–17 gap. You approve the measure list. | A signed-off norm table with page references | 2–3 days of dev + your review |
+| **1. Source review** | Reading done (§3.7–3.9). Recheck every value with the PDFs open, including McNamara's columns and Mislik's conflicting tables, build the norm table with page numbers, and settle §8. You approve the measure list. | A signed-off norm table with page references | 1–2 days of dev + your review |
 | **2. Engine** | Registry, geometry, compute, norm lookup, tests (§6) | All engine tests pass, with no UI yet | 1–1.5 weeks |
 | **3. Workflow and overlay** | Film check, wall tracing, constructed points, results, overlay | A case can be traced end to end | 1.5–2 weeks |
 | **4. Edge assist** | Preview-only wall suggestions | Measured against hand tracing | 3–5 days |
@@ -296,7 +328,7 @@ Phase 0 can ship straight away. Phases 1–3 are the core. Phase 4 can wait if n
 
 Before describing the module as validated:
 
-- **Reliability:** two raters trace 30–50 films twice, using the blinded reliability workflow. Report ICC, Bland-Altman limits and Dahlberg error per measure. Measures with poor agreement get a warning or are dropped. **Targets from the papers:** ICC above 0.9 within and between raters (Sfondrini 0.91–0.93), and within about 0.25 mm of manual tracing for McNamara's measures (Uslu-Akcam: ICC 0.93–0.95). Report agreement, not only correlation.
+- **Reliability:** two raters trace 30–50 films twice, using the blinded reliability workflow. Report ICC, Bland-Altman limits and Dahlberg error per measure. Measures with poor agreement get a warning or are dropped. **Targets from the papers:** ICC above 0.9 within and between raters (Sfondrini 0.91–0.93, Mislik about 0.93–0.95), and within about 0.25 mm of manual tracing for McNamara's measures (Uslu-Akcam: ICC 0.93–0.95). Report agreement, not only correlation.
 - **Check against published values:** on a suitable sample, compare group means with the source populations. A large gap suggests a construction error.
 - **Edge assist:** compare wall suggestions with hand tracing, as point-to-curve distance and as the effect on each measure.
 - **Ethics:** existing public or anonymized films may be enough. New patient films may need approval.
@@ -306,16 +338,17 @@ Before describing the module as validated:
 | # | Decision | My recommendation |
 |---|---|---|
 | 1 | Remove OSA wording entirely? | **Yes.** The papers support describing the airway and, for children's adenoids, suggesting ENT evaluation. |
-| 2 | Does the module cover children and adults? | **Both**, using Pérez-Rodríguez for ages 6–12 and Sfondrini for adults, with separate measures where the papers differ. |
+| 2 | Which measures for which ages? | **The age table in §4.2:** Mislik and Fujioka for children, McNamara and Sfondrini for adults. |
 | 3 | Which reference populations? | **Only those with checked sources.** Name the sample, and let users choose when more than one applies. Never infer ethnicity. |
 | 4 | Keep the single-session study type? | **Replace it** with airway measures in the existing research modules. |
-| 5 | Can you get the missing papers? | **Needed for Phase 1:** Mislik 2014 first (ages 13–17), then McNamara 1984, Linder-Aronson & Henrikson 1973, Fujioka 1979, Riley 1983. |
-| 6 | Which definition of SPAS, MAS and IAS? | **Sfondrini's**, because its adult reference comes with it. You may prefer another as the clinician. |
-| 7 | Adult upper and lower pharynx? | **Show McNamara's as values only** until a sound adult reference is found. Don't use 15–20 mm from secondary summaries. |
+| 5 | Which definition of SPAS, MAS and IAS? | **Sfondrini's**, because its adult reference comes with it. You may prefer another as the clinician. |
+| 6 | Show typical ranges rather than z-scores for children's "p" and "t"? | **Yes,** as Mislik's non-normal data and conclusion require. |
+| 7 | Show McNamara's ≤ 5 mm, > 15 mm and Fujioka's > 0.80 as cited cues? | **Yes,** worded as his statement and with no flag colour, plus your review of the wording. |
+| 8 | When a film's calibration excludes enlargement, adjust the comparison? | **Don't adjust values.** Show the mismatch next to the comparison, and record what the user's calibration means. Adjusting would hide an assumption, though you may prefer otherwise. |
 
 ## 9. Sources
 
-**Read in full (`Research papers/`, kept out of the repository):**
+**Read from extracted text (`Research papers/`, kept out of the repository):**
 
 - Major MP, Flores-Mir C, Major PW. Assessment of lateral cephalometric diagnosis of adenoid hypertrophy and posterior upper airway obstruction: a systematic review. Am J Orthod Dentofacial Orthop 2006;130:700-8. doi:10.1016/j.ajodo.2005.05.050
 - Pérez-Rodríguez LM, et al. Airways cephalometric norms from a sample of Caucasian children. J Clin Exp Dent 2021;13(9):e941-7. doi:10.4317/jced.58105
@@ -325,12 +358,15 @@ Before describing the module as validated:
 - Abdulhameed SA, et al. Assessing the accuracy of lateral cephalogram in quantifying three-dimensional pharyngeal airway morphology compared to CBCT. Cureus 2024;16(3):e57301. doi:10.7759/cureus.57301
 - Meisgeier A, et al. Cephalometric screening assessment for superior airway space narrowing. J Clin Med 2024;13:2685. doi:10.3390/jcm13092685
 
+- McNamara JA Jr. A method of cephalometric evaluation. Am J Orthod 1984;86(6):449-469.
+- Mislik B, Hänggi MP, Signorelli L, Peltomäki TA, Patcas R. Pharyngeal airway dimensions: a cephalometric, growth-study-based analysis of physiological variations in children aged 6-17. Eur J Orthod 2014;36:331-339. doi:10.1093/ejo/cjt068
+- Fujioka M, Young LW, Girdany BR. Radiographic evaluation of adenoidal size in children: adenoidal-nasopharyngeal ratio. AJR 1979;133:401-404.
+- Riley R, Guilleminault C, Herran J, Powell N. Cephalometric analyses and flow-volume loops in obstructive sleep apnea patients. Sleep 1983;6(4):303-311.
+
 Numbers in §3.7–3.9 were read from PDF text extraction. Recheck them with the PDFs open before they enter the norm table.
 
 **Seen only as summaries or abstracts during the first version:**
 
-- [McNamara method summary](https://cephx.com/mcnamara-analysis/) (the source of the 15–20 mm figure)
-- Mislik et al., Eur J Orthod 2014, [DOI 10.1093/ejo/cjt068](https://zendy.io/pdf-viewer/10.1093/ejo/cjt068)
 - OSA and cephalometry: [Armalaite and others](https://em-consulte.com/article/1111046/resume/craniofacial-and-upper-airway-morphology-in-adult-), [Neelapu summary](https://cats.uthscsa.edu/published_cats_friendly.php?id=3104), [Finke et al. 2023](https://www.pubmed.gov/37485571/)
 - Head posture: [review of posture effects](https://ejomr.org/JOMR/archives/2016/1/e1/v7n1e1ht.htm), [reproducibility on natural head position films, AJODO 2005](https://avesis.marmara.edu.tr/yayin/bb70e2a0-a097-4f14-8250-e5f4827d9837/reproducibility-of-airway-dimensions-and-tongue-and-hyoid-positions-on-lateral-cephalograms)
 - [Open Dentistry Journal 2015](https://opendentistryjournal.com/VOLUME/9/PAGE/263/FULLTEXT/), [Angle Orthod 2017 systematic review](https://angle-orthodontist.kglmeridian.com/view/journals/angl/87/1/article-p159.xml)
