@@ -1,3 +1,4 @@
+import { airwayResultsForDisplay } from "./airway.js";
 import { useRef, useEffect } from "react";
 import { ChartCard, FONT, FONT_STACK, PALETTE, fmtP } from "./moduleChartsUtils.jsx";
 import PlotlyChart, { heatmapLayout, heatmapData } from "./PlotlyChart.jsx";
@@ -1940,12 +1941,10 @@ function PatternSeverityBar({ patterns, t }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function AirwayCharts({ results, t }) {
-  const measurements = (results.measurements || []).filter(m => m.id !== "_global");
+  const measurements = airwayResultsForDisplay(results.measurements).filter(m => !String(m.id).startsWith("_"));
   if (measurements.length === 0) {
     return <div style={{ fontSize: FONT.md, color: t.tx3, textAlign: "center", padding: 20 }}>No airway data to chart.</div>;
   }
-
-  const clinicalNotes = measurements.filter(m => m.clinicalNote);
 
   const trace = {
     type: "bar",
@@ -1971,7 +1970,7 @@ export function AirwayCharts({ results, t }) {
   const normTrace = {
     type: "scatter",
     mode: "lines",
-    x: measurements.map(m => m.normMean || 0),
+    x: measurements.map(m => m.normMean ?? null),
     y: measurements.map(m => m.label),
     line: { color: t.tx3, width: 1, dash: "dash" },
     showlegend: false,
@@ -1999,26 +1998,6 @@ export function AirwayCharts({ results, t }) {
         <PlotlyChart data={[normTrace, trace]} layout={layout} style={{ height: layout.height }} />
       </ChartCard>
 
-      {clinicalNotes.length > 0 && (
-        <ChartCard title="Clinical Findings" t={t}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {clinicalNotes.map(m => (
-              <div key={m.id} style={{
-                padding: "6px 8px", borderRadius: 4, background: t.surf2,
-                borderLeft: `3px solid ${m.zScore != null && Math.abs(m.zScore) > 2 ? "#ef4444" : m.zScore != null && Math.abs(m.zScore) > 1 ? "#eab308" : "#22c55e"}`,
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: t.tx }}>{m.label}</div>
-                <div style={{ fontSize: 10, color: t.tx2, marginTop: 2 }}>{m.clinicalNote}</div>
-                {m.value != null && (
-                  <div style={{ fontSize: 9, color: t.tx3, marginTop: 2, fontFamily: "'DM Mono',monospace" }}>
-                    Value: {fmtNum(m.value, 2)} {m.unit}  |  Z-score: {(m.zScore >= 0 ? "+" : "") + fmtNum(m.zScore, 2)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </ChartCard>
-      )}
     </div>
   );
 }

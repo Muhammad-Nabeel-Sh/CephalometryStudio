@@ -5814,7 +5814,7 @@ function Workspace({
                       interpretation: interp,
                       // The Airway panel's live results for this session.
                       airway: {
-                        measurements: computeAirwayMeasurements(markups, calibration, patientSex, patientAge),
+                        measurements: computeAirwayMeasurements(markups, calibration, patientAge),
                         sessionName: activeSession?.name,
                       },
                       calibration,

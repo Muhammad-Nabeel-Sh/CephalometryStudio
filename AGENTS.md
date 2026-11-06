@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **888 tests (Vitest)**
+- **No TypeScript**, **882 tests (Vitest)**
 
 ---
 
@@ -238,7 +238,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (888 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (882 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -573,6 +573,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **AI runtime (Phase 1, item 10)**: inference runs in a module worker (`canvas/landmarkClient.js` + `landmarkDetector.worker.js`), importing `/ort/ort.wasm.min.mjs` at run time by absolute URL (the dev server refuses a root-relative import of a public file); if the worker fails, `landmarkDetector.js` runs on the main thread. Cancelling terminates the worker, so `autoTrace.js` reloads the model on the next trace. Threads: `numThreads` up to 8 when `crossOriginIsolated`, from the `Document-Isolation-Policy` header (`vercel.json`, `vite.config.js`). Do not use COOP: it would break the Google sign-in popup. **WebGPU is not used**: ORT 1.22 rejects the INT8 model (`DequantizeLinear` on int32), so it would need the 114 MB FP32 model. 7 tests in `src/test/landmarkClient.test.js`.
 
+- **Airway safety fix (Phase 0 of `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: no risk score, clinical notes or Min-CSA. `AIRWAY_NORMS` keeps only MP-H and SP-Length, adult values with sources not yet verified; every other measure reports "Reference under review". Measurements use landmarks only: curves never replace them. `lookupAirwayNorm(id, age)` returns null without an age and for under-18s. Saved results go through `airwayResultsForDisplay`; `migrateNorms` drops saved Airway template norms. Don't add airway norms without a checked source.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -581,7 +583,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 888 tests pass (59 test files, 0 failures)
+- `npm test` — 882 tests pass (59 test files, 0 failures)
 
 
 

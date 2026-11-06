@@ -70,7 +70,7 @@ export function runStudy(study, sessions, calibration, onProgress) {
           const cal = session?.calibration?.done ? session.calibration : calibration;
           const sex = config.sex || session?.meta?.gender || "";
           const age = config.age ?? session?.meta?.age ?? null;
-          const measurements = computeAirwayMeasurements(markups, cal, sex, age);
+          const measurements = computeAirwayMeasurements(markups, cal, age);
           results = {
             measurements,
             sessionName: session?.name || "",

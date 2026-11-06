@@ -4,6 +4,7 @@
 
 import { InfoBox, Btn } from "../ui/ui.jsx";
 import { fmtNum } from "../lib/utils.js";
+import { airwayResultsForDisplay, AIRWAY_REVISION_NOTICE } from "./airway.js";
 
 // ─── Config Panel ─────────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ export function AirwayStudyResults({ results, t }) {
     );
   }
 
-  const measurements = results.measurements || [];
+  const measurements = airwayResultsForDisplay(results.measurements);
   if (measurements.length === 0) {
     return (
       <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: 20 }}>
@@ -117,6 +118,7 @@ export function AirwayStudyResults({ results, t }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <InfoBox t={t}>{AIRWAY_REVISION_NOTICE}</InfoBox>
       {results.sessionName && (
         <div style={{ fontSize: 12, color: t.tx3, marginBottom: 4, fontStyle: "italic" }}>
           Session: {results.sessionName}
@@ -133,18 +135,12 @@ export function AirwayStudyResults({ results, t }) {
               <th style={{ padding: "4px 6px", textAlign: "center", fontWeight: 600, color: t.tx }}>Norm Mean ± SD</th>
               <th style={{ padding: "4px 6px", textAlign: "center", fontWeight: 600, color: t.tx }}>Z-Score</th>
               <th style={{ padding: "4px 6px", textAlign: "center", fontWeight: 600, color: t.tx }}>Interpretation</th>
-              <th style={{ padding: "4px 6px", textAlign: "left", fontWeight: 600, color: t.tx }}>Clinical Note</th>
             </tr>
           </thead>
           <tbody>
             {measurements.map(m => {
-              const isSummary = m.id === "_global";
               return (
-                <tr key={m.id} style={{
-                  borderBottom: `1px solid ${t.bdr}44`,
-                  background: isSummary ? t.acc + "0c" : "transparent",
-                  fontWeight: isSummary ? 700 : 400,
-                }}>
+                <tr key={m.id} style={{ borderBottom: `1px solid ${t.bdr}44` }}>
                   <td style={{ padding: "4px 6px", color: t.tx, whiteSpace: "nowrap" }}>{m.label}</td>
                   <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "'DM Mono',monospace", color: m.value != null ? t.tx : t.tx3 }}>
                     {m.value != null ? fmtNum(m.value, 2) + " " + (m.unit || "") : "—"}
@@ -160,9 +156,6 @@ export function AirwayStudyResults({ results, t }) {
                   </td>
                   <td style={{ padding: "4px 6px", textAlign: "center", color: m.interpretation ? t.tx2 : t.tx3 }}>
                     {m.interpretation || "—"}
-                  </td>
-                  <td style={{ padding: "4px 6px", fontSize: 12, color: t.tx2, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {m.clinicalNote || (isSummary ? m.interpretation : "") || "—"}
                   </td>
                 </tr>
               );

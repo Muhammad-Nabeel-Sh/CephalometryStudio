@@ -10,6 +10,7 @@
 // statistics bounded by 1 (r, ICC, AUC, η²), 95% CIs in square brackets.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { airwayResultsForDisplay } from "./airway.js";
 import { ICC_MODELS } from "./reliability.js";
 import { fmtNum } from "../lib/utils.js";
 
@@ -187,9 +188,9 @@ export function summarizeStudy(study) {
       break;
     }
     case "airway": {
-      const ms = (res.measurements || []).filter(m => m.id && !m.id.startsWith("_") && fin(m.value));
+      const ms = airwayResultsForDisplay(res.measurements).filter(m => m.id && !m.id.startsWith("_") && fin(m.value));
       headline = `${ms.length} airway measurement${ms.length === 1 ? "" : "s"} computed.`;
-      for (const m of ms) findings.push({ label: m.label, flag: fin(m.zScore) && m.zScore < -2 ? "warn" : "ok", text: `${num(m.value)} ${m.unit || ""}${fin(m.zScore) ? ` (z = ${num(m.zScore)})` : ""} — ${m.interpretation || ""}`.trim() });
+      for (const m of ms) findings.push({ label: m.label, flag: fin(m.zScore) && Math.abs(m.zScore) > 2 ? "warn" : "ok", text: `${num(m.value)} ${m.unit || ""}${fin(m.zScore) ? ` (z = ${num(m.zScore)})` : ""} — ${m.interpretation || ""}`.trim() });
       break;
     }
     default:
@@ -258,7 +259,7 @@ export function methodsText(study) {
       parts.push(`Serial tracings were superimposed using ${h(res.alignmentLabel || "a structural registration")} (rotation and translation only), and landmark displacements are reported in millimetres.`);
       break;
     case "airway":
-      parts.push("Pharyngeal airway dimensions were measured on the lateral cephalogram and compared with age- and sex-specific reference values where available.");
+      parts.push("Pharyngeal airway dimensions were measured from landmarks on the lateral cephalogram. Most reference comparisons were withheld because their sources had not been verified.");
       break;
     default:
   }

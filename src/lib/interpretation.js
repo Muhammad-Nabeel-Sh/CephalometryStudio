@@ -1807,26 +1807,6 @@ const PATTERN_RECOGNIZERS = [
       return null;
     },
   },
-  {
-    id: "osa-risk",
-    label: "OSA Risk Screening",
-    analyze: (deviations) => {
-      const criticalNarrowing = deviations.filter(d =>
-        d.category === "airway" && d.zScore < -1.5
-      );
-      if (criticalNarrowing.length < 2) return null;
-      const hasMinimal = deviations.some(d => (d.label === "Minimum PAS" || d.label === "McUP" || d.label === "McLP") && d.zScore < -1.5);
-      const hasArea = deviations.some(d => (d.label === "Oropharynx" || d.label === "Hypopharynx") && d.zScore < -1.5);
-      const hasNaso = deviations.some(d => d.label === "Nasopharynx" && d.zScore < -1.5);
-      const vert = deviations.filter(d => d.category === "skeletal" && ["vertical", "overall"].includes(d.subgroup));
-      const vertZ = vert.length ? vert.reduce((s, d) => s + d.zScore, 0) / vert.length : 0;
-      if ((hasMinimal || hasArea) && vertZ > 1.5) return { severity: "severe", summary: "High OSA risk — narrow airway with hyperdivergent pattern", detail: "Multiple airway segments show critical narrowing (>1.5 SD below mean) in a hyperdivergent skeletal pattern. Strongly recommend sleep study (polysomnography) referral." };
-      if (hasMinimal && hasArea) return { severity: "severe", summary: "High OSA risk — multi-level airway narrowing", detail: "Both cross-sectional widths and airway areas show significant narrowing. Sleep-disordered breathing likely. Consider ENT/sleep medicine referral." };
-      if (criticalNarrowing.length >= 3) return { severity: "moderate", summary: "Moderate OSA risk — generalized airway narrowing", detail: "Three or more airway measurements show narrowing >1.5 SD. Consider OSA screening questionnaire (STOP-BANG, Epworth)." };
-      if (hasMinimal || (hasNaso && hasArea)) return { severity: "mild", summary: "Low-moderate OSA risk — focal airway narrowing", detail: "Focal airway narrowing detected in one or two segments. Monitor for symptoms of sleep-disordered breathing." };
-      return null;
-    },
-  },
 ];
 
 function sdInterpretationText(zScore, normLabel, interpretFn, value, normMean) {

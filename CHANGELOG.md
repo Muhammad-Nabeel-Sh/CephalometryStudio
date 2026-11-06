@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] - Airway analysis safety fix
+
+Airway analysis is being rewritten (`docs/AIRWAY_MODULE_REWRITE_PLAN.md`). An audit found reference
+values and definitions that can't be relied on, so until then **airway results will change**:
+
+### Removed
+- The OSA risk score, the OSA interpretation pattern, clinical notes and the summary lines. A lateral
+  film can't establish sleep apnea, and these had no validation behind them.
+- Minimum cross-sectional area, which a sagittal film can't measure.
+- The Airway norm preset and the norms in the Airway template. Those already saved in a session
+  are dropped when it opens.
+
+### Changed
+- Z-scores are withheld ("Reference under review") for every airway measure except MP-H and
+  SP-Length, for adults only, whose sources are marked as not yet verified. N-PH's norm, for example,
+  was anatomically impossible, and PNS-AD1's was far below published samples.
+- Generated or traced boundary curves no longer replace landmark measurements, so measurements
+  based on them may change. The generated wall no longer runs to the tongue tip.
+- Children are never compared with adult norms, and comparisons need the patient's age. The age- and
+  sex-stratified tables are gone because their sources couldn't be traced.
+- A case with only Go and Me placed no longer gets an "Airway assessment" page in its report.
+- Saved airway studies display under these rules, and reports, exports and study text state the
+  limitation. The airway overlay no longer colours widths by z-score.
+
 ## [Unreleased] - Privacy policy
 
 ### Added

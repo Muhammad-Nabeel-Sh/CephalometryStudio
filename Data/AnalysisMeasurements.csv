@@ -396,22 +396,22 @@ McGann,Angle 4-pt,Occ plane-SN,Angle between occlusal plane (PPOcc→APOcc) and 
 McGann,Angle 4-pt,Facial angle,Angle between FH plane and facial (N-Pog) plane.,"Po,Or,N,Pog",87,3
 McGann,Angle 4-pt,Y-axis,Angle between s-Gn line and FH plane.,"s,Gn,Po,Or",59,3
 General Analysis,Distance,Incisura width,Width between incisura mandibulae points.,"Inc-L,Inc-R",90,5
-Airway Analysis,Polygon Area,Nasopharynx,Nasopharyngeal airway area enclosed by PNS-Ad1-Ad2-SP.,"PNS,Ad1,Ad2,SP",250,50
-Airway Analysis,Polygon Area,Oropharynx,Oropharyngeal airway area enclosed by SP-Ad3-Vallecula-Epiglottis-SP_mid.,"SP,Ad3,Vallecula,Epiglottis,SP_mid",350,60
-Airway Analysis,Polygon Area,Hypopharynx,Hypopharyngeal airway area enclosed by Vallecula-Epiglottis-PAS_lowest-Ad4.,"Vallecula,Epiglottis,PAS_lowest,Ad4",200,40
-Airway Analysis,Distance,PNS-Ad1,Nasopharyngeal airway depth at PNS level.,"PNS,Ad1",15,3
-Airway Analysis,Distance,SP-Ad2,Retropalatal airway depth at level of soft palate.,"SP,Ad2",11,3
-Airway Analysis,Distance,Vallecula-Ad4,Hypopharyngeal airway depth at vallecula level.,"Vallecula,Ad4",20,5
-Airway Analysis,Distance,Minimum PAS,Narrowest retropalatal airway dimension behind SP.,"SP,Ad3",10,3
-Airway Analysis,Distance,PNS-Ad2,Nasopharyngeal airway depth at So level.,"PNS,Ad2",18,4
-Airway Analysis,Distance,SP_mid width,Width of nasopharynx at level of soft palate midpoint.,"SP_mid,Ad3",12,4
-Airway Analysis,Distance,LP width,Width of lower pharynx at C3-C4 level.,"LP,Ad4",18,5
-Airway Analysis,Distance,McUP,Minimum cross-sectional width of upper pharynx retropalatal.,"SP,Ad3",10,3
-Airway Analysis,Distance,McLP,Minimum cross-sectional width of lower pharynx retroglossal.,"Eb,PAS_lowest",11,4
-Airway Analysis,Distance,SPAS,Superior posterior airway space at soft palate tip level.,"SP,PAS_lowest",10,3
-Airway Analysis,Distance,MAS,Middle airway space at mid-oropharyngeal level.,"Vallecula,Ad4",15,4
-Airway Analysis,Distance,IAS,Inferior airway space at hypopharyngeal level.,"Eb,Ad4",12,4
-Airway Analysis,Distance,Vertical Airway Length,Vertical distance from PNS to base of epiglottis.,"PNS,Eb",70,10
-Airway Analysis,Distance,Eb-PNS,Oblique airway length from base of epiglottis to PNS.,"Eb,PNS",65,10
-Airway Analysis,Angle,Angle of Nasopharynx,Angle formed by nasopharyngeal airway walls PNS-Ad1-Ad2.,"PNS,Ad1,Ad2",140,10
-Airway Analysis,Ratio,Adenoid/Nasopharynx Ratio,Ratio of adenoid thickness to nasopharyngeal depth.,"PNS-Ad1,PNS-Ad2",0.5,0.15
+Airway Analysis,Polygon Area,Nasopharynx,Nasopharyngeal airway area enclosed by PNS-Ad1-Ad2-SP.,"PNS,Ad1,Ad2,SP",,
+Airway Analysis,Polygon Area,Oropharynx,Oropharyngeal airway area enclosed by SP-Ad3-Vallecula-Epiglottis-SP_mid.,"SP,Ad3,Vallecula,Epiglottis,SP_mid",,
+Airway Analysis,Polygon Area,Hypopharynx,Hypopharyngeal airway area enclosed by Vallecula-Epiglottis-PAS_lowest-Ad4.,"Vallecula,Epiglottis,PAS_lowest,Ad4",,
+Airway Analysis,Distance,PNS-Ad1,Nasopharyngeal airway depth at PNS level.,"PNS,Ad1",,
+Airway Analysis,Distance,SP-Ad2,Retropalatal airway depth at level of soft palate.,"SP,Ad2",,
+Airway Analysis,Distance,Vallecula-Ad4,Hypopharyngeal airway depth at vallecula level.,"Vallecula,Ad4",,
+Airway Analysis,Distance,Minimum PAS,Narrowest retropalatal airway dimension behind SP.,"SP,Ad3",,
+Airway Analysis,Distance,PNS-Ad2,Nasopharyngeal airway depth at So level.,"PNS,Ad2",,
+Airway Analysis,Distance,SP_mid width,Width of nasopharynx at level of soft palate midpoint.,"SP_mid,Ad3",,
+Airway Analysis,Distance,LP width,Width of lower pharynx at C3-C4 level.,"LP,Ad4",,
+Airway Analysis,Distance,McUP,Minimum cross-sectional width of upper pharynx retropalatal.,"SP,Ad3",,
+Airway Analysis,Distance,McLP,Minimum cross-sectional width of lower pharynx retroglossal.,"Eb,PAS_lowest",,
+Airway Analysis,Distance,SPAS,Superior posterior airway space at soft palate tip level.,"SP,PAS_lowest",,
+Airway Analysis,Distance,MAS,Middle airway space at mid-oropharyngeal level.,"Vallecula,Ad4",,
+Airway Analysis,Distance,IAS,Inferior airway space at hypopharyngeal level.,"Eb,Ad4",,
+Airway Analysis,Distance,Vertical Airway Length,Vertical distance from PNS to base of epiglottis.,"PNS,Eb",,
+Airway Analysis,Distance,Eb-PNS,Oblique airway length from base of epiglottis to PNS.,"Eb,PNS",,
+Airway Analysis,Angle,Angle of Nasopharynx,Angle formed by nasopharyngeal airway walls PNS-Ad1-Ad2.,"PNS,Ad1,Ad2",,
+Airway Analysis,Ratio,Adenoid/Nasopharynx Ratio,Ratio of adenoid thickness to nasopharyngeal depth.,"PNS-Ad1,PNS-Ad2",,

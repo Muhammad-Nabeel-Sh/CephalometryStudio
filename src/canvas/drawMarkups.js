@@ -1,7 +1,6 @@
 import { clamp, dist, angle3pt, angle4pt, computeMeasurements, polyArea, polyLen, vpts, catmullRom, sampleCatmullRom, splineArea, splineLen, getInfiniteLinePoints, ellipseFromAxes, circleFrom3pts, autoControlPoints, distToMultiBezier, distToEllipse, distToArc, perpPoint, perpPointSeg, distToSeg } from "../lib/utils.js";
 import { SILHOUETTES } from "../data/silhouettes.js";
 import { LUT_PRESETS } from "../data/constants.js";
-import { AIRWAY_NORMS } from "../data/norms.js";
 
 function isReproPointVisible(m, reproCollecting){
   if(!reproCollecting || !m.repro) return true;
@@ -1449,13 +1448,6 @@ export function drawSnapIndicator(ctx, sn, zoom, pan, markups, mouseImg, snapRad
   ctx.restore();
 }
 
-function getZColor(z) {
-  const a = Math.abs(z);
-  if (a <= 1) return "#22c55e";
-  if (a <= 2) return "#eab308";
-  return "#ef4444";
-}
-
 export function drawAirwayOverlay(ctx, markups, zoom, pan, cal, colorMode, t) {
   if (!cal?.done) return;
   const ppm = cal.pxPerMm;
@@ -1491,14 +1483,6 @@ export function drawAirwayOverlay(ctx, markups, zoom, pan, cal, colorMode, t) {
   const nAnt = anteriorPoints.length;
   const nPost = posteriorPoints.length;
   if (nAnt < 2 || nPost < 2) return;
-
-  const normKeyMap = {
-    "PNS-Ad1": "PNS-AD1",
-    "SP-Ad2": "PNS-AD2",
-    "McUP": "R-PAS",
-    "MAS": "MAS",
-    "McLP": "IAS",
-  };
 
   ctx.save();
 
@@ -1557,10 +1541,8 @@ export function drawAirwayOverlay(ctx, markups, zoom, pan, cal, colorMode, t) {
       my = (spA.y + spP.y) / 2;
     }
 
-    const nk = normKeyMap[ll.label] || ll.label;
-    const norm = AIRWAY_NORMS[nk];
-    const z = norm && norm.sd > 0 ? (w - norm.mean) / norm.sd : null;
-    const color = z !== null ? getZColor(z) : (t?.tx2 || "#fff");
+    // No z-score colours while the airway references are under review.
+    const color = t?.tx2 || "#fff";
 
     if (!ll.isPerp) {
       ctx.strokeStyle = color;

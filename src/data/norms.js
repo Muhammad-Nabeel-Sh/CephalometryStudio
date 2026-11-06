@@ -118,41 +118,6 @@ export const DEFAULT_NORMS = {
       { label: "ANB", mean: 2, sd: 2, type: "angle" },
     ],
   },
-  Airway: {
-    source: "Composite — McNamara, Riley-Powell, Guilleminault, Solow",
-    population: "Mixed populations",
-    ageRange: "Adult (default); age-stratified in source",
-    sex: "Pooled (male + female)",
-    stratification: "Adult norms shown as defaults. Age and sex stratified in source literature — use child/adolescent values for growing patients.",
-    norms: [
-      { label: "Nasopharynx", mean: 250, sd: 50, type: "area" },
-      { label: "Oropharynx", mean: 350, sd: 60, type: "area" },
-      { label: "Hypopharynx", mean: 200, sd: 40, type: "area" },
-      { label: "PNS-Ad1", mean: 15, sd: 3, type: "length" },
-      { label: "SP-Ad2", mean: 11, sd: 3, type: "length" },
-      { label: "Vallecula-Ad4", mean: 20, sd: 5, type: "length" },
-      { label: "Minimum PAS", mean: 10, sd: 3, type: "length" },
-      { label: "PNS-Ad2", mean: 18, sd: 4, type: "length" },
-      { label: "UP width", mean: 12, sd: 4, type: "length" },
-      { label: "LP width", mean: 18, sd: 5, type: "length" },
-      { label: "McUP", mean: 10, sd: 3, type: "length" },
-      { label: "McLP", mean: 11, sd: 4, type: "length" },
-      { label: "SPAS", mean: 10, sd: 3, type: "length" },
-      { label: "MAS", mean: 15, sd: 4, type: "length" },
-      { label: "IAS", mean: 12, sd: 4, type: "length" },
-      { label: "Vertical Airway Length", mean: 70, sd: 10, type: "length" },
-      { label: "Eb-PNS", mean: 65, sd: 10, type: "length" },
-      { label: "Angle of Nasopharynx", mean: 140, sd: 10, type: "angle" },
-      { label: "Adenoid/Nasopharynx Ratio", mean: 0.5, sd: 0.15, type: "ratio" },
-      { label: "R-PAS", mean: 11.2, sd: 2.4, type: "length" },
-      { label: "R-RG", mean: 12.5, sd: 2.8, type: "length" },
-      { label: "N-PH", mean: 24.3, sd: 3.6, type: "length" },
-      { label: "MP-H", mean: 12.3, sd: 3.5, type: "length" },
-      { label: "Tongue Length", mean: 76.9, sd: 5.6, type: "length", note: "Caucasian default — East Asians average 5–15 mm shorter. See AIRWAY_NORMS_STRATIFIED." },
-      { label: "Soft Palate Length", mean: 32.4, sd: 3.2, type: "length" },
-      { label: "Soft Palate Thickness", mean: 8.5, sd: 1.8, type: "length" },
-    ],
-  },
 };
 
 // Norms whose SD was not published by the source (conventional approximations).
@@ -167,20 +132,8 @@ export function isApproximateSd(analysisName, label, sd) {
 }
 
 export const AIRWAY_NORMS = {
-  "R-PAS": { mean: 11.2, sd: 2.4, source: "McNamara 1984", note: "Retropalatal airway, narrowest width between soft palate and posterior pharyngeal wall" },
-  "R-RG": { mean: 12.5, sd: 2.8, source: "McNamara 1984", note: "Retroglossal airway, narrowest width between tongue base and posterior pharyngeal wall" },
-  "N-PH": { mean: 24.3, sd: 3.6, source: "Solow 1985", note: "Nasopharynx depth from nasion to posterior wall" },
-  "PNS-AD1": { mean: 15.0, sd: 3.0, source: "Schulhof 1977", note: "Superior airway: PNS to nearest adenoid point" },
-  "PNS-AD2": { mean: 18.0, sd: 4.0, source: "Schulhof 1977", note: "Nasopharyngeal depth along Ba-N line" },
-  "MAS": { mean: 9.8, sd: 2.5, source: "Pracharktam 1994", note: "Middle airway space at PNS-Pog' midpoint" },
-  "IAS": { mean: 11.6, sd: 3.0, source: "Pracharktam 1994", note: "Inferior airway space at C3-RGN line" },
-  "MP-H": { mean: 12.3, sd: 3.5, source: "Bibby 1984", note: "Perpendicular distance from mandibular plane to hyoidale" },
-  "Tongue-Length": { mean: 76.9, sd: 5.6, source: "Lowe 1985 (Caucasian Canadian)", note: "Single population value — see AIRWAY_NORMS_STRATIFIED for East Asian strata. Distance from tongue tip (TT) to epiglottis base (Eb)." },
-  "SP-Length": { mean: 32.4, sd: 3.2, source: "Lowe 1985", note: "Length from PNS to tip of uvula" },
-  "SP-AW": { mean: 8.5, sd: 1.8, source: "Lowe 1985", note: "Mid-palate airway width (SP_mid to Ad3)" },
-  "Oropharyngeal-Depth": { mean: 65.0, sd: 10.0, source: "McNamara 1984", note: "Total oropharyngeal depth from PNS to epiglottis base" },
-  "Hyoid-C3": { mean: 20.0, sd: 4.0, source: "Estimated", note: "Vertical distance from hyoid to C3 cervical vertebra" },
-  "Mandibular-Body": { mean: 70.0, sd: 5.0, source: "Estimated", note: "Length of mandibular body from Go to Me" },
-  "Pharyngeal-Area": { mean: 380, sd: 130, source: "Riley 1983", note: "Total sagittal pharyngeal airway area from PNS to epiglottis" },
-  "Min-CSA": { mean: 95, sd: 35, source: "Estimated from circular model", note: "Minimum cross-sectional area estimated from narrowest AP width (circular model)" },
+  // Sources not yet checked against the originals; see docs/AIRWAY_MODULE_REWRITE_PLAN.md.
+  "MP-H": { mean: 12.3, sd: 3.5, source: "Bibby 1984 (not yet verified)" },
+  "SP-Length": { mean: 32.4, sd: 3.2, source: "Lowe 1985 (not yet verified)" },
 };
+

@@ -1,3 +1,4 @@
+import { airwayResultsForDisplay } from "./airway.js";
 import { fmtNum } from "../lib/utils.js";
 // ─── Results tables + CSV / clipboard export for all study types ──────────────
 // buildResultsTables(study) → [{ title, header, rows }] is the single source for
@@ -147,7 +148,7 @@ function superimpositionTables(res) {
 }
 
 function airwayTables(res) {
-  const ms = (res.measurements || []).filter(m => m.id && !String(m.id).startsWith("_"));
+  const ms = airwayResultsForDisplay(res.measurements).filter(m => m.id && !String(m.id).startsWith("_"));
   return [{ title: "Airway measurements", header: ["Measurement", "Value", "Unit", "Norm_Mean", "Norm_SD", "z", "Interpretation"], rows: ms.map(m => [m.label, m.value, m.unit || "", m.normMean, m.normSD, m.zScore, m.interpretation || ""]) }];
 }
 

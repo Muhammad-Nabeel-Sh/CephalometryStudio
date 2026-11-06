@@ -1,3 +1,4 @@
+import { airwayResultsForDisplay, AIRWAY_REVISION_NOTICE } from "../research/airway.js";
 import { jsPDF } from "jspdf";
 import { applyPlugin } from "jspdf-autotable";
 import { primaryMeasure } from "../lib/utils.js";
@@ -688,7 +689,8 @@ async function buildNormogram(doc, ctx) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // AIRWAY
 // ═══════════════════════════════════════════════════════════════════════════════
-const hasAirwayValues = res => (res?.measurements || []).some(m => m.value != null && !String(m.id).startsWith("_"));
+// Go-Me alone (from any traced case) isn't an airway result, so it doesn't earn a page.
+const hasAirwayValues = res => (res?.measurements || []).some(m => m.value != null && !String(m.id).startsWith("_") && m.id !== "Mandibular-Body");
 
 function buildAirway(doc, project, live) {
   // The Airway panel's results for this session come first; a Research airway
@@ -699,7 +701,8 @@ function buildAirway(doc, project, live) {
   if (!source) return;
   const res = source.results;
   const flow = textFlow(doc, startSection(doc, "Airway assessment", { subtitle: res.sessionName ? `Session: ${res.sessionName}` : null }));
-  const measurements = (res.measurements || []).filter(m => !String(m.id).startsWith("_") && m.value != null);
+  flow.para(AIRWAY_REVISION_NOTICE, { size: 8.5, gap: 2 });
+  const measurements = airwayResultsForDisplay(res.measurements).filter(m => !String(m.id).startsWith("_") && m.value != null);
   doc.autoTable({
     ...tableStyles(7.5),
     startY: flow.y,
@@ -713,14 +716,6 @@ function buildAirway(doc, project, live) {
     ]),
     columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 }, 1: { halign: "right" }, 2: { halign: "right", textColor: C.tx2 }, 3: { halign: "right" } },
   });
-  flow.y = doc.lastAutoTable.finalY + 6;
-  const notes = measurements.filter(m => m.clinicalNote);
-  if (notes.length) {
-    flow.heading("Clinical notes");
-    notes.forEach(m => flow.para(`${m.label}: ${m.clinicalNote}`, { size: 8.5, gap: 1 }));
-  }
-  const global = (res.measurements || []).find(m => m.id === "_global");
-  if (global?.interpretation) flow.para(global.interpretation, { size: 9, style: "bold" });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

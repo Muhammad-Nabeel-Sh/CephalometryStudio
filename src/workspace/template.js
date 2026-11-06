@@ -163,7 +163,12 @@ export function migrateMeasurementDefinitions(markups) {
 }
 
 // Keep a session's norm list in step with migrated definitions (by label).
-export function migrateNorms(norms, markups) {
+// Norms the Airway template and preset used to add; their sources are under review
+// (docs/AIRWAY_MODULE_REWRITE_PLAN.md). Norms the user entered have other sources.
+const isWithheldAirwayNorm = n => n?.source === "Airway Analysis" || /^Composite — McNamara, Riley-Powell/.test(n?.source || "");
+
+export function migrateNorms(normsIn, markups) {
+  const norms = normsIn?.some(isWithheldAirwayNorm) ? normsIn.filter(n => !isWithheldAirwayNorm(n)) : normsIn;
   if (!Array.isArray(norms) || !norms.length) return norms;
   const byLabel = new Map((markups || []).filter(m => m.autoCreated && m.norm).map(m => [m.label, m.norm]));
   let changed = false;

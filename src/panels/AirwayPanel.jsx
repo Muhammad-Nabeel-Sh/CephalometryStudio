@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { computeAirwayMeasurements, generateAirwayBoundaries, computeAirwayRiskScore, AIRWAY_LANDMARKS_CORE, AIRWAY_LANDMARKS_ADVANCED, coreLandmarksComplete } from "../research/airway.js";
+import { computeAirwayMeasurements, generateAirwayBoundaries, AIRWAY_REVISION_NOTICE, AIRWAY_LANDMARKS_CORE, AIRWAY_LANDMARKS_ADVANCED, coreLandmarksComplete } from "../research/airway.js";
 import { InfoBox, Tag, Btn, GuideBtn } from "../ui/ui.jsx";
 import { PREDEFINED } from "../data/constants.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
@@ -46,22 +46,15 @@ function fmtVal(v) {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function AirwayPanel({ t, markups, calibration, norms, loadAirwayTier, onUpdateMarkups, showOverlay, onToggleOverlay, onLoadTemplate, dispatch, sex, age, getImagePixels }) {
+export default function AirwayPanel({ t, markups, calibration, norms, loadAirwayTier, onUpdateMarkups, showOverlay, onToggleOverlay, onLoadTemplate, dispatch, age, getImagePixels }) {
   void norms;
   void onUpdateMarkups;
   const [guideKey, setGuideKey] = useState(null);
 
   const measurements = useMemo(
-    () => computeAirwayMeasurements(markups, calibration, sex, age),
-    [markups, calibration, sex, age],
+    () => computeAirwayMeasurements(markups, calibration, age),
+    [markups, calibration, age],
   );
-
-  const summary = useMemo(() => {
-    const valid = measurements.filter((m) => m.value !== null && m.zScore !== null);
-    const total = valid.length;
-    const abnormal = valid.filter((m) => Math.abs(m.zScore) > 1).length;
-    return { total, normal: total - abnormal, abnormal };
-  }, [measurements]);
 
   const calDone = calibration?.done === true;
   const unit = calDone ? "mm" : "px";
@@ -78,6 +71,9 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         Computes pharyngeal airway dimensions from placed cephalometric landmarks.
         Place required landmarks below to enable measurements.
       </InfoBox>
+      <div style={{ background: t.warn + "18", border: `1px solid ${t.warn}44`, borderRadius: 6, padding: "8px 10px", fontSize: 12, lineHeight: 1.5, color: t.tx }}>
+        {AIRWAY_REVISION_NOTICE}
+      </div>
 
       {/* ─── Load Airway Template ─── */}
       {(() => {
@@ -224,7 +220,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
             gap: 6,
           }}
         >
-          Advanced Landmarks (9 additional measurements)
+          Advanced Landmarks (10 additional measurements)
           {coreComplete && (
             <span style={{ fontSize: 12, color: t.ok, fontWeight: 600 }}>CORE COMPLETE</span>
           )}
@@ -316,28 +312,6 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         </span>
       </div>
 
-      {/* ─── REC 2: OSA Risk Scorecard ─── */}
-      {(() => {
-        const risk = computeAirwayRiskScore(measurements);
-        if (!risk) return null;
-        const color = risk.risk === "high" ? t.err : risk.risk === "moderate" ? t.warn : t.ok;
-        const bg = risk.risk === "high" ? t.err + "18" : risk.risk === "moderate" ? t.warn + "18" : t.ok + "18";
-        return (
-          <div style={{ padding: 10, borderRadius: 6, background: bg, border: `1px solid ${color}44` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: 0.6 }}>OSA Risk Score</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'DM Mono',monospace" }}>{risk.risk.toUpperCase()}</span>
-            </div>
-            <div style={{ fontSize: 12, color: t.tx2, lineHeight: 1.5 }}>{risk.summary}</div>
-            <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 12, color: t.tx3 }}>
-              <span>Mean z: {risk.score?.toFixed(2)}</span>
-              <span>Flagged: {risk.flaggedCount}/{risk.measuredCount}</span>
-              <span>Critical: {risk.criticalCount}</span>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* ─── REC 1: Auto-Trace Airway Boundaries ─── */}
       {(() => {
         const hasKeyPts = ["PNS", "SP", "Ad1", "Ad3"].filter(l =>
@@ -345,6 +319,7 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         ).length >= 3;
         if (!hasKeyPts) return null;
         return (
+          <div>
           <Btn
             t={t}
             onClick={() => {
@@ -396,6 +371,8 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
           >
             Generate Smooth Airway Boundaries
           </Btn>
+          <div style={{ marginTop: 4, fontSize: 12, color: t.tx3 }}>Draws the walls for reference. It doesn't change the measurements.</div>
+          </div>
         );
       })()}
 
@@ -520,10 +497,10 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
                         gridColumn: "1 / -1",
                       }}
                     >
-                      Source: {m.normSource}{m.basis === "traced boundary" ? " · measured on the traced airway walls" : ""}
+                      Source: {m.normSource}
                     </div>
                   )}
-                  {m.value === null && (
+                  {m.zScore === null && !String(m.id).startsWith("_") && (
                     <div
                       style={{
                         fontSize: 12,
@@ -542,34 +519,6 @@ export default function AirwayPanel({ t, markups, calibration, norms, loadAirway
         )}
       </div>
 
-      {/* ─── Summary ─── */}
-      {summary.total > 0 && (
-        <div
-          style={{
-            padding: "8px 10px",
-            borderRadius: 6,
-            background: t.surf3,
-            border: `1px solid ${t.bdr}`,
-            fontSize: 12,
-            lineHeight: 1.5,
-          }}
-        >
-          {summary.abnormal === 0 ? (
-            <span style={{ color: t.ok, fontWeight: 600 }}>
-              All measurements within normal range
-            </span>
-          ) : (
-            <span
-              style={{
-                color: summary.abnormal > summary.total / 2 ? t.err : t.warn,
-                fontWeight: 600,
-              }}
-            >
-              {summary.abnormal} of {summary.total} measurements abnormal
-            </span>
-          )}
-        </div>
-      )}
       {guideKey && <PanelGuideModal t={t} guideKey={guideKey} onClose={() => setGuideKey(null)} />}
     </div>
   );

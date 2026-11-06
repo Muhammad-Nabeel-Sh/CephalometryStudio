@@ -368,7 +368,7 @@ function AirwayDiagram() {
       <text x="475" y="170" fill={color} fontSize="9" fontFamily="sans-serif">MP-H</text>
       <text x="595" y="170" textAnchor="end" fill={color + "cc"} fontSize="9" fontFamily="sans-serif">Hyoid position</text>
 
-      <text x="320" y="260" textAnchor="middle" fill={color + "aa"} fontSize="9" fontFamily="sans-serif">R-PAS &lt; 5mm = severe narrowing | MP-H elevated in OSA | 14 measurements, age/sex-stratified norms</text>
+      <text x="320" y="260" textAnchor="middle" fill={color + "aa"} fontSize="9" fontFamily="sans-serif">Reference comparisons are being revised</text>
     </svg>
   );
 }
@@ -840,57 +840,28 @@ const GUIDES = {
     title: "Airway Analysis Study Guide",
     sections: [
       {
-        heading: "What it measures",
-        body: "Computes pharyngeal airway dimensions from lateral cephalometric landmarks. Evaluates retropalatal, retroglossal, and total airway spaces against age/sex-stratified normative data. Produces an OSA (Obstructive Sleep Apnea) risk score based on multi-measurement deviation analysis.",
+        heading: "This module is being revised",
+        body: "Measures pharyngeal airway dimensions from lateral cephalometric landmarks for one session. Most reference comparisons are withheld until their sources are checked. The results describe the film; they don't diagnose airway disease or sleep apnea.",
         icon: "lungs",
       },
       {
-        heading: "When to use",
-        body: "Use for: (1) Airway assessment before orthodontic treatment or orthognathic surgery. (2) OSA screening using cephalometric measurements. (3) Evaluating airway changes after mandibular advancement, maxillary expansion, or other treatments that affect the pharyngeal space. (4) Research comparing airway dimensions across patient groups.",
-        icon: "clipboard",
-      },
-      {
         heading: "Data requirements",
-        body: "A lateral cephalometric radiograph with ≥16 airway landmarks placed. Core landmarks (10): PNS, N, PH, C3, H, Me, Go, SP, Eb, TT — enables 7 core measurements. Advanced landmarks (6): Ba, Ad1, Ad3, Vallecula, Epiglottis, PAS_lowest — unlocks 9 additional measurements. Calibration (pxPerMm) is required for mm-based measurements and norm comparisons. Patient sex and age enable age/sex-stratified norms.",
+        body: "A lateral cephalogram with the airway landmarks placed. Calibration is needed for values in mm. Comparisons also need the patient's age; children are never compared with adult values.",
         icon: "chart",
-      },
-      {
-        heading: "Required landmarks",
-        items: [
-          { label: "Core landmarks (10)", desc: "PNS (posterior nasal spine), N (nasion), PH (posterior pharyngeal wall), C3 (3rd cervical vertebra), H (hyoid), Me (menton), Go (gonion), SP (soft palate tip), Eb (epiglottis base), TT (tongue tip)" },
-          { label: "Advanced landmarks (9)", desc: "SP_mid (soft palate midpoint), Ba (basion), Ad1 (adenoid point 1), Ad2 (adenoid point 2), Ad3 (adenoid point 3), Ad4 (adenoid point 4), Vallecula, Epiglottis (tip), PAS_lowest (lowest posterior airway point)" },
-          { label: "Tiered system", desc: "Core landmarks enable 5 OSA-critical measurements. Advanced landmarks unlock 9 additional measurements for detailed regional analysis. Place core landmarks first — advanced landmarks unlock when all core are placed." },
-        ],
-        icon: "pin",
       },
       {
         heading: "Step-by-step workflow",
         icon: "note",
         steps: [
-          { label: "Load Airway Template", body: "Click 'Load Airway Template' in the Airway panel to place core landmarks. Alternatively, place them manually using the Landmark tool.", type: "setup" },
-          { label: "Place core landmarks", body: "Click each core landmark on the lateral cephalogram. Follow the placement guide in the Core Landmarks grid — green checkmarks indicate placed landmarks.", type: "setup" },
-          { label: "Calibrate", body: "Draw a ruler of known length (R key) and enter the real-world distance. Calibration is required for mm-based measurements and norm comparisons.", type: "configure" },
-          { label: "Review core measurements", body: "The panel computes 5 core airway measurements automatically. Each shows the value, normal range, z-score, source publication, and clinical significance. Green = normal, yellow = borderline, red = constrained.", type: "run" },
-          { label: "Place advanced landmarks (optional)", body: "Once all core landmarks are placed, advanced landmarks unlock. Place SP_mid, Ba, Ad1, Ad2, Ad3, Ad4, Vallecula, Epiglottis, PAS_lowest for detailed regional analysis.", type: "configure" },
-          { label: "Review advanced measurements", body: "9 additional measurements become available: R-RG, SP-AW, PNS-AD1, PNS-AD2, MAS, IAS, Oropharyngeal Depth, Hyoid-C3, Mandibular Body.", type: "run" },
-          { label: "Check OSA risk", body: "The OSA Risk Scorecard aggregates all measurements into a composite risk level (low/moderate/high). Review the flagged measurements and critical values.", type: "review" },
-          { label: "Generate boundaries (optional)", body: "Click 'Generate Smooth Airway Boundaries' to auto-trace the anterior and posterior airway walls using Catmull-Rom interpolation with boundary-snapping.", type: "review" },
+          { label: "Load Airway Template", body: "Click 'Load Airway Template' in the Airway panel to add the landmarks.", type: "setup" },
+          { label: "Place landmarks", body: "Click each landmark on the lateral cephalogram. Green checkmarks show the placed ones.", type: "setup" },
+          { label: "Calibrate", body: "Draw a ruler of known length (R key) and enter the real-world distance.", type: "configure" },
+          { label: "Review", body: "Each measurement shows its value. For adults, MP-H and SP-Length also show a z-score from a source not yet verified; the others show 'Reference under review'.", type: "review" },
         ],
       },
       {
-        heading: "Output explained",
-        items: [
-          { label: "Core measurements (5)", desc: "N-PH, R-PAS, MP-H, SP-Length, Tongue-Length" },
-          { label: "Advanced measurements (9)", desc: "R-RG, SP-AW, PNS-AD1, PNS-AD2, MAS, IAS, Oropharyngeal Depth, Hyoid-C3, Mandibular Body" },
-          { label: "Z-scores", desc: "(Value − Norm Mean) / Norm SD. |z| ≤ 1 = normal, 1–2 = borderline, >2 = constrained (narrow)" },
-          { label: "OSA Risk Score", desc: "Composite risk level based on mean z-score across all measurements. High risk = mean |z| > 1.5 or ≥3 critical measurements. Moderate = mean |z| > 1.0 or ≥2 critical" },
-          { label: "Normative data", desc: "Age/sex-stratified norms from Solow, McNamara, Schulhof, Pracharktam, Bibby, Lowe, Dempewolf, and Standard sources. Each measurement shows its source publication." },
-        ],
-        icon: "trend",
-      },
-      {
-        heading: "Tips & limitations",
-        body: "• 2D cephalometric airway measurements are an approximation — CBCT provides 3D volumetric analysis for definitive airway assessment.\n• The retropalatal space (R-PAS) is the most clinically significant measurement for OSA screening — values <5mm suggest severe narrowing.\n• MP-H (hyoid position) is elevated in OSA patients — it reflects posterior tongue position and mandibular rotation.\n• Age/sex-stratified norms are important — pediatric airway dimensions differ significantly from adults.\n• The OSA risk score is a screening tool, not a diagnostic — polysomnography is the gold standard for OSA diagnosis.\n• Auto-generated boundaries are approximate — review and manually adjust curves if precise boundary definition is needed.",
+        heading: "Limitations",
+        body: "A lateral film is a 2D view affected by head position, tongue position, swallowing and magnification. It shows no side-to-side airway width, so it can't give a cross-sectional area or volume.",
         icon: "bulb",
       },
     ],

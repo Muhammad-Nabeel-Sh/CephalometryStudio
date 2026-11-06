@@ -53,3 +53,15 @@ describe("definition migration for saved projects", () => {
     expect(migrateNorms(st.norms, st.markups)).toBe(st.norms);
   });
 });
+
+describe("airway norms saved before the safety fix", () => {
+  it("are dropped; norms the user entered stay", () => {
+    const mine = { markupLabel: "McUP", measureType: "length", mean: 16, sd: 2, source: "My clinic" };
+    const norms = [
+      { markupLabel: "McUP", measureType: "length", mean: 10, sd: 3, source: "Airway Analysis" },
+      { markupLabel: "N-PH", measureType: "length", mean: 24.3, sd: 3.6, source: "Composite — McNamara, Riley-Powell, Guilleminault, Solow" },
+      mine,
+    ];
+    expect(migrateNorms(norms, [])).toEqual([mine]);
+  });
+});

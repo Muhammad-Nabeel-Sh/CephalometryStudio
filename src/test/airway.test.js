@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   computeAirwayMeasurements,
-  computeAirwayRiskScore,
   lookupAirwayNorm,
   generateAirwayBoundaries,
   sampleBoundaryAtY,
@@ -12,7 +11,8 @@ import {
   AIRWAY_MEASUREMENTS,
   AIRWAY_LANDMARKS_CORE,
   AIRWAY_LANDMARKS_ADVANCED,
-  AIRWAY_NORMS_STRATIFIED,
+  airwayResultsForDisplay,
+  AIRWAY_REVISION_NOTICE,
 } from "../research/airway.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -72,9 +72,9 @@ describe("Airway measurement definitions", () => {
     expect(core).toHaveLength(5);
   });
 
-  it("has 11 advanced measurements", () => {
+  it("has 10 advanced measurements", () => {
     const adv = AIRWAY_MEASUREMENTS.filter(m => m.tier === "advanced");
-    expect(adv).toHaveLength(11);
+    expect(adv).toHaveLength(10);
   });
 
   it("has no SPAS or Soft-Palate-Angle measurements", () => {
@@ -107,9 +107,6 @@ describe("Airway measurement definitions", () => {
       expect(["length", "area"]).toContain(m.type);
       expect(Array.isArray(m.points)).toBe(true);
       expect(m.points.length).toBeGreaterThanOrEqual(2);
-      expect(typeof m.normMean).toBe("number");
-      expect(typeof m.normSD).toBe("number");
-      expect(m.normSD).toBeGreaterThan(0);
       expect(m.tier === "core" || m.tier === "advanced").toBe(true);
     }
   });
@@ -182,40 +179,26 @@ describe("findPt", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("lookupAirwayNorm", () => {
-  it("returns stratified norm when sex and age provided", () => {
-    const norm = lookupAirwayNorm("R-PAS", "M", 17);
-    expect(norm).not.toBeNull();
-    expect(norm.mean).toBe(11.2);
-    expect(norm.sd).toBe(2.4);
-    expect(norm.source).toBe("McNamara 1984");
+  it("uses the adult norm for adults", () => {
+    expect(lookupAirwayNorm("MP-H", 30).mean).toBe(12.3);
+    expect(lookupAirwayNorm("MP-H", 30).source).toMatch(/not yet verified/);
   });
 
-  it("returns different values for different age groups", () => {
-    const young = lookupAirwayNorm("R-PAS", "M", 10);
-    const older = lookupAirwayNorm("R-PAS", "M", 17);
-    expect(young.mean).toBeLessThan(older.mean);
+  it("never gives a child the adult norm", () => {
+    expect(lookupAirwayNorm("MP-H", 5)).toBeNull();
+    expect(lookupAirwayNorm("MP-H", 17)).toBeNull();
+    expect(lookupAirwayNorm("SP-Length", 12)).toBeNull();
   });
 
-  it("falls back to AIRWAY_NORMS when no stratified match", () => {
-    const norm = lookupAirwayNorm("MP-H", "M", 30);
-    expect(norm).not.toBeNull();
-    expect(norm.mean).toBe(12.3);
+  it("has no norm when the age is unknown", () => {
+    expect(lookupAirwayNorm("MP-H")).toBeNull();
+    expect(lookupAirwayNorm("MP-H", "")).toBeNull();
   });
 
-  it("returns null for unknown measurement", () => {
-    expect(lookupAirwayNorm("NONEXISTENT")).toBeNull();
-  });
-
-  it("returns fallback norm when no sex/age provided", () => {
-    const norm = lookupAirwayNorm("R-PAS");
-    expect(norm).not.toBeNull();
-    expect(norm.mean).toBe(11.2);
-  });
-
-  it("returns fallback for unknown age/sex combo", () => {
-    const norm = lookupAirwayNorm("R-PAS", "X", 999);
-    expect(norm).not.toBeNull();
-    expect(norm.mean).toBe(11.2);
+  it("has no norm for measures under review or unknown ones", () => {
+    for (const id of ["N-PH", "R-PAS", "R-RG", "SP-AW", "PNS-AD1", "PNS-AD2", "MAS", "IAS", "Tongue-Length", "Oropharyngeal-Depth", "Pharyngeal-Area", "NONEXISTENT"]) {
+      expect(lookupAirwayNorm(id, 30)).toBeNull();
+    }
   });
 });
 
@@ -232,7 +215,7 @@ describe("computeAirwayMeasurements", () => {
   });
 
   it("returns core measurements with values when only core landmarks placed", () => {
-    const results = computeAirwayMeasurements(allCore, CAL, "M", 17);
+    const results = computeAirwayMeasurements(allCore, CAL, 30);
     const withValues = results.filter(r => r.value !== null && r.id !== "_global" && r.id !== "_magnification");
     expect(withValues.length).toBeGreaterThanOrEqual(5);
     const ids = withValues.map(r => r.id);
@@ -267,8 +250,8 @@ describe("computeAirwayMeasurements", () => {
     expect(nph).toBeDefined();
     expect(nph.value).toBeCloseTo(24.3, 0);
     expect(nph.unit).toBe("mm");
-    expect(nph.zScore).toBeCloseTo(0, 1);
-    expect(nph.interpretation).toBe("Normal");
+    expect(nph.zScore).toBeNull();
+    expect(nph.interpretation).toBe("Reference under review");
   });
 
   it("skips z-score when not calibrated", () => {
@@ -320,75 +303,6 @@ describe("computeAirwayMeasurements", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // computeAirwayRiskScore — directional z-scores
 // ═══════════════════════════════════════════════════════════════════════════════
-
-describe("computeAirwayRiskScore", () => {
-  it("returns null for empty measurements", () => {
-    expect(computeAirwayRiskScore([])).toBeNull();
-    expect(computeAirwayRiskScore(null)).toBeNull();
-  });
-
-  it("returns null when no risk measurements have z-scores", () => {
-    const measurements = [
-      { id: "N-PH", zScore: 0 },
-      { id: "Unknown", zScore: -3 },
-    ];
-    expect(computeAirwayRiskScore(measurements)).toBeNull();
-  });
-
-  it("returns low risk for all-normal z-scores", () => {
-    const measurements = [
-      { id: "R-PAS", zScore: 0 },
-      { id: "MP-H", zScore: 0 },
-      { id: "SP-Length", zScore: 0 },
-    ];
-    const risk = computeAirwayRiskScore(measurements);
-    expect(risk).not.toBeNull();
-    expect(risk.risk).toBe("low");
-  });
-
-  it("returns high risk for multiple critical narrowing measurements", () => {
-    const measurements = [
-      { id: "R-PAS", zScore: -3 },
-      { id: "R-RG", zScore: -3 },
-      { id: "MP-H", zScore: 3 },
-    ];
-    const risk = computeAirwayRiskScore(measurements);
-    expect(risk.risk).toBe("high");
-    expect(risk.criticalCount).toBeGreaterThanOrEqual(2);
-  });
-
-  it("correctly direction-normalizes: high MP-H = pathological", () => {
-    const measurements = [
-      { id: "R-PAS", zScore: 0 },
-      { id: "MP-H", zScore: 3 },
-      { id: "SP-Length", zScore: 2.5 },
-    ];
-    const risk = computeAirwayRiskScore(measurements);
-    expect(risk).not.toBeNull();
-    expect(risk.score).toBeGreaterThan(0);
-  });
-
-  it("correctly direction-normalizes: low R-PAS = pathological", () => {
-    const measurements = [
-      { id: "R-PAS", zScore: -3 },
-      { id: "R-RG", zScore: -2.5 },
-    ];
-    const risk = computeAirwayRiskScore(measurements);
-    expect(risk).not.toBeNull();
-    expect(risk.score).toBeGreaterThan(0);
-  });
-
-  it("does not cancel out opposing z-scores", () => {
-    const measurements = [
-      { id: "R-PAS", zScore: -3 },
-      { id: "MP-H", zScore: 3 },
-    ];
-    const risk = computeAirwayRiskScore(measurements);
-    expect(risk).not.toBeNull();
-    expect(risk.score).toBeGreaterThan(0);
-    expect(risk.flaggedCount).toBeGreaterThanOrEqual(2);
-  });
-});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -497,29 +411,78 @@ describe("generateAirwayBoundaries", () => {
 // CLINICAL NOTES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Clinical notes and thresholds", () => {
-  it("R-PAS <5mm triggers severe narrowing note", () => {
-    const markups = [
-      makeMarkup("SP", 100, 200),
-      makeMarkup("Ad3", 100 + 40, 200),
-    ];
-    const results = computeAirwayMeasurements(markups, CAL);
-    const rpas = results.find(r => r.id === "R-PAS");
-    expect(rpas).toBeDefined();
-    expect(rpas.value).toBeCloseTo(4, 0);
-    expect(rpas.clinicalNote).toContain("<5mm");
+describe("Phase 0 safety", () => {
+  const pts = [
+    makeMarkup("N", 1590, 800), makeMarkup("PH", 900, 1050), makeMarkup("PNS", 1280, 1310), makeMarkup("SP", 1080, 1570),
+    makeMarkup("Ad1", 1060, 1330), makeMarkup("Ad2", 1050, 1180), makeMarkup("Ad3", 920, 1500), makeMarkup("Eb", 1100, 1950),
+    makeMarkup("PAS_lowest", 920, 1850), makeMarkup("Epiglottis", 1060, 1850), makeMarkup("Vallecula", 1120, 1970), makeMarkup("Ad4", 920, 1970),
+    makeMarkup("TT", 1600, 1800), makeMarkup("H", 1260, 2120), makeMarkup("Go", 1050, 1620), makeMarkup("Me", 1550, 1880),
+  ];
+  const real = rs => rs.filter(r => !r.id.startsWith("_"));
+
+  it("no result carries a clinical note, summary row or OSA wording", () => {
+    const rs = computeAirwayMeasurements(pts, CAL, 30);
+    expect(rs.find(r => r.id === "_global")).toBeUndefined();
+    expect(rs.find(r => r.id === "Min-CSA")).toBeUndefined();
+    expect(rs.filter(r => r.clinicalNote)).toHaveLength(0);
+    expect(JSON.stringify(rs)).not.toMatch(/\bOSA\b|apnea/i);
   });
 
-  it("R-PAS <8mm triggers screening note", () => {
-    const markups = [
-      makeMarkup("SP", 100, 200),
-      makeMarkup("Ad3", 100 + 70, 200),
+  it("the implausible N-PH comparison is gone, and its value remains", () => {
+    const nph = computeAirwayMeasurements(pts, CAL, 30).find(r => r.id === "N-PH");
+    expect(nph.value).toBeGreaterThan(50);
+    expect(nph.zScore).toBeNull();
+    expect(nph.normMean).toBeNull();
+    expect(nph.interpretation).toBe("Reference under review");
+  });
+
+  it("only measures with a remaining reference have a z-score", () => {
+    const withZ = real(computeAirwayMeasurements(pts, CAL, 30)).filter(r => r.zScore !== null).map(r => r.id).sort();
+    expect(withZ).toEqual(["MP-H", "SP-Length"]);
+  });
+
+  it("says why there is no comparison", () => {
+    const noAge = computeAirwayMeasurements(pts, CAL, null).find(r => r.id === "MP-H");
+    expect(noAge.zScore).toBeNull();
+    expect(noAge.interpretation).toMatch(/age/);
+    const young = computeAirwayMeasurements(pts, CAL, 5).find(r => r.id === "MP-H");
+    expect(young.zScore).toBeNull();
+    expect(young.interpretation).toMatch(/No reference for this age/);
+  });
+
+  it("generated or traced curves don't change any measurement", () => {
+    const before = real(computeAirwayMeasurements(pts, CAL, 30));
+    const b = generateAirwayBoundaries(pts, null);
+    const curves = [
+      { id: "a", type: "curve", label: "Anterior Airway Boundary", points: b.anterior, visible: true },
+      { id: "p", type: "curve", label: "Posterior Airway Boundary", points: b.posterior, visible: true },
     ];
-    const results = computeAirwayMeasurements(markups, CAL);
-    const rpas = results.find(r => r.id === "R-PAS");
-    expect(rpas).toBeDefined();
-    expect(rpas.value).toBeCloseTo(7, 0);
-    expect(rpas.clinicalNote).toContain("sleep apnea screening");
+    const after = real(computeAirwayMeasurements([...pts, ...curves], CAL, 30));
+    expect(after.map(r => [r.id, r.value])).toEqual(before.map(r => [r.id, r.value]));
+  });
+
+  it("the generated anterior wall stays out of the mouth", () => {
+    const b = generateAirwayBoundaries(pts, null);
+    expect(Math.max(...b.anterior.map(p => p.x))).toBeLessThan(1400); // TT is at x = 1600
+  });
+
+  it("saved results follow the current rules", () => {
+    const old = [
+      { id: "N-PH", label: "N-PH", value: 73, normMean: 24.3, normSD: 3.6, normSource: "Solow 1985", zScore: 13.6, interpretation: "Wider than average" },
+      { id: "R-PAS", label: "R-PAS", value: 4, normMean: 11.2, normSD: 2.4, zScore: -3, interpretation: "Narrow", clinicalNote: "strong OSA screening indicator" },
+      { id: "Min-CSA", label: "Min", value: 12, zScore: -2 },
+      { id: "MP-H", label: "MP-H", value: 20, normMean: 12.3, normSD: 3.5, zScore: 2.2, interpretation: "Increased", clinicalNote: "associated with OSA" },
+      { id: "_global", label: "Summary", value: null, interpretation: "comprehensive evaluation" },
+    ];
+    const shown = airwayResultsForDisplay(old);
+    expect(shown.map(m => m.id)).toEqual(["N-PH", "R-PAS", "MP-H"]);
+    expect(shown[0]).toMatchObject({ value: 73, zScore: null, normMean: null, interpretation: "Reference under review" });
+    expect(shown[2].zScore).toBe(2.2);
+    expect(JSON.stringify(shown)).not.toMatch(/OSA/);
+  });
+
+  it("the notice doesn't claim a diagnosis", () => {
+    expect(AIRWAY_REVISION_NOTICE).toMatch(/don't diagnose/);
   });
 });
 
@@ -527,13 +490,12 @@ describe("Clinical notes and thresholds", () => {
 // NORM DIRECTIONALITY
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Norm lookup keys match measurement IDs", () => {
-  it("all core measurement IDs have fallback norms", () => {
-    for (const m of AIRWAY_MEASUREMENTS) {
-      const norm = lookupAirwayNorm(m.id);
-      expect(norm).not.toBeNull();
-      expect(norm.mean).toBeGreaterThan(0);
-      expect(norm.sd).toBeGreaterThan(0);
+describe("Airway norms that remain", () => {
+  it("are marked as not yet verified, and belong to a measurement", () => {
+    const remaining = ["MP-H", "SP-Length"];
+    for (const id of remaining) {
+      expect(AIRWAY_MEASUREMENTS.some(m => m.id === id)).toBe(true);
+      expect(lookupAirwayNorm(id, 30).source).toMatch(/not yet verified/);
     }
   });
 });
