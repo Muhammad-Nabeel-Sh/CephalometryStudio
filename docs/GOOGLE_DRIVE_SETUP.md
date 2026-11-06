@@ -47,10 +47,12 @@ The Google Cloud project is owned by the project account (cephalometrystudio@gma
 add a second owner so access can't be lost.
 
 ## 5. Privacy policy
-The consent screen needs a public privacy policy URL. It should say, at least:
+The consent screen needs a public privacy policy URL. The site's is `/privacy.html`
+(`public/privacy.html`, linked from the home page footer); keep it accurate when data handling
+changes. It should say, at least:
 - cases stay in the browser unless the user backs them up;
 - Drive backups go only to the user's own Google Drive, using the `drive.file` permission
-  (the app sees only files it created), encrypted with the user's passphrase before upload;
+  (the app sees only files it created), and encryption with the user's passphrase is optional;
 - the site operator never receives the data or the passphrase, and a lost passphrase cannot
   be recovered;
 - how to revoke access (Google Account → Security → Third-party connections, or Disconnect

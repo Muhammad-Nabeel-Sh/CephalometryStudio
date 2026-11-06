@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased] - Privacy policy
+
+### Added
+- A **privacy policy** page (`/privacy.html`, linked from the home page footer), which Google
+  requires before Drive sign-in can open to every account.
+
 ## [Unreleased] - 29-landmark AI model
 
 ### Changed

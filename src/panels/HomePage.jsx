@@ -1318,6 +1318,8 @@ export default function HomePage({
             >
               All features
             </button>
+            <span style={{ color: t.tx3 }}> · </span>
+            <a href="/privacy.html" style={{ color: t.acc, fontSize: 12 }}>Privacy</a>
           </p>
           {!storageEncrypted && (
             <p

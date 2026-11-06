@@ -22,10 +22,10 @@ export default defineConfig({
         // wasm: the DICOM decoders (~400 KB) so DICOM files open offline too;
         // the AI runtime under /ort/ is excluded below and cached on use.
         globPatterns: ["**/*.{js,css,html,svg,woff2,png,webmanifest,wasm}"],
-        globIgnores: ["models/**", "ort/**", "fonts/**", "splash-*.png", "og-image.png", "contribute.html", "404.html"],
+        globIgnores: ["models/**", "ort/**", "fonts/**", "splash-*.png", "og-image.png", "contribute.html", "privacy.html", "404.html"],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/contribute\.html/, /^\/models\//, /^\/ort\//, /^\/fonts\//],
+        navigateFallbackDenylist: [/^\/contribute\.html/, /^\/privacy\.html/, /^\/models\//, /^\/ort\//, /^\/fonts\//],
         cleanupOutdatedCaches: true,
         // Matchers are copied into sw.js as source text, so they must be
         // self-contained: no closures over variables from this file.
