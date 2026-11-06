@@ -5,7 +5,8 @@ import { runLongitudinalAll } from "./longitudinal.js";
 import { runCorrelationAll, runRegression, runLogisticRegression } from "./correlation.js";
 import { runDiagnosticAll } from "./diagnostic.js";
 import { runSuperimpositionAll } from "./superimposition.js";
-import { computeAirwayMeasurements } from "./airway.js";
+import { computeAirway } from "../airway/compute.js";
+import { sessionFacing } from "../lib/measureConventions.js";
 import { logError } from "../lib/logger.js";
 import { scopedSessions } from "./dataPreview.js";
 
@@ -70,7 +71,7 @@ export function runStudy(study, sessions, calibration, onProgress) {
           const cal = session?.calibration?.done ? session.calibration : calibration;
           const sex = config.sex || session?.meta?.gender || "";
           const age = config.age ?? session?.meta?.age ?? null;
-          const measurements = computeAirwayMeasurements(markups, cal, age);
+          const { measurements } = computeAirway(markups, cal, { age, sex, facing: sessionFacing(session), film: session?.airwayFilm });
           results = {
             measurements,
             sessionName: session?.name || "",

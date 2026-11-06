@@ -4,7 +4,7 @@
 
 import { InfoBox, Btn } from "../ui/ui.jsx";
 import { fmtNum } from "../lib/utils.js";
-import { airwayResultsForDisplay, AIRWAY_REVISION_NOTICE } from "./airway.js";
+import { airwayResultsForDisplay } from "../airway/compute.js";
 
 // ─── Config Panel ─────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ export function AirwayStudyResults({ results, t }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <InfoBox t={t}>{AIRWAY_REVISION_NOTICE}</InfoBox>
+      <InfoBox t={t}>This is an older study type. Airway values can now be selected in the other study types, as labels starting with "Airway". Older saved values display without comparisons.</InfoBox>
       {results.sessionName && (
         <div style={{ fontSize: 12, color: t.tx3, marginBottom: 4, fontStyle: "italic" }}>
           Session: {results.sessionName}

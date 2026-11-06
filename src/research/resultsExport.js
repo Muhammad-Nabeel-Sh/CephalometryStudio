@@ -1,4 +1,4 @@
-import { airwayResultsForDisplay } from "./airway.js";
+import { airwayResultsForDisplay } from "../airway/compute.js";
 import { fmtNum } from "../lib/utils.js";
 // ─── Results tables + CSV / clipboard export for all study types ──────────────
 // buildResultsTables(study) → [{ title, header, rows }] is the single source for

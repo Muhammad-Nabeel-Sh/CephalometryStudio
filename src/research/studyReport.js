@@ -10,7 +10,7 @@
 // statistics bounded by 1 (r, ICC, AUC, η²), 95% CIs in square brackets.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { airwayResultsForDisplay } from "./airway.js";
+import { airwayResultsForDisplay } from "../airway/compute.js";
 import { ICC_MODELS } from "./reliability.js";
 import { fmtNum } from "../lib/utils.js";
 
@@ -259,7 +259,7 @@ export function methodsText(study) {
       parts.push(`Serial tracings were superimposed using ${h(res.alignmentLabel || "a structural registration")} (rotation and translation only), and landmark displacements are reported in millimetres.`);
       break;
     case "airway":
-      parts.push("Pharyngeal airway dimensions were measured from landmarks on the lateral cephalogram. Most reference comparisons were withheld because their sources had not been verified.");
+      parts.push("Pharyngeal airway dimensions were measured on the lateral cephalogram. Each comparison names its reference sample and source.");
       break;
     default:
   }

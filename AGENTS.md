@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **882 tests (Vitest)**
+- **No TypeScript**, **872 tests (Vitest)**
 
 ---
 
@@ -67,6 +67,8 @@ src/
 │   ├── landmarkDetector.worker.js Worker around landmarkDetector.js
 │   └── landmarkDetector.js     ONNX landmark detection (ORT module in the worker, UMD via <script> on the main thread)
 │
+├── airway/                     Airway analysis: registry, geometry, references, compute, edge suggestions
+│
 ├── data/                       Constants, norms, presets
 │   ├── constants.js            THEMES, TOOLS, UNITS, PREDEFINED analyses
 │   ├── landmarkMap.js          CEPHA29 landmark vocabulary + app-label mapping
@@ -123,7 +125,7 @@ src/
 │   ├── RightPanelSidebar.jsx   Vertical tab sidebar
 │   ├── SessionFilmstrip.jsx    Bottom-center thumbnail bar
 │   ├── PanelGuideModal.jsx     Contextual help guides
-│   ├── AirwayPanel.jsx         Airway analysis panel
+│   ├── AirwayPanel.jsx         Airway workflow: patient and film, landmarks, wall tracing, results
 │   ├── InterpretationPanel.jsx Clinical interpretation
 │   ├── NormogramPanel.jsx      Normogram visualization
 │   ├── HomePage.jsx            Home screen: recent cases, new case (portal cards), header (Cases, profiles, theme)
@@ -167,7 +169,6 @@ src/
 │   ├── validation.js           Input validation
 │   ├── collect.js              Data collection
 │   ├── resultsExport.js        Results export
-│   ├── airway.js               Airway measurements + norms
 │   ├── descriptive.js          Descriptive statistics
 │   ├── reliability.js          ICC (6 forms, psych-verified), Bland-Altman, Dahlberg
 │   ├── mixedModel.js           REML linear mixed model (random intercept/slope)
@@ -238,7 +239,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (882 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (872 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -573,7 +574,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - **AI runtime (Phase 1, item 10)**: inference runs in a module worker (`canvas/landmarkClient.js` + `landmarkDetector.worker.js`), importing `/ort/ort.wasm.min.mjs` at run time by absolute URL (the dev server refuses a root-relative import of a public file); if the worker fails, `landmarkDetector.js` runs on the main thread. Cancelling terminates the worker, so `autoTrace.js` reloads the model on the next trace. Threads: `numThreads` up to 8 when `crossOriginIsolated`, from the `Document-Isolation-Policy` header (`vercel.json`, `vite.config.js`). Do not use COOP: it would break the Google sign-in popup. **WebGPU is not used**: ORT 1.22 rejects the INT8 model (`DequantizeLinear` on int32), so it would need the 114 MB FP32 model. 7 tests in `src/test/landmarkClient.test.js`.
 
-- **Airway safety fix (Phase 0 of `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: no risk score, clinical notes or Min-CSA. `AIRWAY_NORMS` keeps only MP-H and SP-Length, adult values with sources not yet verified; every other measure reports "Reference under review". Measurements use landmarks only: curves never replace them. `lookupAirwayNorm(id, age)` returns null without an age and for under-18s. Saved results go through `airwayResultsForDisplay`; `migrateNorms` drops saved Airway template norms. Don't add airway norms without a checked source.
+- **Airway module (`src/airway/`, plan in `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: `definitions.js` is the single registry of landmarks, traced walls and measures; `geometry.js` is pure; `compute.js` (`computeAirway`) returns results with provenance; `norms.js` holds references checked against each paper's page, each tied to one construction. Don't add a reference without its paper, table and page, and don't attach one to a similar-sounding measure: papers define SPAS, MAS and IAS differently. Walls are found by `airwayRole`, points only by label on `type: "point"`. Mislik's p and t are `medianIqr`: no z-score, no flag. No OSA wording or risk score. `edges.js` only ever produces a preview. The overlay and report draw `computeAirway` output. Research reads airway values through `withAirwayMeasures` (in-memory `airwayValue` markups, added in `ResearchWorkspace`, never saved). Saved results from before go through `airwayResultsForDisplay`. `Data/Airway.csv` must list the registry's landmarks (tested).
 
 ### Ongoing
 
@@ -583,7 +584,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 882 tests pass (59 test files, 0 failures)
+- `npm test` — 872 tests pass (59 test files, 0 failures)
 
 
 

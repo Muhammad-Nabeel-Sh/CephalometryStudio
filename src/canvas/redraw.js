@@ -33,7 +33,7 @@ export function createRedraw(dc) {
       getProcessed, angleMode, facing, lutMode, lutInvert, activeTool,
       displacementOverlay, overlayBlend, overlayAlignMode, overlayVectorScale,
       showTrackingLines, refLandmark1, refLandmark2, showCalib, pendingRuler,
-      showGrid, showAirwayOverlay, showCpAlways, showAnchorAlways,
+      showGrid, showAirwayOverlay, airwaySuggestion, airwayPatient, showCpAlways, showAnchorAlways,
       snapTolerance, autoHideLabels, annotationBold, showGroupsLegend,
       labelLayout, labelsActiveOnly, activeAnalysis,
     } = dc;
@@ -105,7 +105,7 @@ export function createRedraw(dc) {
 
     // ── Pre/post airway overlay ──
     if (showAirwayOverlay && compareSession) {
-      dc.drawAirwayOverlay(ctx2d, compareSession.markups || [], zoom, pan, drawCalibration, "orange", t);
+      dc.drawAirwayOverlay(ctx2d, compareSession.markups || [], zoom, pan, drawCalibration, "orange", t, airwayPatient);
     }
 
     // ── Draw all markups ──
@@ -242,7 +242,8 @@ export function createRedraw(dc) {
     }
 
     // ── Airway overlay (base session) ──
-    if (showAirwayOverlay) dc.drawAirwayOverlay(ctx2d, drawMarkups, zoom, pan, drawCalibration, undefined, t);
+    if (showAirwayOverlay) dc.drawAirwayOverlay(ctx2d, drawMarkups, zoom, pan, drawCalibration, undefined, t, airwayPatient);
+    if (airwaySuggestion) dc.drawAirwaySuggestion(ctx2d, airwaySuggestion.points, zoom, pan);
 
     // ── Definition tooltip ──
     if (showDefTooltips && dc.hoveredPtRef.current?.type === "point" && activeTool === "select") {

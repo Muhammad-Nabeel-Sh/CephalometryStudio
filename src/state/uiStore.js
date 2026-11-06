@@ -23,6 +23,8 @@ try {
 
 export const useUIStore = create(() => ({
   aiTrace: null, // running AI Trace: { phase, received, total, startedAt, elapsedMs }
+  airwayTraceRole: null, // the airway wall being traced (airway/definitions.js)
+  airwaySuggestion: null, // edge-assisted wall preview: { role, points, foundFraction, meanShift }
   showScaleBar: false,
   showDefTooltips: true,
   showLUT: false,

@@ -167,6 +167,7 @@ export function computeMeasurements(m, cal, ctx) {
   if (m.type === "perp" && vp.length >= 3) {
     meas.distance = (isSignedPerp(m) ? signedPerpDist(vp[2], vp[0], vp[1], facing) : perpDist(vp[2], vp[0], vp[1])) / ppm;
   }
+  if (m.type === "airwayValue") { meas.value = m.computedValue; }
   if (m.type === "ratio" && m.computedValue !== undefined) { meas.value = m.computedValue; }
   if (m.type === "sum" && m.computedValue !== undefined) { meas.value = m.computedValue; }
   if (m.type === "difference" && m.computedValue !== undefined) { meas.value = m.computedValue; }
@@ -243,6 +244,7 @@ export const PRIMARY_MEASURE_KEY = {
   curve: "length", polyline: "length", bezier: "length",
   perp: "distance", projDist: "projectedDistance",
   ratio: "value", sum: "value", difference: "value", percentage: "value",
+  airwayValue: "value",
 };
 
 const AREA_KEYS = new Set(["area"]);
@@ -257,7 +259,8 @@ export function primaryMeasure(m, cal, ctx) {
   const value = meas[key];
   if (typeof value !== "number" || !isFinite(value)) return null;
   let unit;
-  if (key === "angle") unit = "°";
+  if (m.type === "airwayValue") unit = m.computedUnit;
+  else if (key === "angle") unit = "°";
   else if (m.type === "ratio") unit = "";
   else if (m.type === "percentage") unit = "%";
   // Sums/differences inherit the unit of what they combine (° for Björk's sum).

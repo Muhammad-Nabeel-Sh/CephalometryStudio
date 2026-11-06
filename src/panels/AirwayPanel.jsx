@@ -1,524 +1,214 @@
 import { useMemo, useState } from "react";
-import { computeAirwayMeasurements, generateAirwayBoundaries, AIRWAY_REVISION_NOTICE, AIRWAY_LANDMARKS_CORE, AIRWAY_LANDMARKS_ADVANCED, coreLandmarksComplete } from "../research/airway.js";
-import { InfoBox, Tag, Btn, GuideBtn } from "../ui/ui.jsx";
-import { PREDEFINED } from "../data/constants.js";
-import PanelGuideModal from "./PanelGuideModal.jsx";
+import { InfoBox, Btn, GuideBtn } from "../ui/ui.jsx";
 import { Icon } from "../ui/icons.jsx";
+import { SMALL_BTN } from "../ui/tokens.js";
+import PanelGuideModal from "./PanelGuideModal.jsx";
+import { useUIStore } from "../state/uiStore.js";
+import { AIRWAY_ADENOID_AREA, AIRWAY_LANDMARKS, AIRWAY_REGIONS, AIRWAY_WALLS } from "../airway/definitions.js";
+import { AIRWAY_NOTICE, airwayNeeds, computeAirway, findLandmark, findWall } from "../airway/compute.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// HELPERS
+// AIRWAY PANEL — check the film, place landmarks, trace walls, read the results.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function isPlaced(markups, label) {
-  try {
-    const lo = label.toLowerCase();
-    return markups.some(
-      (m) =>
-        m.visible !== false &&
-        m.label &&
-        m.label.toLowerCase() === lo &&
-        m.points &&
-        m.points.length > 0 &&
-        m.points[0].x > -9000
-    );
-  } catch {
-    return false;
-  }
-}
+const FILM_FIELDS = [
+  { key: "posture", label: "Posture", options: [["upright", "Upright"], ["supine", "Supine"]] },
+  { key: "head", label: "Head position", options: [["natural", "Natural head position"], ["frankfort", "Frankfort horizontal"], ["other", "Other"]] },
+  { key: "teeth", label: "Teeth and lips", options: [["together", "Teeth together, lips relaxed"], ["other", "Other"]] },
+  { key: "swallowing", label: "Soft palate", options: [["no", "No sign of swallowing"], ["yes", "Inverted V (swallowing)"]] },
+];
 
-// The engine's wording already knows which direction is pathological (a wide
-// airway is not "constrained"; a long soft palate is not "patent").
-function zBadge(m, t) {
-  if (m.zScore === null || m.zScore === undefined) return { color: t.tx3, label: "—" };
-  const label = m.interpretation || "—";
-  if (label === "Normal") return { color: t.ok, label };
-  if (/^(Narrow|Increased)$/.test(label)) return { color: t.err, label };
-  if (/^Borderline/.test(label)) return { color: t.warn, label };
-  return { color: t.tx2, label }; // above/below average, wider than average
-}
-
-function fmtVal(v) {
-  if (v === null || v === undefined) return "—";
-  return v % 1 === 0 ? v.toFixed(1) : v.toFixed(1);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export default function AirwayPanel({ t, markups, calibration, norms, loadAirwayTier, onUpdateMarkups, showOverlay, onToggleOverlay, onLoadTemplate, dispatch, age, getImagePixels }) {
-  void norms;
-  void onUpdateMarkups;
-  const [guideKey, setGuideKey] = useState(null);
-
-  const measurements = useMemo(
-    () => computeAirwayMeasurements(markups, calibration, age),
-    [markups, calibration, age],
+function SectionTitle({ t, step, children, done }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 6px", fontSize: 13, fontWeight: 700, color: t.tx }}>
+      <span style={{ width: 20, height: 20, flexShrink: 0, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, background: done ? t.ok : t.surf3, color: done ? t.bg : t.tx2 }}>
+        {done ? <Icon name="check" size={14} /> : step}
+      </span>
+      {children}
+    </div>
   );
+}
 
+function ResultRow({ t, m }) {
+  const [open, setOpen] = useState(false);
+  const value = m.value === null ? "—" : `${m.value.toFixed(m.unit ? 1 : 2)}${m.unit ? ` ${m.unit}` : ""}`;
+  const color = m.state === "outside" ? t.warn : m.state === "within" ? t.ok : t.tx3;
+  return (
+    <div style={{ padding: "6px 8px", borderRadius: 6, background: t.surf2, border: `1px solid ${t.bdr}` }}>
+      <button type="button" onClick={() => setOpen(v => !v)} aria-expanded={open}
+        style={{ display: "flex", width: "100%", gap: 8, alignItems: "baseline", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit", color: t.tx, textAlign: "left" }}>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{m.label}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: m.value === null ? t.tx3 : t.tx }}>{value}</span>
+      </button>
+      <div style={{ marginTop: 2, fontSize: 12, lineHeight: 1.45, color }}>
+        {m.interpretation}{m.zScore !== null ? ` (z ${m.zScore >= 0 ? "+" : ""}${m.zScore.toFixed(1)})` : ""}
+      </div>
+      {m.referenceText && (
+        <div style={{ marginTop: 2, fontSize: 12, lineHeight: 1.45, color: t.tx2 }}>
+          {m.referenceText}: {m.referenceGroup}, {m.normSource}
+        </div>
+      )}
+      {(m.referenceWarning || m.magnificationNote) && (
+        <div style={{ marginTop: 2, fontSize: 12, lineHeight: 1.45, color: t.tx3 }}>{[m.referenceWarning, m.magnificationNote].filter(Boolean).join(" ")}</div>
+      )}
+      {open && (
+        <div style={{ marginTop: 4, paddingTop: 4, borderTop: `1px solid ${t.bdr}`, fontSize: 12, lineHeight: 1.45, color: t.tx2 }}>
+          {m.method}
+          {m.referenceSample && <div style={{ marginTop: 2 }}>Sample: {m.referenceSample} ({m.referenceWhere}).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AirwayPanel({ t, markups, calibration, facing, sex, age, film, onUpdateFilm, actions, showOverlay, onToggleOverlay, getImagePixels }) {
+  const [guideKey, setGuideKey] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const traceRole = useUIStore(s => s.airwayTraceRole);
+  const suggestion = useUIStore(s => s.airwaySuggestion);
+
+  const res = useMemo(
+    () => computeAirway(markups, calibration, { age, sex, facing, film }),
+    [markups, calibration, age, sex, facing, film],
+  );
+  const needs = useMemo(() => airwayNeeds(age), [age]);
+  const missingLandmarks = needs.landmarks.filter(id => !findLandmark(markups, id));
+  const wallRows = [
+    ...needs.walls.map(id => ({ id, ...AIRWAY_WALLS[id] })),
+    ...(needs.adenoid ? [{ id: "adenoid", ...AIRWAY_ADENOID_AREA, optional: true }] : []),
+  ];
+  const wallsDone = needs.walls.every(id => findWall(markups, id));
   const calDone = calibration?.done === true;
-  const unit = calDone ? "mm" : "px";
-  const coreComplete = coreLandmarksComplete(markups);
+
+  const suggest = (role) => {
+    setNotice(null);
+    const curve = markups.find(m => m.airwayRole === role);
+    const img = getImagePixels?.();
+    if (!img) { setNotice("Edge suggestions need an image with no rotation or scaling applied."); return; }
+    if (!actions.suggestWall(role, curve, img, facing, calDone ? calibration.pxPerMm : undefined)) setNotice("No clear edge near this trace, so there's no suggestion. Keep your trace, or redraw it closer to the wall.");
+  };
+
+  const regions = AIRWAY_REGIONS
+    .map(r => ({ ...r, rows: res.measurements.filter(m => m.region === r.id) }))
+    .filter(r => r.rows.length);
+  const measured = res.measurements.filter(m => m.value !== null).length;
 
   return (
-    <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* ─── Header ─── */}
+    <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: t.tx, marginTop: 8, display: "flex", alignItems: "center" }}>
         Airway Analysis
         <GuideBtn t={t} onClick={() => setGuideKey("airway")} style={{ marginLeft: 6 }} />
       </div>
-      <InfoBox t={t}>
-        Computes pharyngeal airway dimensions from placed cephalometric landmarks.
-        Place required landmarks below to enable measurements.
-      </InfoBox>
-      <div style={{ background: t.warn + "18", border: `1px solid ${t.warn}44`, borderRadius: 6, padding: "8px 10px", fontSize: 12, lineHeight: 1.5, color: t.tx }}>
-        {AIRWAY_REVISION_NOTICE}
-      </div>
+      <InfoBox t={t}>{AIRWAY_NOTICE}</InfoBox>
 
-      {/* ─── Load Airway Template ─── */}
-      {(() => {
-        const airwayAnalysis = (PREDEFINED.lateral || []).find(
-          (a) => a.name && a.name.toLowerCase().includes("airway")
-        );
-        const hasAirwayLandmarks = airwayAnalysis
-          ? ["PNS", "SP", "N"].filter((l) =>
-              markups.some(
-                (m) =>
-                  m.visible !== false &&
-                  m.placed &&
-                  m.label?.toLowerCase() === l.toLowerCase()
-              )
-            ).length >= 3
-          : false;
-        if (airwayAnalysis && !hasAirwayLandmarks) {
-          return (
-            <Btn
-              t={t}
-              onClick={() => {
-                onLoadTemplate && onLoadTemplate(airwayAnalysis);
-                dispatch && dispatch({ type: "SET", payload: { rightPanel: "airway" } });
-              }}
-              style={{
-                background: t.acc,
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 12px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                textAlign: "center",
-              }}
-            >
-              Load Airway Template
-            </Btn>
-          );
-        }
-        return null;
-      })()}
-
-      {/* ─── Calibration warning ─── */}
       {!calDone && (
-        <div
-          style={{
-            background: t.warn + "18",
-            border: `1px solid ${t.warn}44`,
-            borderRadius: 6,
-            padding: "8px 10px",
-            fontSize: 12,
-            color: t.warn,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <span style={{ fontSize: 13 }}>⚠</span>
-          <span>Not calibrated — values shown in pixels</span>
+        <div style={{ padding: "8px 10px", borderRadius: 6, background: t.warn + "18", border: `1px solid ${t.warn}44`, fontSize: 12, color: t.tx }}>
+          Not calibrated, so values are in pixels and can't be compared.
         </div>
       )}
 
-      {/* ─── Core Landmarks ─── */}
-      <div>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: t.tx2,
-            textTransform: "uppercase",
-            letterSpacing: 0.6,
-            marginBottom: 6,
-          }}
-        >
-          Core Landmarks (5 measurements)
+      {/* ─── 1. Patient and film ─── */}
+      <section>
+        <SectionTitle t={t} step={1} done={age !== null && Boolean(sex)}>Patient and film</SectionTitle>
+        <div style={{ fontSize: 12, lineHeight: 1.5, color: t.tx2, marginBottom: 6 }}>
+          Age {age ?? "not set"}, sex {sex === "F" ? "female" : sex === "M" ? "male" : "not set"}
+          {res.skeletalClass ? `, skeletal Class ${res.skeletalClass} (ANB ${res.anb.toFixed(1)}°)` : ""}.
+          {age === null && " Age chooses the measures and references; add it in the session details."}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-          {AIRWAY_LANDMARKS_CORE.map((label) => {
-            const placed = isPlaced(markups, label);
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          {FILM_FIELDS.map(f => (
+            <label key={f.key} style={{ fontSize: 12, color: t.tx2, display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+              {f.label}
+              <select value={film?.[f.key] || ""} onChange={e => onUpdateFilm({ ...(film || {}), [f.key]: e.target.value })}
+                style={{ padding: "4px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf3, color: t.tx, fontSize: 12, fontFamily: "inherit", minWidth: 0, width: "100%" }}>
+                <option value="">Not recorded</option>
+                {f.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 2. Landmarks ─── */}
+      <section>
+        <SectionTitle t={t} step={2} done={!missingLandmarks.length}>Landmarks</SectionTitle>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {needs.landmarks.map(id => {
+            const placed = Boolean(findLandmark(markups, id));
             return (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "4px 6px",
-                  borderRadius: 4,
-                  background: placed ? t.ok + "0a" : t.surf3 + "66",
-                  border: `1px solid ${placed ? t.ok + "30" : t.bdr}`,
-                  cursor: "default",
-                  fontSize: 12,
-                  color: t.tx,
-                  transition: "all 0.12s",
-                  fontFamily: "'DM Mono', monospace",
-                }}
-                title={placed ? `${label} placed` : `${label} — not yet placed`}
-              >
-                {placed ? (
-                  <span style={{ color: t.ok, fontSize: 12 }}>✓</span>
-                ) : (
-                  <span style={{ color: t.warn, fontSize: 12 }}>⚠</span>
-                )}
-                <span style={{ flex: 1 }}>{label}</span>
-              </div>
+              <button key={id} type="button" title={AIRWAY_LANDMARKS[id].def} onClick={() => actions.placeLandmarks([id])}
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 12, cursor: "pointer", fontSize: 12, fontFamily: "inherit", border: `1px solid ${placed ? t.ok + "55" : t.bdr}`, background: placed ? t.ok + "12" : "transparent", color: placed ? t.tx : t.tx2 }}>
+                {placed && <Icon name="check" size={12} color={t.ok} />}
+                {AIRWAY_LANDMARKS[id].label}
+              </button>
             );
           })}
         </div>
-        {AIRWAY_LANDMARKS_CORE.some(l => !isPlaced(markups, l)) && (
-          <button
-            onClick={() => loadAirwayTier && loadAirwayTier(AIRWAY_LANDMARKS_CORE)}
-            style={{
-              marginTop: 6,
-              width: "100%",
-              background: t.acc,
-              color: "#fff",
-              border: "none",
-              borderRadius: 5,
-              padding: "6px 10px",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-              fontFamily: "'DM Mono', monospace",
-            }}
-          >
-            Place All Core
-          </button>
-        )}
-      </div>
-
-      {/* ─── Advanced Landmarks ─── */}
-      <div>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: coreComplete ? t.acc : t.tx3,
-            textTransform: "uppercase",
-            letterSpacing: 0.6,
-            marginBottom: 6,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          Advanced Landmarks (10 additional measurements)
-          {coreComplete && (
-            <span style={{ fontSize: 12, color: t.ok, fontWeight: 600 }}>CORE COMPLETE</span>
-          )}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-          {AIRWAY_LANDMARKS_ADVANCED.map((label) => {
-            const placed = isPlaced(markups, label);
-            const disabled = !coreComplete;
-            return (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "4px 6px",
-                  borderRadius: 4,
-                  background: placed ? t.ok + "0a" : disabled ? t.surf3 + "33" : t.surf3 + "66",
-                  border: `1px solid ${placed ? t.ok + "30" : disabled ? t.bdr + "66" : t.bdr}`,
-                  cursor: "default",
-                  fontSize: 12,
-                  color: disabled ? t.tx3 : t.tx,
-                  transition: "all 0.12s",
-                  fontFamily: "'DM Mono', monospace",
-                  opacity: disabled ? 0.5 : 1,
-                }}
-                title={disabled ? "Place all core landmarks first" : placed ? `${label} placed` : `${label} — not yet placed`}
-              >
-                {placed ? (
-                  <span style={{ color: t.ok, fontSize: 12 }}>✓</span>
-                ) : (
-                  <span style={{ color: disabled ? t.tx3 : t.warn, fontSize: 12 }}>{disabled ? <Icon name="lock" size={12} /> : "⚠"}</span>
-                )}
-                <span style={{ flex: 1 }}>{label}</span>
-              </div>
-            );
-          })}
-        </div>
-        {coreComplete && AIRWAY_LANDMARKS_ADVANCED.some(l => !isPlaced(markups, l)) && (
-          <button
-            onClick={() => loadAirwayTier && loadAirwayTier(AIRWAY_LANDMARKS_ADVANCED)}
-            style={{
-              marginTop: 6,
-              width: "100%",
-              background: t.acc,
-              color: "#fff",
-              border: "none",
-              borderRadius: 5,
-              padding: "6px 10px",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-              fontFamily: "'DM Mono', monospace",
-            }}
-          >
-            Place All Advanced
-          </button>
-        )}
-      </div>
-
-      {/* ─── Divider ─── */}
-      <div style={{ height: 1, background: t.bdr, margin: "2px 0" }} />
-
-      {/* ─── Airway Overlay Toggle ─── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "6px 8px",
-          borderRadius: 6,
-          background: t.surf3 + "44",
-          cursor: "pointer",
-          userSelect: "none",
-        }}
-        onClick={onToggleOverlay}
-      >
-        <input
-          type="checkbox"
-          checked={showOverlay}
-          onChange={onToggleOverlay}
-          style={{ accentColor: t.acc, cursor: "pointer", margin: 0 }}
-        />
-        <span style={{ fontSize: 12, fontWeight: 600, color: t.tx, flex: 1 }}>
-          Airway Overlay
-        </span>
-        <span style={{ fontSize: 12, color: t.tx3 }}>
-          {showOverlay ? "Visible" : "Hidden"}
-        </span>
-      </div>
-
-      {/* ─── REC 1: Auto-Trace Airway Boundaries ─── */}
-      {(() => {
-        const hasKeyPts = ["PNS", "SP", "Ad1", "Ad3"].filter(l =>
-          markups.some(m => m.visible !== false && m.placed && m.label?.toLowerCase() === l.toLowerCase())
-        ).length >= 3;
-        if (!hasKeyPts) return null;
-        return (
-          <div>
-          <Btn
-            t={t}
-            onClick={() => {
-              // Pixels of the radiograph itself, in image coordinates (not the
-              // zoomed, panned, drawn-over screen canvas).
-              const imageData = getImagePixels ? getImagePixels() : null;
-              const bounds = generateAirwayBoundaries(markups, imageData);
-              if (!bounds) return;
-              const curves = [];
-              if (bounds.anterior.length >= 2) {
-                curves.push({
-                  id: Math.random().toString(36).slice(2, 10),
-                  type: "curve",
-                  label: "Anterior Airway Boundary",
-                  points: bounds.anterior,
-                  color: "#38bdf8",
-                  visible: true,
-                  locked: false,
-                  curveStyle: "catmull",
-                });
-              }
-              if (bounds.posterior.length >= 2) {
-                curves.push({
-                  id: Math.random().toString(36).slice(2, 10),
-                  type: "curve",
-                  label: "Posterior Airway Boundary",
-                  points: bounds.posterior,
-                  color: "#38bdf8",
-                  visible: true,
-                  locked: false,
-                  curveStyle: "catmull",
-                });
-              }
-              if (curves.length > 0 && onUpdateMarkups) {
-                onUpdateMarkups({ markups: [...markups, ...curves] });
-              }
-            }}
-            style={{
-              background: t.surf3,
-              color: t.tx,
-              border: `1px solid ${t.bdr}`,
-              borderRadius: 6,
-              padding: "6px 10px",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              textAlign: "center",
-            }}
-          >
-            Generate Smooth Airway Boundaries
+        {missingLandmarks.length > 0 && (
+          <Btn t={t} small onClick={() => actions.placeLandmarks(missingLandmarks)} style={{ marginTop: 6, width: "100%" }}>
+            Place {missingLandmarks.length} missing landmark{missingLandmarks.length === 1 ? "" : "s"}
           </Btn>
-          <div style={{ marginTop: 4, fontSize: 12, color: t.tx3 }}>Draws the walls for reference. It doesn't change the measurements.</div>
-          </div>
-        );
-      })()}
-
-      {/* ─── Measurements ─── */}
-      <div>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: t.tx2,
-            textTransform: "uppercase",
-            letterSpacing: 0.6,
-            marginBottom: 6,
-          }}
-        >
-          Measurements
-        </div>
-        {measurements.length === 0 ? (
-          <div style={{ fontSize: 12, color: t.tx3, textAlign: "center", padding: "12px 0" }}>
-            No airway measurements available.
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {measurements.map((m) => {
-              const badge = zBadge(m, t);
-              const valStr = m.value !== null ? `${fmtVal(m.value)} ${m.unit || unit}` : "—";
-              const rangeStr =
-                m.normMean && m.normSD
-                  ? `${(m.normMean - m.normSD).toFixed(1)}–${(m.normMean + m.normSD).toFixed(1)} ${m.unit || unit}`
-                  : "—";
-              const tier = m.tier || "core";
-              const tierColor = tier === "core" ? t.tx3 : t.acc;
-              return (
-                <div
-                  key={m.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    gap: "2px 6px",
-                    padding: "5px 8px",
-                    borderRadius: 5,
-                    background: t.surf2,
-                    border: `1px solid ${t.bdr}`,
-                    borderLeft: m.value !== null ? `3px solid ${badge.color}` : `3px solid ${t.tx3}44`,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: t.tx,
-                        fontFamily: "'DM Mono', monospace",
-                      }}
-                    >
-                      {m.label}
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: tierColor,
-                        background: tier === "core" ? t.surf3 : t.acc + "18",
-                        padding: "1px 4px",
-                        borderRadius: 3,
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.3,
-                      }}
-                    >
-                      {tier}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: m.value !== null ? t.tx : t.tx3,
-                      textAlign: "right",
-                      fontFamily: "'DM Mono', monospace",
-                    }}
-                  >
-                    {valStr}
-                  </div>
-                  {m.zScore !== null && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: t.tx3,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          background: badge.color,
-                          flexShrink: 0,
-                        }}
-                      />
-                      {badge.label}
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: t.tx3,
-                      textAlign: "right",
-                    }}
-                  >
-                    {rangeStr}
-                  </div>
-                  {m.normSource && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: t.tx3,
-                        fontStyle: "italic",
-                        gridColumn: "1 / -1",
-                      }}
-                    >
-                      Source: {m.normSource}
-                    </div>
-                  )}
-                  {m.zScore === null && !String(m.id).startsWith("_") && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: t.tx3,
-                        fontStyle: "italic",
-                        gridColumn: "1 / -1",
-                      }}
-                    >
-                      {m.interpretation || "Missing landmarks"}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         )}
-      </div>
+      </section>
 
+      {/* ─── 3. Walls ─── */}
+      <section>
+        <SectionTitle t={t} step={3} done={wallsDone}>Trace the walls</SectionTitle>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {wallRows.map(w => {
+            const traced = Boolean(findWall(markups, w.id));
+            const active = traceRole === w.id;
+            return (
+              <div key={w.id} style={{ padding: "6px 8px", borderRadius: 6, border: `1px solid ${active ? t.acc : t.bdr}`, background: t.surf2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {traced && <Icon name="check" size={14} color={t.ok} />}
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: t.tx }}>{w.label}{w.optional ? " (optional)" : ""}</span>
+                  <Btn t={t} small onClick={() => actions.traceWall(w.id)} style={SMALL_BTN}>{traced ? "Retrace" : "Trace"}</Btn>
+                  {traced && w.id !== "adenoid" && <Btn t={t} small onClick={() => suggest(w.id)} style={SMALL_BTN}>Suggest</Btn>}
+                </div>
+                <div style={{ marginTop: 2, fontSize: 12, lineHeight: 1.45, color: t.tx3 }}>
+                  {active ? "Click along the wall on the image, then double-click to finish." : w.help}
+                </div>
+                {suggestion?.role === w.id && (
+                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${t.bdr}` }}>
+                    <div style={{ fontSize: 12, lineHeight: 1.45, color: t.tx2 }}>
+                      Suggested wall shown dashed. An edge was found along {Math.round(suggestion.foundFraction * 100)}% of the trace, on average {suggestion.meanShift.toFixed(1)} px from it. Check it against the film.
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                      <Btn t={t} small active onClick={() => actions.acceptSuggestion()} style={SMALL_BTN}>Use suggestion</Btn>
+                      <Btn t={t} small onClick={() => actions.discardSuggestion()} style={SMALL_BTN}>Keep my trace</Btn>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {notice && <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.45, color: t.warn }}>{notice}</div>}
+      </section>
+
+      {/* ─── 4. Results ─── */}
+      <section>
+        <SectionTitle t={t} step={4} done={measured > 0}>Results</SectionTitle>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: t.tx, cursor: "pointer" }}>
+          <input type="checkbox" checked={showOverlay} onChange={onToggleOverlay} style={{ accentColor: t.acc, margin: 0 }} />
+          Show measurements on the image
+        </label>
+        {res.pattern && (
+          <div style={{ padding: "8px 10px", marginBottom: 8, borderRadius: 6, background: t.warn + "18", border: `1px solid ${t.warn}44`, fontSize: 12, lineHeight: 1.5, color: t.tx }}>{res.pattern.text}</div>
+        )}
+        {[...res.cues, ...(res.swallowNote ? [{ id: "swallow", text: res.swallowNote }] : [])].map(c => (
+          <div key={c.id} style={{ padding: "6px 8px", marginBottom: 8, borderRadius: 6, background: t.surf3, fontSize: 12, lineHeight: 1.5, color: t.tx2 }}>{c.text}</div>
+        ))}
+        {regions.map(r => (
+          <div key={r.id} style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: t.tx2, marginBottom: 4 }}>{r.label}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {r.rows.map(m => <ResultRow key={m.id} t={t} m={m} />)}
+            </div>
+          </div>
+        ))}
+      </section>
       {guideKey && <PanelGuideModal t={t} guideKey={guideKey} onClose={() => setGuideKey(null)} />}
     </div>
   );

@@ -8,6 +8,7 @@
 // finishing while the user edits notes) are never lost.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { withAirwayMeasures } from "../airway/compute.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { STUDY_TYPES, mkStudy } from "./studyModel.js";
 import { runStudyAsync } from "./engineClient.js";
@@ -247,7 +248,8 @@ let lastSteps = {};
 
 export default function ResearchWorkspace({ t, project, onUpdateProject, calibration, onClose }) {
   const studies = useMemo(() => project?.researchStudies || [], [project]);
-  const sessions = useMemo(() => project?.sessions || [], [project]);
+  // Airway values join each session here, in memory, so every study can select them.
+  const sessions = useMemo(() => (project?.sessions || []).map(s => withAirwayMeasures(s)), [project]);
   const narrow = useMediaQuery("(max-width: 900px)");
   const wide = useMediaQuery("(min-width: 1280px)");
   const [selectedId, setSelectedId] = useState(() => {
@@ -424,7 +426,7 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
       <div style={{ maxWidth: 900 }}>
         <h2 style={{ fontSize: 18, color: t.tx, margin: "0 0 12px" }}>New study</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
-          {STUDY_TYPES.map(st => (
+          {STUDY_TYPES.filter(st => !st.legacy).map(st => (
             <div key={st.id} role="radio" aria-checked={newType === st.id} tabIndex={0}
               onClick={() => setNewType(st.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNewType(st.id); } }}
               style={{ padding: 12, borderRadius: 8, cursor: "pointer", border: `1px solid ${newType === st.id ? st.color : t.bdr}`, background: newType === st.id ? st.color + "18" : t.surf2 }}>

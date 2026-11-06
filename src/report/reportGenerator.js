@@ -1,4 +1,5 @@
-import { airwayResultsForDisplay, AIRWAY_REVISION_NOTICE } from "../research/airway.js";
+import { airwayResultsForDisplay, AIRWAY_NOTICE } from "../airway/compute.js";
+import { SOURCES } from "../airway/norms.js";
 import { jsPDF } from "jspdf";
 import { applyPlugin } from "jspdf-autotable";
 import { primaryMeasure } from "../lib/utils.js";
@@ -692,30 +693,47 @@ async function buildNormogram(doc, ctx) {
 // Go-Me alone (from any traced case) isn't an airway result, so it doesn't earn a page.
 const hasAirwayValues = res => (res?.measurements || []).some(m => m.value != null && !String(m.id).startsWith("_") && m.id !== "Mandibular-Body");
 
+const AIRWAY_FILM_LABELS = {
+  posture: { upright: "upright", supine: "supine" },
+  head: { natural: "natural head position", frankfort: "Frankfort horizontal", other: "other head position" },
+  teeth: { together: "teeth together, lips relaxed", other: "other tooth and lip position" },
+  swallowing: { no: "no sign of swallowing", yes: "inverted-V soft palate (swallowing)" },
+};
+
 function buildAirway(doc, project, live) {
-  // The Airway panel's results for this session come first; a Research airway
-  // study is used when the session has no airway landmarks. No page at all
-  // when there is nothing to report.
+  // The Airway panel's results for this session come first; a saved airway study is
+  // used when the session has no airway landmarks. No page when there's nothing to report.
   const studies = project.researchStudies || [];
   const source = hasAirwayValues(live) ? { results: live } : studies.find(s => s.type === "airway" && hasAirwayValues(s.results));
   if (!source) return;
   const res = source.results;
   const flow = textFlow(doc, startSection(doc, "Airway assessment", { subtitle: res.sessionName ? `Session: ${res.sessionName}` : null }));
-  flow.para(AIRWAY_REVISION_NOTICE, { size: 8.5, gap: 2 });
+  flow.para(AIRWAY_NOTICE, { size: 8.5, gap: 1 });
+  const film = Object.entries(AIRWAY_FILM_LABELS).map(([k, labels]) => labels[res.film?.[k]]).filter(Boolean);
+  flow.para(`Film: ${film.length ? film.join("; ") : "not recorded"}. Skeletal class: ${res.skeletalClass ? `Class ${res.skeletalClass}` : "not determined"}. Radiographs include magnification unless the calibration says otherwise.`, { size: 8.5, gap: 2 });
   const measurements = airwayResultsForDisplay(res.measurements).filter(m => !String(m.id).startsWith("_") && m.value != null);
   doc.autoTable({
     ...tableStyles(7.5),
     startY: flow.y,
-    head: [["Measurement", "Value", "Norm (mean ± SD)", "z", "Interpretation"]],
+    head: [["Measurement", "Value", "Reference", "z", "Result"]],
     body: measurements.map(m => [
       m.label || "—",
-      m.value != null ? `${m.value.toFixed(2)} ${m.unit || ""}`.trim() : "—",
-      m.normMean != null ? `${m.normMean.toFixed(1)} ± ${m.normSD != null ? m.normSD.toFixed(1) : "—"}` : "—",
+      `${m.value.toFixed(m.unit ? 2 : 3)} ${m.unit || ""}`.trim(),
+      m.referenceText ? `${m.referenceText}; ${m.referenceGroup}; ${m.normSource}` : "—",
       zText(m.zScore),
       m.interpretation || "—",
     ]),
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 }, 1: { halign: "right" }, 2: { halign: "right", textColor: C.tx2 }, 3: { halign: "right" } },
+    columnStyles: { 0: { fontStyle: "bold", cellWidth: 44 }, 1: { halign: "right", cellWidth: 20 }, 2: { textColor: C.tx2 }, 3: { halign: "right", cellWidth: 12 } },
   });
+  flow.y = doc.lastAutoTable.finalY + 6;
+  for (const note of [res.pattern?.text, ...(res.cues || []).map(c => c.text), res.swallowNote]) {
+    if (note) flow.para(note, { size: 8.5, gap: 1.5 });
+  }
+  const cited = Object.values(SOURCES).filter(src => measurements.some(m => m.normSource === src.cite));
+  if (cited.length) {
+    flow.heading("References");
+    cited.forEach(src => flow.para(`${src.full} ${src.where}. Sample: ${src.sample}.`, { size: 7.5, color: C.tx2, gap: 1 }));
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

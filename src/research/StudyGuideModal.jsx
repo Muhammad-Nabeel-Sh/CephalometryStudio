@@ -368,7 +368,7 @@ function AirwayDiagram() {
       <text x="475" y="170" fill={color} fontSize="9" fontFamily="sans-serif">MP-H</text>
       <text x="595" y="170" textAnchor="end" fill={color + "cc"} fontSize="9" fontFamily="sans-serif">Hyoid position</text>
 
-      <text x="320" y="260" textAnchor="middle" fill={color + "aa"} fontSize="9" fontFamily="sans-serif">Reference comparisons are being revised</text>
+      <text x="320" y="260" textAnchor="middle" fill={color + "aa"} fontSize="9" fontFamily="sans-serif">Airway analysis has moved to the Airway panel</text>
     </svg>
   );
 }
@@ -840,29 +840,9 @@ const GUIDES = {
     title: "Airway Analysis Study Guide",
     sections: [
       {
-        heading: "This module is being revised",
-        body: "Measures pharyngeal airway dimensions from lateral cephalometric landmarks for one session. Most reference comparisons are withheld until their sources are checked. The results describe the film; they don't diagnose airway disease or sleep apnea.",
+        heading: "An older study type",
+        body: "This study type showed one session's airway table. New studies can't use it: airway values now appear in every other study type, with labels starting with \"Airway\", so reliability, comparisons and longitudinal analyses can use them. Older saved values display without comparisons, and running this study again uses the current method.",
         icon: "lungs",
-      },
-      {
-        heading: "Data requirements",
-        body: "A lateral cephalogram with the airway landmarks placed. Calibration is needed for values in mm. Comparisons also need the patient's age; children are never compared with adult values.",
-        icon: "chart",
-      },
-      {
-        heading: "Step-by-step workflow",
-        icon: "note",
-        steps: [
-          { label: "Load Airway Template", body: "Click 'Load Airway Template' in the Airway panel to add the landmarks.", type: "setup" },
-          { label: "Place landmarks", body: "Click each landmark on the lateral cephalogram. Green checkmarks show the placed ones.", type: "setup" },
-          { label: "Calibrate", body: "Draw a ruler of known length (R key) and enter the real-world distance.", type: "configure" },
-          { label: "Review", body: "Each measurement shows its value. For adults, MP-H and SP-Length also show a z-score from a source not yet verified; the others show 'Reference under review'.", type: "review" },
-        ],
-      },
-      {
-        heading: "Limitations",
-        body: "A lateral film is a 2D view affected by head position, tongue position, swallowing and magnification. It shows no side-to-side airway width, so it can't give a cross-sectional area or volume.",
-        icon: "bulb",
       },
     ],
   },

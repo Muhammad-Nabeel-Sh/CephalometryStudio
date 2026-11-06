@@ -131,9 +131,4 @@ export function isApproximateSd(analysisName, label, sd) {
   return STEINER_COPIES.has(label) && sd === 2;
 }
 
-export const AIRWAY_NORMS = {
-  // Sources not yet checked against the originals; see docs/AIRWAY_MODULE_REWRITE_PLAN.md.
-  "MP-H": { mean: 12.3, sd: 3.5, source: "Bibby 1984 (not yet verified)" },
-  "SP-Length": { mean: 32.4, sd: 3.2, source: "Lowe 1985 (not yet verified)" },
-};
 

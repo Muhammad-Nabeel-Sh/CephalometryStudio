@@ -1,28 +1,39 @@
 # Changelog
 
-## [Unreleased] - Airway analysis safety fix
+## [Unreleased] - Airway analysis rewritten
 
-Airway analysis is being rewritten (`docs/AIRWAY_MODULE_REWRITE_PLAN.md`). An audit found reference
-values and definitions that can't be relied on, so until then **airway results will change**:
+The airway module is rebuilt from original papers (`docs/AIRWAY_MODULE_REWRITE_PLAN.md`). **Airway values
+will differ from earlier versions**, because the measures themselves changed.
 
-### Removed
-- The OSA risk score, the OSA interpretation pattern, clinical notes and the summary lines. A lateral
-  film can't establish sleep apnea, and these had no validation behind them.
-- Minimum cross-sectional area, which a sagittal film can't measure.
-- The Airway norm preset and the norms in the Airway template. Those already saved in a session
-  are dropped when it opens.
+### Added
+- **Measures chosen by age**, each using one paper's exact construction and only that paper's
+  reference: A/N ratio up to 16 (Fujioka 1979), distances p and t at 6–17 (Mislik 2014), nasopharyngeal
+  measures at 6–12 (Pérez-Rodríguez 2021), and for adults McNamara's upper and lower pharynx (McNamara
+  1984) plus NL, PD, SPAS, MAS, PAS min, IAS, LPW, PL, PT and MPH by skeletal class (Sfondrini 2024).
+- **Traced walls**: the back wall, soft palate and tongue are traced as named curves, and most airway
+  points are calculated from them instead of being placed by hand.
+- **Edge suggestions**: a dashed preview of each wall from the film's air-tissue edge, used only if accepted.
+- **Film check**: posture, head position, teeth and lips, and McNamara's swallowing sign, recorded with the
+  session and printed in the report. Supine films get no comparison, because the references are upright.
+- **Airway values in research**: every study type can select them, as labels starting with "Airway".
+- Each comparison names its sample, and the report lists full references. Children's p and t show a
+  typical range with no flag, following Mislik's finding that individual variation is too high for a mean.
 
 ### Changed
-- Z-scores are withheld ("Reference under review") for every airway measure except MP-H and
-  SP-Length, for adults only, whose sources are marked as not yet verified. N-PH's norm, for example,
-  was anatomically impossible, and PNS-AD1's was far below published samples.
-- Generated or traced boundary curves no longer replace landmark measurements, so measurements
-  based on them may change. The generated wall no longer runs to the tongue tip.
-- Children are never compared with adult norms, and comparisons need the patient's age. The age- and
-  sex-stratified tables are gone because their sources couldn't be traced.
-- A case with only Go and Me placed no longer gets an "Airway assessment" page in its report.
-- Saved airway studies display under these rules, and reports, exports and study text state the
-  limitation. The airway overlay no longer colours widths by z-score.
+- The overlay draws exactly what the panel measured, and the report's airway page is rebuilt.
+- ENT evaluation is suggested only when two or more children's adenoid and nasopharyngeal measures are
+  outside range in the direction of concern, following Major 2006.
+- Published cues (A/N above 0.80; upper pharynx 5 mm or less; lower pharynx above 15 mm) appear as cited
+  statements, never as verdicts.
+
+### Removed
+- The OSA risk score, clinical notes, the "abnormal" count and Minimum cross-sectional area. A lateral film
+  can't establish sleep apnea, or measure a cross-section.
+- All earlier airway norms, including N-PH's impossible one, the Airway norm preset and the age and sex
+  tables with untraceable sources. Saved template norms are dropped when a session opens.
+- The Airway study type for new studies. Older saved values stay readable, without comparisons.
+- The older template's measurements. Saved Ad1–Ad4 points and old boundary curves stay in the session as
+  ordinary markups but aren't used; older SP, H, Epiglottis, Vallecula and Ba points are.
 
 ## [Unreleased] - Privacy policy
 

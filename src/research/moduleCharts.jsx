@@ -1,4 +1,4 @@
-import { airwayResultsForDisplay } from "./airway.js";
+import { airwayResultsForDisplay } from "../airway/compute.js";
 import { useRef, useEffect } from "react";
 import { ChartCard, FONT, FONT_STACK, PALETTE, fmtP } from "./moduleChartsUtils.jsx";
 import PlotlyChart, { heatmapLayout, heatmapData } from "./PlotlyChart.jsx";

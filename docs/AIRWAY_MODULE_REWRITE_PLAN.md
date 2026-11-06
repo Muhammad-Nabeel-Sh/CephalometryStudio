@@ -1,6 +1,6 @@
 # Airway Analysis Module: Audit and Rewrite Plan
 
-**Date:** 2026-11-06, revised twice after reading the 11 papers in `Research papers/`, most recently McNamara 1984, Riley 1983, Fujioka 1979 and Mislik 2014. **Status:** Phase 0 is done (see the changelog); the remaining phases are proposed.
+**Date:** 2026-11-06, revised twice after reading the 11 papers in `Research papers/`, most recently McNamara 1984, Riley 1983, Fujioka 1979 and Mislik 2014. **Status:** Phases 0–5 are built (`src/airway/`; see the changelog). Phase 6, validation on real films, needs raters and is still to do. §3 records the old module as it was audited.
 
 ## 1. Summary
 
@@ -299,17 +299,25 @@ The overlay only draws `compute.js` output. Markups link by `templateId`, so a l
 
 Estimates assume one developer with an AI assistant. The source review depends on your access to the papers.
 
-| Phase | Work | Done when | Effort |
-|---|---|---|---|
-| **0. Safety fix (done)** | Removed the risk score, clinical notes and Min-CSA. Withheld z-scores except MP-H and SP-Length, for adults only. Generated curves no longer replace values. Added a "being revised" notice. Children never get adult norms. After reading the papers, also withheld PNS-AD1 and PNS-AD2, removed the stratified tables, and stopped Go-Me alone creating an airway report page. | Nothing misleading on screen or in reports | Done |
-| **1. Source review** | Reading done (§3.7–3.9). Recheck every value with the PDFs open, including McNamara's columns and Mislik's conflicting tables, build the norm table with page numbers, and settle §8. You approve the measure list. | A signed-off norm table with page references | 1–2 days of dev + your review |
-| **2. Engine** | Registry, geometry, compute, norm lookup, tests (§6) | All engine tests pass, with no UI yet | 1–1.5 weeks |
-| **3. Workflow and overlay** | Film check, wall tracing, constructed points, results, overlay | A case can be traced end to end | 1.5–2 weeks |
-| **4. Edge assist** | Preview-only wall suggestions | Measured against hand tracing | 3–5 days |
-| **5. Integration** | Reports, exports, research modules, guides, migration, removal of old code | No references to old code; older files open | 1 week |
-| **6. Validation** | Reliability study on real films (§7); fix what it reveals | Results reviewed and published in the docs | 2–3 days of dev + tracing time |
+| Phase | Work | Status |
+|---|---|---|
+| **0. Safety fix** | Removed the risk score, clinical notes and Min-CSA; withheld unsafe z-scores. | Done |
+| **1. Source review** | Checked every reference against page images. McNamara's columns are confirmed (female n = 73, male n = 38). Recorded three printed errors: Fujioka's SD ".542" at 12 y 6 m, Pérez-Rodríguez's Table 4 header (10 and 12 swapped), and Mislik's Tables 2–3 disagreeing with 4–5. | Done; **your sign-off of `src/airway/norms.js` is still needed** |
+| **2. Engine** | Registry, geometry, references and compute in `src/airway/`, with tests. | Done |
+| **3. Workflow and overlay** | Film check, landmark placing, wall tracing, results and an overlay that draws the panel's results. | Done |
+| **4. Edge assist** | Preview-only wall suggestions. On one real film, a back wall traced 10 px off came back to within a few px of where I had read it by eye. | Done; **not yet measured against expert tracing** |
+| **5. Integration** | Report page, research values, guides, migration, removal of the old code and norms. | Done |
+| **6. Validation** | Reliability study on real films (§7). | **Not started: needs two raters and 30–50 films** |
 
-Phase 0 can ship straight away. Phases 1–3 are the core. Phase 4 can wait if needed.
+**Construction choices that need your review as the clinician**, because the papers don't fully specify them:
+
+- **MAS and "projection":** Sfondrini says "projection" on the wall; the app uses the closest point.
+- **McNamara's "inferior border of the mandible":** the app uses the Go-Me line.
+- **Hyoid point:** Sfondrini defines H1 two ways; the app uses "most anterior and superior", which also matches Riley 1983.
+- **Fujioka's C':** "posterior-superior edge of the hard palate"; the app uses PNS.
+- **Retropalatal and retroglossal area:** this app's own definition, value only.
+- **ENT suggestion:** appears at two or more of A/N, PNS-Ad1, Ad1-Ba and PNS-H beyond 2 SD in the direction of concern. Major gives no number; this threshold is my choice.
+- **Pérez-Rodríguez's odd ages:** ages 7, 9, 11 and 13 use the nearest lower published group, and say so.
 
 ## 6. Testing
 
@@ -333,9 +341,11 @@ Before describing the module as validated:
 - **Edge assist:** compare wall suggestions with hand tracing, as point-to-curve distance and as the effect on each measure.
 - **Ethics:** existing public or anonymized films may be enough. New patient films may need approval.
 
-## 8. Decisions for you
+## 8. Decisions
 
-| # | Decision | My recommendation |
+These were built as recommended, because you asked to go on as planned. Any can still be changed, so please review them.
+
+| # | Decision | Built as |
 |---|---|---|
 | 1 | Remove OSA wording entirely? | **Yes.** The papers support describing the airway and, for children's adenoids, suggesting ENT evaluation. |
 | 2 | Which measures for which ages? | **The age table in §4.2:** Mislik and Fujioka for children, McNamara and Sfondrini for adults. |
@@ -363,7 +373,7 @@ Before describing the module as validated:
 - Fujioka M, Young LW, Girdany BR. Radiographic evaluation of adenoidal size in children: adenoidal-nasopharyngeal ratio. AJR 1979;133:401-404.
 - Riley R, Guilleminault C, Herran J, Powell N. Cephalometric analyses and flow-volume loops in obstructive sleep apnea patients. Sleep 1983;6(4):303-311.
 
-Numbers in §3.7–3.9 were read from PDF text extraction. Recheck them with the PDFs open before they enter the norm table.
+The values in `src/airway/norms.js` were checked against page images of each paper's table. Other numbers in §3.7–3.9 came from extracted text.
 
 **Seen only as summaries or abstracts during the first version:**
 

@@ -1,3 +1,4 @@
+import { computeAirway } from "../airway/compute.js";
 import { clamp, dist, angle3pt, angle4pt, computeMeasurements, polyArea, polyLen, vpts, catmullRom, sampleCatmullRom, splineArea, splineLen, getInfiniteLinePoints, ellipseFromAxes, circleFrom3pts, autoControlPoints, distToMultiBezier, distToEllipse, distToArc, perpPoint, perpPointSeg, distToSeg } from "../lib/utils.js";
 import { SILHOUETTES } from "../data/silhouettes.js";
 import { LUT_PRESETS } from "../data/constants.js";
@@ -1448,188 +1449,44 @@ export function drawSnapIndicator(ctx, sn, zoom, pan, markups, mouseImg, snapRad
   ctx.restore();
 }
 
-export function drawAirwayOverlay(ctx, markups, zoom, pan, cal, colorMode, t) {
-  if (!cal?.done) return;
-  const ppm = cal.pxPerMm;
+// Draws what airway/compute.js measured, so the overlay can't disagree with the panel.
+export function drawAirwayOverlay(ctx, markups, zoom, pan, cal, colorMode, t, patient) {
   const sc = p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y });
-
-  const colors = colorMode === "orange"
-    ? { fill: "rgba(213, 94, 0, 0.06)", stroke: "rgba(213, 94, 0, 0.3)" }
-    : { fill: "rgba(56, 189, 248, 0.06)", stroke: "rgba(56, 189, 248, 0.25)" };
-
-  const findPt = (label) => {
-    const m = markups.find(mk => mk.type === "point" && mk.label === label && mk.visible !== false);
-    if (!m) return null;
-    const vp = vpts(m);
-    return vp.length ? vp[0] : null;
-  };
-
-  const pns = findPt("PNS"), ad1 = findPt("Ad1"), ad2 = findPt("Ad2");
-  const sp = findPt("SP"), ad3 = findPt("Ad3");
-  const val = findPt("Vallecula"), ad4 = findPt("Ad4");
-  const epi = findPt("Epiglottis"), pasbot = findPt("PAS_lowest");
-  const go = findPt("Go"), me = findPt("Me"), h = findPt("H");
-  if (!pns || !ad1 || !ad2 || !sp) return;
-
-  const anteriorPoints = [pns];
-  if (sp) anteriorPoints.push(sp);
-  if (val) anteriorPoints.push(val);
-  if (epi) anteriorPoints.push(epi);
-  const posteriorPoints = [ad1, ad2];
-  if (ad3) posteriorPoints.push(ad3);
-  if (pasbot) posteriorPoints.push(pasbot);
-  if (ad4) posteriorPoints.push(ad4);
-
-  const nAnt = anteriorPoints.length;
-  const nPost = posteriorPoints.length;
-  if (nAnt < 2 || nPost < 2) return;
-
+  const color = colorMode === "orange" ? "rgba(213, 94, 0, 0.9)" : "rgba(56, 189, 248, 0.95)";
+  const { measurements } = computeAirway(markups, cal, patient);
   ctx.save();
-
-  ctx.beginPath();
-  ctx.moveTo(sc(anteriorPoints[0]).x, sc(anteriorPoints[0]).y);
-  for (let i = 1; i < nAnt; i++) ctx.lineTo(sc(anteriorPoints[i]).x, sc(anteriorPoints[i]).y);
-  for (let i = nPost - 1; i >= 0; i--) ctx.lineTo(sc(posteriorPoints[i]).x, sc(posteriorPoints[i]).y);
-  ctx.closePath();
-  ctx.fillStyle = colors.fill;
-  ctx.fill();
-  ctx.strokeStyle = colors.stroke;
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4 * zoom, 4 * zoom]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  const levelLabels = [];
-
-  if (pns && ad1) { levelLabels.push({ ant: pns, post: ad1, label: "PNS-Ad1" }); }
-  if (sp && ad2) { levelLabels.push({ ant: sp, post: ad2, label: "SP-Ad2" }); }
-  if (sp && ad3) { levelLabels.push({ ant: sp, post: ad3, label: "McUP" }); }
-  if (val && ad4) { levelLabels.push({ ant: val, post: ad4, label: "MAS" }); }
-  if (epi && pasbot) { levelLabels.push({ ant: epi, post: pasbot, label: "McLP" }); }
-  if (epi && ad4) { levelLabels.push({ ant: epi, post: ad4, label: "IAS" }); }
-  if (go && me && h) { levelLabels.push({ ant: h, post: { x: h.x, y: h.y }, label: "MP-H", isPerp: true, lineP1: go, lineP2: me }); }
-
-  const allAnt = [...anteriorPoints], allPost = [...posteriorPoints];
-
-  levelLabels.forEach((ll) => {
-    let w, spA, spP, mx, my;
-
-    let dxPerp, dyPerp, denPerp, projX, projY;
-    if (ll.isPerp && ll.lineP1 && ll.lineP2) {
-      dxPerp = ll.lineP2.x - ll.lineP1.x;
-      dyPerp = ll.lineP2.y - ll.lineP1.y;
-      denPerp = Math.sqrt(dxPerp * dxPerp + dyPerp * dyPerp);
-      const num = Math.abs(
-        (ll.lineP2.y - ll.lineP1.y) * ll.ant.x -
-        (ll.lineP2.x - ll.lineP1.x) * ll.ant.y +
-        ll.lineP2.x * ll.lineP1.y -
-        ll.lineP2.y * ll.lineP1.x
-      );
-      w = denPerp < 1e-9 ? 0 : num / denPerp / ppm;
-      const t = denPerp < 1e-9 ? 0 : ((ll.ant.x - ll.lineP1.x) * dxPerp + (ll.ant.y - ll.lineP1.y) * dyPerp) / (denPerp * denPerp);
-      projX = ll.lineP1.x + t * dxPerp;
-      projY = ll.lineP1.y + t * dyPerp;
-      spA = sc({ x: (ll.ant.x + projX) / 2, y: (ll.ant.y + projY) / 2 });
-      spP = sc({ x: (ll.ant.x + projX) / 2, y: (ll.ant.y + projY) / 2 });
-      mx = spA.x;
-      my = spA.y;
-    } else {
-      w = dist(ll.ant, ll.post) / ppm;
-      spA = sc(ll.ant);
-      spP = sc(ll.post);
-      mx = (spA.x + spP.x) / 2;
-      my = (spA.y + spP.y) / 2;
-    }
-
-    // No z-score colours while the airway references are under review.
-    const color = t?.tx2 || "#fff";
-
-    if (!ll.isPerp) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2 * Math.sqrt(zoom);
-      ctx.beginPath();
-      ctx.moveTo(spA.x, spA.y);
-      ctx.lineTo(spP.x, spP.y);
-      ctx.stroke();
-    } else {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2 * Math.sqrt(zoom);
-      ctx.setLineDash([5 * Math.sqrt(zoom), 3 * Math.sqrt(zoom)]);
-      ctx.beginPath();
-      ctx.moveTo(sc(ll.ant).x, sc(ll.ant).y);
-      ctx.lineTo(sc({ x: projX, y: projY }).x, sc({ x: projX, y: projY }).y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    ctx.fillStyle = t?.tx3 || "#ccc";
-    ctx.font = `${clamp(8 * Math.sqrt(zoom), 6, 11)}px "DM Mono",monospace`;
-    ctx.textAlign = "center";
-    ctx.fillText(`${ll.label}`, mx, my - 10 * Math.sqrt(zoom));
-    ctx.fillStyle = t?.tx || "#fff";
-    ctx.font = `bold ${clamp(9 * Math.sqrt(zoom), 7, 12)}px "DM Mono",monospace`;
-    ctx.fillText(`${w.toFixed(1)} mm`, mx, my + 14 * Math.sqrt(zoom));
-    ctx.textAlign = "left";
-  });
-
-  const sortedAnt = [...allAnt].sort((a, b) => a.y - b.y);
-  const sortedPost = [...allPost].sort((a, b) => a.y - b.y);
-  const yMin = Math.max(sortedAnt[0]?.y || 0, sortedPost[0]?.y || 0);
-  const yMax = Math.min(sortedAnt[sortedAnt.length - 1]?.y || 0, sortedPost[sortedPost.length - 1]?.y || 0);
-
-  if (yMax > yMin) {
-    const N = 100;
-    const antSamples = [], postSamples = [];
-    for (let i = 0; i <= N; i++) {
-      const y = yMin + (yMax - yMin) * (i / N);
-      for (let j = 1; j < sortedAnt.length; j++) {
-        if (y >= sortedAnt[j - 1].y && y <= sortedAnt[j].y) {
-          const dy = sortedAnt[j].y - sortedAnt[j - 1].y;
-          const f = dy === 0 ? 0 : (y - sortedAnt[j - 1].y) / dy;
-          antSamples.push({ x: sortedAnt[j - 1].x + f * (sortedAnt[j].x - sortedAnt[j - 1].x), y });
-          break;
-        }
-      }
-      for (let j = 1; j < sortedPost.length; j++) {
-        if (y >= sortedPost[j - 1].y && y <= sortedPost[j].y) {
-          const dy = sortedPost[j].y - sortedPost[j - 1].y;
-          const f = dy === 0 ? 0 : (y - sortedPost[j - 1].y) / dy;
-          postSamples.push({ x: sortedPost[j - 1].x + f * (sortedPost[j].x - sortedPost[j - 1].x), y });
-          break;
-        }
-      }
-    }
-
-    let dynMinW = Infinity, dynAntPt = null, dynPostPt = null;
-    for (const a of antSamples) {
-      for (const p of postSamples) {
-        const dx = p.x - a.x, dy = p.y - a.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < dynMinW) { dynMinW = d; dynAntPt = a; dynPostPt = p; }
-      }
-    }
-
-    if (dynAntPt && dynPostPt && dynMinW < Infinity) {
-      const wMm = dynMinW / ppm;
-      const sxA = dynAntPt.x * zoom + pan.x, syA = dynAntPt.y * zoom + pan.y;
-      const sxP = dynPostPt.x * zoom + pan.x, syP = dynPostPt.y * zoom + pan.y;
-      const mx = (sxA + sxP) / 2, my = (syA + syP) / 2;
-      ctx.strokeStyle = t?.err || "#f87171";
-      ctx.lineWidth = 2.5 * Math.sqrt(zoom);
-      ctx.setLineDash([5 * Math.sqrt(zoom), 3 * Math.sqrt(zoom)]);
-      ctx.beginPath();
-      ctx.moveTo(sxA, syA);
-      ctx.lineTo(sxP, syP);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = t?.err || "#f87171";
-      ctx.font = `bold ${clamp(10 * Math.sqrt(zoom), 8, 14)}px "DM Mono",monospace`;
-      ctx.textAlign = "center";
-      ctx.fillText(`↓ Narrowest (${wMm.toFixed(1)} mm)`, mx, my - 14 * Math.sqrt(zoom));
-      ctx.textAlign = "left";
-    }
+  ctx.lineWidth = 2 * Math.sqrt(zoom);
+  ctx.textAlign = "center";
+  ctx.font = `bold ${clamp(9 * Math.sqrt(zoom), 8, 12)}px "DM Sans",sans-serif`;
+  for (const m of measurements) {
+    if (!m.line || m.value === null) continue;
+    const a = sc(m.line[0]), b = sc(m.line[1]);
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    const text = `${m.short} ${m.value.toFixed(m.unit ? 1 : 2)}${m.unit ? ` ${m.unit}` : ""}`;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 - 6;
+    const w = ctx.measureText(text).width + 8;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillRect(mx - w / 2, my - 11, w, 15);
+    ctx.fillStyle = t?.id === "light" || t?.id === "paper" ? "#fff" : (t?.tx || "#fff");
+    ctx.fillText(text, mx, my);
   }
+  ctx.restore();
+}
 
+// The edge-assisted wall preview, dashed so it can't be mistaken for the user's trace.
+export function drawAirwaySuggestion(ctx, points, zoom, pan) {
+  if (!points || points.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = "#facc15";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  catmullRom(ctx, points.map(p => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y })), false);
+  ctx.stroke();
   ctx.restore();
 }
 

@@ -1,50 +1,9 @@
 import { describe, it, expect } from "vitest";
-import {
-  getInterpretation, normalizeSex, normalizeAge, lookupAirwayNorm, autoSnapBoundary,
-} from "../research/airway.js";
 import { measurementRows, needsUnicodeFont, generateReport } from "../report/reportGenerator.js";
 import { reportScale, printLabelScale, REPORT_IMAGE_MAX } from "../canvas/imageLayers.js";
+import { computeAirway } from "../airway/compute.js";
 
 const CAL = { done: true, pxPerMm: 10 };
-
-describe("airway — wording follows the pathological direction", () => {
-  it("widths, hyoid/soft palate and neutral sizes", () => {
-    expect(getInterpretation(-2.5, "R-PAS")).toBe("Narrow");
-    expect(getInterpretation(2.5, "R-PAS")).toBe("Wider than average");
-    expect(getInterpretation(2.5, "MP-H")).toBe("Increased");
-    expect(getInterpretation(1.5, "SP-Length")).toBe("Borderline increased");
-    expect(getInterpretation(-2.5, "MP-H")).toBe("Below average");
-    expect(getInterpretation(-1.5, "Tongue-Length")).toBe("Below average");
-    expect(getInterpretation(0.4, "Tongue-Length")).toBe("Normal");
-  });
-});
-
-describe("airway — sex and age input", () => {
-  it("accepts M/F/Male/Female and treats an empty age as unknown", () => {
-    expect(normalizeSex("Male")).toBe("M");
-    expect(normalizeSex(" female")).toBe("F");
-    expect(normalizeSex("x")).toBe(null);
-    expect(normalizeAge("")).toBe(null);
-    expect(normalizeAge("12")).toBe(12);
-    expect(lookupAirwayNorm("MP-H", "40").mean).toBe(12.3);
-    expect(lookupAirwayNorm("MP-H", "")).toBeNull();
-  });
-});
-
-describe("airway — edge snapping", () => {
-  const img = (w, h, f) => {
-    const data = new Uint8ClampedArray(w * h * 4);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = f(x, y), i = (y * w + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; }
-    return { data, width: w, height: h };
-  };
-  it("moves to a nearby edge, stays put on a flat image", () => {
-    const edge = img(100, 100, x => (x < 50 ? 30 : 220));
-    const snapped = autoSnapBoundary(edge, [{ x: 44, y: 50 }]);
-    expect(Math.abs(snapped[0].x - 50)).toBeLessThanOrEqual(1);
-    const flat = img(100, 100, () => 120);
-    expect(autoSnapBoundary(flat, [{ x: 44, y: 50 }])[0]).toEqual({ x: 44, y: 50 });
-  });
-});
 
 describe("PDF report helpers", () => {
   it("one row per markup with that measure's own unit", () => {
@@ -88,6 +47,18 @@ describe("PDF report — page structure", () => {
   it("without a cover the first page is used, and formulas get their own page", async () => {
     const doc = await generateReport({ ...base, allMeas: [], formulas, formulaValues: { f: 3 }, sections: { ...SECTIONS, cover: false } });
     expect(doc.internal.getNumberOfPages()).toBe(1);
+  });
+
+  it("prints current airway results with their references", async () => {
+    const pts = { PNS: [1000, 1000], Ba: [500, 1000], Uvula: [800, 1300] };
+    const markups = [
+      ...Object.entries(pts).map(([k, [x, y]]) => ({ id: k, type: "point", label: k === "Uvula" ? "Uvula tip" : k, placed: true, visible: true, points: [{ x, y }] })),
+      { id: "w", type: "curve", airwayRole: "wall", label: "Posterior pharyngeal wall", visible: true, points: [{ x: 700, y: 800 }, { x: 700, y: 1500 }] },
+    ];
+    const airway = computeAirway(markups, { done: true, pxPerMm: 10 }, { age: 30, sex: "F" });
+    const without = await generateReport({ ...base, allMeas: angle, formulas: [], sections: SECTIONS });
+    const doc = await generateReport({ ...base, allMeas: angle, formulas: [], airway, sections: SECTIONS });
+    expect(doc.getNumberOfPages()).toBe(without.getNumberOfPages() + 1);
   });
 
   it("Go-Me alone from a non-airway case adds no airway page", async () => {

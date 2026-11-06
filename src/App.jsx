@@ -51,6 +51,7 @@ import {
   drawSnapIndicator,
   drawDisplacementVectors,
   drawAirwayOverlay,
+  drawAirwaySuggestion,
   hitTest,
   FINGER_SLOP,
   beginLabelLayout,
@@ -145,7 +146,9 @@ import { useDriveSync } from "./hooks/useDriveSync.js";
 import { switchProfile, activeProfile } from "./storage/profiles.js";
 import { driveConfigured } from "./storage/driveBackup.js";
 import { drawImageLayers, reportScale, printLabelScale } from "./canvas/imageLayers.js";
-import { computeAirwayMeasurements, normalizeSex, normalizeAge } from "./research/airway.js";
+import { computeAirway, normalizeSex, normalizeAge, findLandmark } from "./airway/compute.js";
+import { AIRWAY_ADENOID_AREA, AIRWAY_LANDMARKS, AIRWAY_WALLS } from "./airway/definitions.js";
+import { suggestWall as suggestAirwayWall } from "./airway/edges.js";
 
 import { useStoreDispatch, syncPlacingQueue } from "./state/workspaceStore.js";
 import { useToolStore, useUIStore } from "./state/workspaceStore.js";
@@ -2080,6 +2083,19 @@ function Workspace({
       },
     };
     const newMarkup = { ...(D[draw.type] || {}), ...draw };
+    const airwayRole = useUIStore.getState().airwayTraceRole;
+    if (airwayRole) {
+      const def = airwayRole === "adenoid" ? AIRWAY_ADENOID_AREA : AIRWAY_WALLS[airwayRole];
+      Object.assign(newMarkup, { airwayRole, label: def.label, curveStyle: "bspline" });
+      if (newMarkup.fillColor === undefined) newMarkup.color = "#38bdf8";
+      const earlier = ms.filter((m) => m.airwayRole === airwayRole).map((m) => m.id);
+      addMarkup(newMarkup);
+      // After addMarkup, so its undo step can restore the trace this replaces.
+      if (earlier.length) useSessionStore.getState().updMarkups((list) => list.filter((m) => !earlier.includes(m.id)));
+      useUIStore.setState({ airwayTraceRole: null });
+      dispatch({ type: "SET", payload: { activeTool: "select", rightPanel: "airway" } });
+      return;
+    }
     if (defaultMarkupColor) {
       if (newMarkup.fillColor !== undefined) {
         newMarkup.strokeColor = defaultMarkupColor;
@@ -2103,55 +2119,44 @@ function Workspace({
     [],
   );
 
-  const loadAirwayTier = useCallback(
-    (landmarkLabels) => {
+  // Airway panel actions. Landmarks go through guided placing; a traced wall takes
+  // its role when finished (see finalizeMarkup), replacing any earlier trace.
+  const airwayActions = useMemo(() => ({
+    placeLandmarks: (ids) => {
       const store = useSessionStore.getState();
-      const airwayAnalysis = (PREDEFINED.lateral || []).find(
-        (a) => a.name && a.name.toLowerCase().includes("airway"),
-      );
-      const defMap = {};
-      if (airwayAnalysis) {
-        airwayAnalysis.pts.forEach((pt) => {
-          defMap[pt.l.toLowerCase()] = pt;
-        });
+      const queueExisting = [], fresh = [];
+      ids.forEach((id) => {
+        const def = AIRWAY_LANDMARKS[id];
+        if (findLandmark(store.markups, id)) return;
+        const waiting = store.markups.find((m) => m.type === "point" && m.placed === false && m.label === def.label);
+        if (waiting) { queueExisting.push(waiting.id); return; }
+        fresh.push({ id: uid(), type: "point", points: [{ x: -99999, y: -99999 }], label: def.label, definition: def.def, color: "#38bdf8", size: 6, visible: true, placed: false });
+      });
+      if (!queueExisting.length && !fresh.length) return;
+      if (fresh.length) {
+        pushUndo();
+        store.updMarkups(() => [...store.markups, ...fresh]);
       }
-      const newMarkups = [];
-      landmarkLabels.forEach((label) => {
-        const alreadyPlaced = store.markups.some(
-          (m) =>
-            m.type === "point" &&
-            m.label?.toLowerCase() === label.toLowerCase() &&
-            m.placed &&
-            m.visible !== false,
-        );
-        if (alreadyPlaced) return;
-        const def = defMap[label.toLowerCase()];
-        const id = uid();
-        newMarkups.push({
-          id,
-          type: "point",
-          points: [{ x: -99999, y: -99999 }],
-          label,
-          definition: def?.def || "",
-          color: def?.color || t.acc,
-          size: 6,
-          visible: true,
-          placed: false,
-        });
-      });
-      if (!newMarkups.length) return;
-      pushUndo();
-      store.updMarkups(() => [...store.markups, ...newMarkups]);
-      dispatch({
-        type: "SET",
-        payload: { placingQueue: newMarkups.map((m) => m.id) },
-      });
-      dispatch({ type: "SET", payload: { placingIdx: 0 } });
-      dispatch({ type: "SET", payload: { placingMode: true } });
-      dispatch({ type: "SET", payload: { rightPanel: "airway" } });
+      dispatch({ type: "SET", payload: { placingQueue: [...queueExisting, ...fresh.map((m) => m.id)], placingIdx: 0, placingMode: true, rightPanel: "airway" } });
     },
-    [t.acc, pushUndo, dispatch],
-  );
+    traceWall: (role) => {
+      useUIStore.setState({ airwayTraceRole: role, airwaySuggestion: null });
+      dispatch({ type: "SET", payload: { activeTool: role === "adenoid" ? "polygon" : "curve", currentDraw: null } });
+    },
+    suggestWall: (role, curve, img, facing, pxPerMm) => {
+      const found = curve ? suggestAirwayWall(img, curve.points, role, { facing, pxPerMm }) : null;
+      useUIStore.setState({ airwaySuggestion: found ? { role, ...found } : null });
+      return Boolean(found);
+    },
+    acceptSuggestion: () => {
+      const sug = useUIStore.getState().airwaySuggestion;
+      if (!sug) return;
+      pushUndo();
+      useSessionStore.getState().updMarkups((ms) => ms.map((m) => (m.airwayRole === sug.role ? { ...m, points: sug.points, curveStyle: "bspline" } : m)));
+      useUIStore.setState({ airwaySuggestion: null });
+    },
+    discardSuggestion: () => useUIStore.setState({ airwaySuggestion: null }),
+  }), [pushUndo, dispatch]);
 
   // load images — from dataUrl (just imported) or from IndexedDB (restored from auto-save)
   useEffect(() => {
@@ -2410,6 +2415,7 @@ function Workspace({
       drawSnapIndicator,
       drawDisplacementVectors,
       drawAirwayOverlay,
+      drawAirwaySuggestion,
       markups: ss.markups,
       calibration: ss.calibration,
       sessionImage: ss.sessionImage,
@@ -2441,6 +2447,8 @@ function Workspace({
       pendingRuler: us.pendingRuler,
       showGrid: us.showGrid,
       showAirwayOverlay: us.showAirwayOverlay,
+      airwaySuggestion: us.airwaySuggestion,
+      airwayPatient: { age: patientAge, sex: patientSex, facing, film: activeSession?.airwayFilm },
       showCpAlways: us.showCpAlways,
       showAnchorAlways: us.showAnchorAlways,
       snapTolerance: us.snapTolerance,
@@ -2521,6 +2529,7 @@ function Workspace({
         disp: us.showDisplacement,
         cmp: us.compareSession,
         aw: us.showAirwayOverlay,
+        awSuggest: us.airwaySuggestion?.points?.length || 0,
         cpa: us.showCpAlways,
         ana: us.showAnchorAlways,
         tol: us.snapTolerance,
@@ -5296,7 +5305,9 @@ function Workspace({
                 project={project}
                 onUpdateProject={onUpdateProject}
                 markups={markups}
-                loadAirwayTier={loadAirwayTier}
+                airwayActions={airwayActions}
+                airwayFacing={facing}
+                airwayFilm={activeSession?.airwayFilm}
                 showAirwayOverlay={showAirwayOverlay}
                 setShowAirwayOverlay={setShowAirwayOverlay}
                 loadTemplate={loadTemplate}
@@ -5437,7 +5448,9 @@ function Workspace({
                 project={project}
                 onUpdateProject={onUpdateProject}
                 markups={markups}
-                loadAirwayTier={loadAirwayTier}
+                airwayActions={airwayActions}
+                airwayFacing={facing}
+                airwayFilm={activeSession?.airwayFilm}
                 showAirwayOverlay={showAirwayOverlay}
                 setShowAirwayOverlay={setShowAirwayOverlay}
                 loadTemplate={loadTemplate}
@@ -5814,7 +5827,7 @@ function Workspace({
                       interpretation: interp,
                       // The Airway panel's live results for this session.
                       airway: {
-                        measurements: computeAirwayMeasurements(markups, calibration, patientAge),
+                        ...computeAirway(markups, calibration, { age: patientAge, sex: patientSex, facing, film: activeSession?.airwayFilm }),
                         sessionName: activeSession?.name,
                       },
                       calibration,

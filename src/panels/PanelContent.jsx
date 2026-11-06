@@ -52,7 +52,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
   showHistogram, setShowHistogram,
   sessionImage, sourceWindow, stackImgRef,
   project,
-  markups, loadAirwayTier, showAirwayOverlay, setShowAirwayOverlay, loadTemplate, patientSex, patientAge, getImagePixels,
+  markups, airwayActions, airwayFilm, airwayFacing, showAirwayOverlay, setShowAirwayOverlay, loadTemplate, patientSex, patientAge, getImagePixels,
   canvasSize, toImage, addMarkup, pushUndo,
 }) {
 
@@ -77,7 +77,7 @@ export function PanelContent({ rightPanel, panelIcons, panelTabs, t,
           {rightPanel === "sessions" && <SessionsPanel {...pSessions} />}
           {rightPanel === "research" && <ResearchLauncher t={t} studies={(project?.researchStudies || []).length} />}
           {rightPanel === "interpretation" && <InterpretationPanel allMeas={allMeas} norms={norms} t={t} formatAngle={formatAngle} calibration={calibration} />}
-          {rightPanel === "airway" && <AirwayPanel t={t} markups={markups} calibration={calibration} norms={norms} loadAirwayTier={loadAirwayTier} showOverlay={showAirwayOverlay} onToggleOverlay={() => setShowAirwayOverlay(v => !v)} onUpdateMarkups={updSession} onLoadTemplate={loadTemplate} dispatch={dispatch} sex={patientSex} age={patientAge} getImagePixels={getImagePixels} />}
+          {rightPanel === "airway" && <AirwayPanel t={t} markups={markups} calibration={calibration} facing={airwayFacing} sex={patientSex} age={patientAge} film={airwayFilm} onUpdateFilm={(airwayFilm) => updSession({ airwayFilm })} actions={airwayActions} showOverlay={showAirwayOverlay} onToggleOverlay={() => setShowAirwayOverlay(v => !v)} getImagePixels={getImagePixels} />}
           {rightPanel === "silhouettes" && <SilhouettesPanel t={t} onInsert={(silhouetteType) => {
             try {
               const def = SILHOUETTES[silhouetteType]; if (!def) return;
