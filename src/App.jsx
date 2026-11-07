@@ -141,6 +141,7 @@ import { PlacingGuide } from "./panels/PlacingGuide.jsx";
 import { Loupe } from "./panels/Loupe.jsx";
 import { NudgePad } from "./panels/NudgePad.jsx";
 import { canNudge, nudgeDelta } from "./lib/precision.js";
+import { leavesWorkspace, closesSheet } from "./lib/viewHistory.js";
 import { DialogHost } from "./ui/DialogHost.jsx";
 import SettingsModal from "./panels/SettingsModal.jsx";
 import DriveBackupDialog from "./panels/DriveBackupDialog.jsx";
@@ -1442,27 +1443,21 @@ function Workspace({
     };
     onSave?.(patched);
   }, [project, onSave]);
-  const sheetBackRef = useRef(false);
+  // An open sheet has its own history entry, so Back closes it. Closing it any
+  // other way goes back past that entry; lib/viewHistory decides who reacts.
   const sheetOpen = isMobile && mobileTab !== "canvas";
   useEffect(() => {
     if (!sheetOpen) return;
     window.history.pushState({ cephxSheet: true }, "");
     const onPop = () => {
-      if (sheetBackRef.current) {
-        sheetBackRef.current = false;
-        return;
-      }
-      useUIStore.setState({ mobileTab: "canvas" });
+      if (closesSheet(window.history.state)) useUIStore.setState({ mobileTab: "canvas" });
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [sheetOpen]);
   const closeSheet = useCallback(() => {
     useUIStore.setState({ mobileTab: "canvas" });
-    if (window.history.state?.cephxSheet) {
-      sheetBackRef.current = true;
-      window.history.back();
-    }
+    if (window.history.state?.cephxSheet) window.history.back();
   }, []);
 
   // ─── Stable setter helpers (passed as props to children) ───
@@ -6127,7 +6122,7 @@ export default function CephalometryStudio() {
   };
   useEffect(() => {
     const onPopState = () => {
-      if (activeId) setActiveId(null);
+      if (activeId && leavesWorkspace(window.history.state)) setActiveId(null);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
