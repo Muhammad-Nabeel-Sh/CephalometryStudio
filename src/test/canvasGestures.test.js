@@ -12,7 +12,7 @@ function setup(state = {}) {
       press: rec("press"), move: rec("move"), release: rec("release"),
       panStart: rec("panStart"), pinchStart: rec("pinchStart"), pinchMove: rec("pinchMove"),
       doubleTapZoom: rec("doubleTapZoom"), finishShape: rec("finishShape"),
-      longPress: rec("longPress"), undo: rec("undo"), erase: rec("erase"),
+      longPress: rec("longPress"), undo: rec("undo"), erase: rec("erase"), aimCommit: rec("aimCommit"),
     },
   });
   const names = () => calls.map(c => c[0]);
@@ -34,9 +34,10 @@ describe("finger: landmark placement", () => {
   it("places a landmark when the finger lifts, not when it lands", () => {
     const { g, count } = setup({ placing: true });
     g.pointerDown(finger(1, 100, 100));
-    expect(count("press")).toBe(0);
+    expect(count("aimCommit")).toBe(0);
     g.pointerUp(finger(1, 100, 100));
-    expect(count("press")).toBe(1);
+    expect(count("aimCommit")).toBe(1);
+    expect(count("press")).toBe(0);
   });
 
   it("does not place a landmark when a pinch starts on an existing point", () => {
@@ -48,7 +49,7 @@ describe("finger: landmark placement", () => {
     g.pointerMove(finger(2, 340, 100));
     g.pointerUp(finger(1, 100, 100));
     g.pointerUp(finger(2, 340, 100));
-    expect(count("press")).toBe(0);
+    expect(count("aimCommit")).toBe(0);
     expect(count("pinchMove")).toBeGreaterThan(0);
   });
 
@@ -57,7 +58,7 @@ describe("finger: landmark placement", () => {
     tap(g, 100, 100);
     clock += 100;
     tap(g, 400, 500);
-    expect(count("press")).toBe(2);
+    expect(count("aimCommit")).toBe(2);
     expect(count("doubleTapZoom")).toBe(0);
   });
 
@@ -66,33 +67,58 @@ describe("finger: landmark placement", () => {
     tap(g, 100, 100);
     clock += 100;
     tap(g, 105, 104);
-    expect(count("press")).toBe(2);
+    expect(count("aimCommit")).toBe(2);
     expect(count("doubleTapZoom")).toBe(0);
   });
 
-  it("opens the menu on long-press without placing a landmark", () => {
+  it("a long hold keeps aiming, with no menu, and places on lift", () => {
     const { g, count } = setup({ placing: true });
     g.pointerDown(finger(1, 100, 100));
     vi.advanceTimersByTime(GESTURE.LONG_PRESS_MS + 1);
     clock += GESTURE.LONG_PRESS_MS + 1;
     g.pointerUp(finger(1, 100, 100));
-    expect(count("longPress")).toBe(1);
-    expect(count("press")).toBe(0);
+    expect(count("longPress")).toBe(0);
+    expect(count("aimCommit")).toBe(1);
   });
 
-  it("pans instead of placing when the finger drags", () => {
-    const { g, count, calls } = setup({ placing: true, hit: true });
+  it("aims while the finger drags and places where it lifts", () => {
+    const { g, calls, count } = setup({ placing: true, hit: true });
     g.pointerDown(finger(1, 100, 100));
     g.pointerMove(finger(1, 130, 100));
-    g.pointerUp(finger(1, 130, 100));
+    g.pointerMove(finger(1, 140, 110));
+    g.pointerUp(finger(1, 140, 110));
+    expect(count("panStart")).toBe(0);
     expect(count("press")).toBe(0);
-    expect(calls.find(c => c[0] === "panStart").slice(1)).toEqual([130, 100]);
-    expect(count("release")).toBe(1);
+    expect(count("move")).toBe(2);
+    expect(calls.find(c => c[0] === "aimCommit").slice(1)).toEqual([140, 110]);
+  });
+
+  it("a second finger abandons the aim and pinches instead", () => {
+    const { g, count } = setup({ placing: true });
+    g.pointerDown(finger(1, 100, 100));
+    g.pointerMove(finger(1, 130, 100));
+    g.pointerDown(finger(2, 300, 100));
+    g.pointerUp(finger(1, 130, 100));
+    g.pointerUp(finger(2, 300, 100));
+    expect(count("aimCommit")).toBe(0);
+    expect(count("pinchStart")).toBe(1);
   });
 
   it("ignores the tap that only dismisses an open menu", () => {
     const { g, count } = setup({ placing: true, menuOpen: true });
     tap(g, 100, 100);
+    expect(count("aimCommit")).toBe(0);
+  });
+});
+
+describe("long press outside placement", () => {
+  it("opens the menu without acting on lift", () => {
+    const { g, count } = setup({ tool: "point" });
+    g.pointerDown(finger(1, 100, 100));
+    vi.advanceTimersByTime(GESTURE.LONG_PRESS_MS + 1);
+    clock += GESTURE.LONG_PRESS_MS + 1;
+    g.pointerUp(finger(1, 100, 100));
+    expect(count("longPress")).toBe(1);
     expect(count("press")).toBe(0);
   });
 });
@@ -185,8 +211,9 @@ describe("finger: other tools", () => {
   it("a cancelled touch never commits", () => {
     const { g, count } = setup({ placing: true });
     g.pointerDown(finger(1, 100, 100));
-    g.pointerCancel(finger(1, 100, 100));
-    expect(count("press")).toBe(0);
+    g.pointerMove(finger(1, 130, 100));
+    g.pointerCancel(finger(1, 130, 100));
+    expect(count("aimCommit")).toBe(0);
   });
 });
 
@@ -274,7 +301,33 @@ describe("pen", () => {
     g.pointerDown(pen(100, 100)); g.pointerUp(pen(100, 100));
     clock += 100;
     g.pointerDown(pen(102, 101)); g.pointerUp(pen(102, 101));
-    expect(count("press")).toBe(2);
+    expect(count("aimCommit")).toBe(2);
+    expect(count("press")).toBe(0);
+  });
+
+  it("aims while dragging and places where it lifts", () => {
+    const { g, calls, count } = setup({ placing: true });
+    g.pointerDown(pen(100, 100));
+    expect(count("aimCommit")).toBe(0);
+    g.pointerMove(pen(112, 96));
+    g.pointerUp(pen(112, 96));
+    expect(count("move")).toBe(1);
+    expect(calls.find(c => c[0] === "aimCommit").slice(1)).toEqual([112, 96]);
+  });
+
+  it("a cancelled pen contact places nothing", () => {
+    const { g, count } = setup({ placing: true });
+    g.pointerDown(pen(100, 100));
+    g.pointerCancel(pen(100, 100));
+    g.pointerUp(pen(100, 100));
+    expect(count("aimCommit")).toBe(0);
+  });
+
+  it("a side-button press during placement does not aim", () => {
+    const { g, count } = setup({ placing: true });
+    g.pointerDown(pen(100, 100, { button: 2, buttons: 2 }));
+    g.pointerUp(pen(100, 100, { button: 2, buttons: 0 }));
+    expect(count("aimCommit")).toBe(0);
   });
 
   it("eraser end erases instead of pressing", () => {
@@ -294,7 +347,7 @@ describe("palm rejection", () => {
     g.pointerDown(pen(100, 100));
     tap(g, 300, 300);
     g.pointerUp(pen(100, 100));
-    expect(count("press")).toBe(1);
+    expect(count("aimCommit")).toBe(1);
     expect(count("pinchStart")).toBe(0);
   });
 
@@ -303,7 +356,7 @@ describe("palm rejection", () => {
     g.pointerMove(pen(100, 100, { buttons: 0 }));
     clock += GESTURE.PALM_GUARD_MS - 50;
     tap(g, 300, 300);
-    expect(count("press")).toBe(0);
+    expect(count("aimCommit")).toBe(0);
   });
 
   it("accepts a touch once the pen has been away", () => {
@@ -311,7 +364,7 @@ describe("palm rejection", () => {
     g.pointerMove(pen(100, 100, { buttons: 0 }));
     clock += GESTURE.PALM_GUARD_MS + 50;
     tap(g, 300, 300);
-    expect(count("press")).toBe(1);
+    expect(count("aimCommit")).toBe(1);
   });
 
   it("drops a resting palm when the pen lands", () => {
@@ -321,7 +374,7 @@ describe("palm rejection", () => {
     g.pointerDown(pen(100, 100));
     g.pointerUp(finger(1, 300, 300));
     g.pointerUp(pen(100, 100));
-    expect(count("press")).toBe(1);
+    expect(count("aimCommit")).toBe(1);
   });
 
   it("drops a palm that lifts while the pen is hovering", () => {
@@ -331,7 +384,7 @@ describe("palm rejection", () => {
     g.pointerMove(pen(100, 100, { buttons: 0 }));
     clock += 100;
     g.pointerUp(finger(1, 300, 300));
-    expect(count("press")).toBe(0);
+    expect(count("aimCommit")).toBe(0);
   });
 
   it("a resting palm with a pen never becomes a pinch", () => {
@@ -350,6 +403,23 @@ describe("pen-only mode", () => {
     const { g, count } = setup({ penOnly: true, placing: true });
     tap(g, 100, 100);
     expect(count("press")).toBe(0);
+    expect(count("aimCommit")).toBe(0);
+  });
+
+  it("a finger drag pans during placement instead of aiming", () => {
+    const { g, count } = setup({ penOnly: true, placing: true });
+    g.pointerDown(finger(1, 100, 100));
+    g.pointerMove(finger(1, 130, 100));
+    g.pointerUp(finger(1, 130, 100));
+    expect(count("panStart")).toBe(1);
+    expect(count("aimCommit")).toBe(0);
+  });
+
+  it("the pen still places landmarks", () => {
+    const { g, count } = setup({ penOnly: true, placing: true });
+    g.pointerDown(pen(100, 100));
+    g.pointerUp(pen(100, 100));
+    expect(count("aimCommit")).toBe(1);
   });
 
   it("a finger drag pans even on a markup or with a drawing tool", () => {
@@ -401,6 +471,23 @@ describe("mouse", () => {
     g.pointerMove(mouse(20, 10));
     g.pointerUp(mouse(20, 10));
     expect(names()).toEqual(["press", "move", "release"]);
+  });
+
+  it("places a landmark on release during placement", () => {
+    const { g, calls, count } = setup({ placing: true });
+    g.pointerDown(mouse(10, 10));
+    g.pointerMove(mouse(14, 12));
+    g.pointerUp(mouse(14, 12));
+    expect(count("press")).toBe(0);
+    expect(calls.find(c => c[0] === "aimCommit").slice(1)).toEqual([14, 12]);
+  });
+
+  it("a middle-button pan during placement places nothing", () => {
+    const { g, count } = setup({ placing: true });
+    g.pointerDown(mouse(10, 10, { button: 1, buttons: 4 }));
+    g.pointerUp(mouse(10, 10, { button: 1, buttons: 0 }));
+    expect(count("press")).toBe(1);
+    expect(count("aimCommit")).toBe(0);
   });
 
   it("is not affected by pen-only mode", () => {

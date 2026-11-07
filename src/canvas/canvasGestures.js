@@ -5,6 +5,8 @@
 //   pen    acts on contact; its eraser end erases; a touch near it is a palm.
 //   finger acts when lifted, because a landing finger may still become a pan,
 //          a pinch or a long press. Nothing is placed until the gesture is known.
+// Guided placement: every pointer aims while it is down and places where it lifts,
+// so a landmark can be adjusted before it is committed. One finger aims; two pan.
 // Pen-only mode: fingers only navigate (pan, pinch, double-tap zoom, two-finger undo).
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -24,10 +26,11 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // getState() → { placing, tool, canFinishShape, penOnly, menuOpen, hitAt(x, y) }
 // actions    → press(e), move(e), release(), panStart(x, y), pinchStart(a, b),
 //              pinchMove(a, b), doubleTapZoom(x, y), finishShape(), longPress(x, y),
-//              undo(), erase(x, y)
+//              undo(), erase(x, y), aimCommit(x, y)
 export function createCanvasGestures({ getState, actions }) {
   const touches = new Map(); // pointerId → { x, y, startX, startY, startedAt, hit }
-  let mode = "idle"; // idle | pending | panning | drawing | pinch | consumed
+  let mode = "idle"; // idle | pending | panning | drawing | aiming | pinch | consumed
+  let pointerAiming = false; // a pen or mouse is down during guided placement
   let longPressTimer = null;
   let lastTap = null; // { x, y, at } of the last finger tap
   let twoFingerTap = null; // { at } while a two-finger tap is still possible
@@ -70,7 +73,7 @@ export function createCanvasGestures({ getState, actions }) {
       if (state.menuOpen) { mode = "consumed"; return; }
       mode = "pending";
       point.hit = state.hitAt(e.clientX, e.clientY);
-      if (!state.penOnly) {
+      if (!state.penOnly && !state.placing) { // while placing, a pause is just careful aiming
         longPressTimer = setTimeout(() => {
           longPressTimer = null;
           if (mode !== "pending") return;
@@ -107,8 +110,10 @@ export function createCanvasGestures({ getState, actions }) {
       if (!moved) return;
       clearLongPress();
       const { placing, tool, penOnly } = getState();
-      const navigate = penOnly || placing || tool === "pan" || (tool === "select" && !point.hit);
-      if (navigate) {
+      const navigate = penOnly || tool === "pan" || (tool === "select" && !point.hit);
+      if (placing && !penOnly) {
+        mode = "aiming";
+      } else if (navigate) {
         mode = "panning";
         actions.panStart(point.x, point.y);
       } else {
@@ -116,7 +121,7 @@ export function createCanvasGestures({ getState, actions }) {
         actions.press(fingerEvent(point.startX, point.startY));
       }
     }
-    if (mode === "panning" || mode === "drawing") actions.move({ clientX: point.x, clientY: point.y });
+    if (mode === "panning" || mode === "drawing" || mode === "aiming") actions.move({ clientX: point.x, clientY: point.y });
   };
 
   const fingerTap = (x, y, at) => {
@@ -137,6 +142,7 @@ export function createCanvasGestures({ getState, actions }) {
     }
     lastTap = here;
     if (penOnly) return;
+    if (placing) { actions.aimCommit(x, y); return; }
     actions.press(fingerEvent(x, y));
     actions.release();
   };
@@ -159,6 +165,8 @@ export function createCanvasGestures({ getState, actions }) {
     mode = "idle";
     if (ended === "pending") {
       fingerTap(e.clientX, e.clientY, e.timeStamp);
+    } else if (ended === "aiming") {
+      actions.aimCommit(e.clientX, e.clientY);
     } else if (ended === "pinch") {
       actions.release();
       if (twoFingerTap && e.timeStamp - twoFingerTap.at <= GESTURE.TWO_FINGER_TAP_MS) actions.undo();
@@ -191,9 +199,10 @@ export function createCanvasGestures({ getState, actions }) {
     if (e.button === 0) {
       const here = { x: e.clientX, y: e.clientY, at: e.timeStamp };
       const { placing, canFinishShape } = getState();
+      if (placing) { pointerAiming = true; return; }
       const isDouble = lastPenTap && here.at - lastPenTap.at < GESTURE.DOUBLE_TAP_MS &&
         distance(lastPenTap, here) <= GESTURE.DOUBLE_TAP_DIST;
-      if (isDouble && canFinishShape && !placing) {
+      if (isDouble && canFinishShape) {
         lastPenTap = null;
         actions.finishShape();
         return;
@@ -207,6 +216,7 @@ export function createCanvasGestures({ getState, actions }) {
     pointerDown(e) {
       if (e.pointerType === "touch") touchDown(e);
       else if (e.pointerType === "pen") penPress(e);
+      else if (e.button === 0 && getState().placing) pointerAiming = true;
       else actions.press(e);
     },
     pointerMove(e) {
@@ -225,10 +235,16 @@ export function createCanvasGestures({ getState, actions }) {
         penDown = false;
         if (erasing) { erasing = false; return; }
       }
+      if (pointerAiming) {
+        pointerAiming = false;
+        actions.aimCommit(e.clientX, e.clientY);
+        return;
+      }
       actions.release();
     },
     pointerCancel(e) {
       if (e.pointerType === "touch") { touchCancel(e); return; }
+      pointerAiming = false;
       if (e.pointerType === "pen") {
         penDown = false;
         if (erasing) { erasing = false; return; }

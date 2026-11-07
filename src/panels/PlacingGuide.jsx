@@ -3,9 +3,10 @@
 // landmark highlighted, its definition, Skip / Back / Unsure, and a magnifier.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef } from "react";
 import { MEAN_SHAPE as MEAN, MAP_OUTLINES as OUTLINES, MAP_BOX as BOX, mapSymbolFor } from "../data/landmarkReference.js";
 import { useSessionStore } from "../state/sessionStore.js";
+import { useUIStore } from "../state/uiStore.js";
+import { stepLoupeZoom } from "../lib/precision.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 import { Icon } from "../ui/icons.jsx";
 
@@ -31,44 +32,6 @@ function LandmarkMap({ t, symbol, facing }) {
   );
 }
 
-// A zoomed copy of the canvas around the cursor (top-right of the canvas area).
-export function Magnifier({ canvasRef, t, size = 160, factor = 3 }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const src = canvasRef.current;
-    if (!src) return;
-    let raf = 0, last = null;
-    const draw = () => {
-      raf = 0;
-      const c = ref.current;
-      if (!c || !last) return;
-      const ctx = c.getContext("2d");
-      const r = src.getBoundingClientRect();
-      const k = src.width / (r.width || 1);
-      const x = (last.x - r.left) * k, y = (last.y - r.top) * k;
-      const w = (size / factor) * k;
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, size, size);
-      ctx.drawImage(src, x - w / 2, y - w / 2, w, w, 0, 0, size, size);
-      ctx.strokeStyle = "rgba(255,215,0,0.9)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(size / 2, size / 2 - 14); ctx.lineTo(size / 2, size / 2 - 4);
-      ctx.moveTo(size / 2, size / 2 + 4); ctx.lineTo(size / 2, size / 2 + 14);
-      ctx.moveTo(size / 2 - 14, size / 2); ctx.lineTo(size / 2 - 4, size / 2);
-      ctx.moveTo(size / 2 + 4, size / 2); ctx.lineTo(size / 2 + 14, size / 2);
-      ctx.stroke();
-    };
-    const onMove = e => { last = { x: e.clientX, y: e.clientY }; if (!raf) raf = requestAnimationFrame(draw); };
-    src.addEventListener("pointermove", onMove);
-    return () => { src.removeEventListener("pointermove", onMove); cancelAnimationFrame(raf); };
-  }, [canvasRef, size, factor]);
-  return (
-    <canvas ref={ref} width={size} height={size} aria-hidden="true"
-      style={{ position: "absolute", top: 12, right: 12, width: size, height: size, borderRadius: "50%", border: `2px solid ${t.acc}`, boxShadow: `0 4px 16px ${t.shadow}`, zIndex: 8, pointerEvents: "none", background: "#000" }} />
-  );
-}
-
 const pill = (t, active, tone) => ({
   padding: "4px 10px", borderRadius: 5, fontSize: 12, cursor: "pointer", fontWeight: active ? 700 : 500,
   border: `1px solid ${active ? (tone || t.acc) : t.bdr}`, background: active ? (tone || t.acc) + "22" : "transparent", color: active ? (tone || t.acc) : t.tx2,
@@ -78,6 +41,8 @@ export function PlacingGuide({ t, markup, idx, total, unsure, onToggleUnsure, on
   const facing = useSessionStore(s => resolveFacing(s.facing, s.markups));
   const symbol = mapSymbolFor(markup);
   const defText = markup.definition || "No definition available";
+  const loupeZoom = useUIStore(s => s.loupeZoom);
+  const stepZoom = direction => useUIStore.setState({ loupeZoom: stepLoupeZoom(loupeZoom, direction) });
   return (
     <div role="status" aria-label={`Place ${markup.label}: ${defText}`}
       style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", width: "min(600px,calc(100% - 32px))", background: t.surf, borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.5)", overflow: "hidden", zIndex: 8 }}>
@@ -101,9 +66,14 @@ export function PlacingGuide({ t, markup, idx, total, unsure, onToggleUnsure, on
             <button onClick={onToggleUnsure} aria-pressed={unsure} title="Flag this landmark for review after you place it" style={pill(t, unsure, t.warn)}>
               {unsure ? "⚑ Unsure" : "⚐ Unsure"}
             </button>
-            <button onClick={onToggleMagnifier} aria-pressed={magnifier} title="Show a magnified view around the cursor" style={{ ...pill(t, magnifier), marginLeft: "auto" }}><Icon name="search" size={13} /> Magnifier</button>
+            <button onClick={onToggleMagnifier} aria-pressed={magnifier} title="Show a magnified view beside the pointer" style={{ ...pill(t, magnifier), marginLeft: "auto" }}><Icon name="search" size={13} /> Loupe</button>
+            {magnifier && <>
+              <button onClick={() => stepZoom(-1)} aria-label="Less loupe zoom" title="Less loupe zoom" style={pill(t, false)}>−</button>
+              <span style={{ fontSize: 12, color: t.tx2, fontFamily: "'DM Mono',monospace", minWidth: 24, textAlign: "center" }}>{loupeZoom}×</span>
+              <button onClick={() => stepZoom(1)} aria-label="More loupe zoom" title="More loupe zoom" style={pill(t, false)}>+</button>
+            </>}
           </div>
-          <div style={{ fontSize: 11, color: t.tx3 }}>Click the image to place · the next landmark follows automatically</div>
+          <div style={{ fontSize: 11, color: t.tx3 }}>Press, adjust, then lift to place · two fingers pan and zoom · the next landmark follows automatically</div>
         </div>
       </div>
     </div>

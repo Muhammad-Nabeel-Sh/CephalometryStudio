@@ -12,7 +12,7 @@ export const PREF_KEYS = [
   "autoHideLabels", "annotationBold", "labelLayout", "labelsActiveOnly",
   "snapTolerance", "defaultLineStyle", "defaultMarkupColor", "defaultLineWidth",
   "showCpAlways", "showAnchorAlways", "readableText", "reportTheme",
-  "reportClinicName", "reportClinicLogo", "penOnly",
+  "reportClinicName", "reportClinicLogo", "penOnly", "loupeZoom",
 ];
 const PREFS_KEY = "cephalo_prefs_v1";
 let savedPrefs = {};
@@ -72,6 +72,8 @@ export const useUIStore = create(() => ({
   snapTolerance: 12,
   // The pen draws; fingers only pan, zoom and undo (canvas/canvasGestures.js).
   penOnly: false,
+  // Loupe magnification, relative to the current view (lib/precision.js).
+  loupeZoom: 4,
 
   // from useWorkspaceUIState
   compareSession: null,

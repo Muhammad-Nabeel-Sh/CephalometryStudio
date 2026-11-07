@@ -32,7 +32,7 @@ const SECTIONS = [
     items: [
       ["sparkle", "AI landmark detection", "A neural network locates 29 cephalometric landmarks on a lateral ceph, entirely on your device. Choose the analysis afterwards: the app shows which landmarks it found and which are still needed."],
       ["eye", "Review queue", "AI points are marked until you confirm them. Step through them one by one, and the report says which were reviewed."],
-      ["target", "Guided tracing", "Place landmarks in order with a reference map of where each one sits, a magnifier, and Skip, Back or Unsure when a point is hard to see."],
+      ["target", "Guided tracing", "Place landmarks in order with a reference map of where each one sits and Skip, Back or Unsure when a point is hard to see. Press, adjust with a loupe beside the pointer, and lift to place; arrow keys or a nudge pad fine-tune it afterwards."],
       ["layers", "Tidy labels", "Labels move out of each other's way with leader lines, or show only for the active structure."],
       ["undo", "Visible undo", "Every change is listed, so you can see what an undo will take back."],
       ["cursor", "Pen, touch and mouse", "Works with a stylus, fingers or a mouse. Pen-only mode and palm rejection stop a resting hand marking the image, the pen's eraser end deletes, and a two-finger tap undoes."],

@@ -132,7 +132,7 @@ export default function SettingsModal({ t, theme, setTheme, angleMode, setAngleM
 
       <Section t={t} title="Tracing">
         <Row t={t} label="Pen-only drawing" hint="Only a stylus draws and places landmarks; fingers pan, zoom and undo. A resting hand can't mark the image."><Switch t={t} label="Pen-only drawing" checked={ui.penOnly} onChange={toggle("penOnly")} /></Row>
-        {toggleMagnifier && <Row t={t} label="Magnifier while placing landmarks"><Switch t={t} label="Magnifier while placing landmarks" checked={magnifierOn} onChange={toggleMagnifier} /></Row>}
+        {toggleMagnifier && <Row t={t} label="Loupe while placing or moving landmarks" hint="A magnified view of the original image beside the pointer"><Switch t={t} label="Loupe while placing or moving landmarks" checked={magnifierOn} onChange={toggleMagnifier} /></Row>}
         <Row t={t} label="Snap radius" hint="How close the cursor must be to snap to a point">
           <input type="range" min={4} max={30} step={1} value={ui.snapTolerance} onChange={e => set({ snapTolerance: Number(e.target.value) })} aria-label="Snap radius" />
           <span style={{ fontSize: 12, color: t.tx2, width: 40, textAlign: "right" }}>{ui.snapTolerance}px</span>

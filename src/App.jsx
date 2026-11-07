@@ -137,7 +137,10 @@ import { logError } from "./lib/logger.js";
 import { askConfirm, askText, notify, showInfo, dismissToastKey } from "./ui/dialogs.js";
 import { describeChange, isNotableChange } from "./workspace/undoHistory.js";
 import { nextToReview, confirmPoint } from "./workspace/aiReview.js";
-import { PlacingGuide, Magnifier } from "./panels/PlacingGuide.jsx";
+import { PlacingGuide } from "./panels/PlacingGuide.jsx";
+import { Loupe } from "./panels/Loupe.jsx";
+import { NudgePad } from "./panels/NudgePad.jsx";
+import { canNudge, nudgeDelta } from "./lib/precision.js";
 import { DialogHost } from "./ui/DialogHost.jsx";
 import SettingsModal from "./panels/SettingsModal.jsx";
 import DriveBackupDialog from "./panels/DriveBackupDialog.jsx";
@@ -1382,6 +1385,7 @@ function Workspace({
   const autoHideLabels = useUIStore((s) => s.autoHideLabels);
   const annotationBold = useUIStore((s) => s.annotationBold);
   const snapTolerance = useUIStore((s) => s.snapTolerance);
+  const loupeZoom = useUIStore((s) => s.loupeZoom);
   const compareSession = useUIStore((s) => s.compareSession);
   const showGrid = useUIStore((s) => s.showGrid);
   const showAirwayOverlay = useUIStore((s) => s.showAirwayOverlay);
@@ -1413,8 +1417,6 @@ function Workspace({
     dispatch({ type: "SET", payload: { pan: { x: 40, y: 40 } } });
   }, [dispatch]);
   const isMobile = useMediaQuery("(max-width: 1024px)"); // compact layout: phones + tablets (portrait/landscape)
-  // C5: tablets keep the magnifier (useful with a stylus); phones have no room for it.
-  const isPhone = useMediaQuery("(max-width: 640px)");
 
   // ─── Mobile sheet: share save logic + browser-back integration ───
   const handleSaveProject = useCallback(async () => {
@@ -2616,12 +2618,23 @@ function Workspace({
     [loadImage],
   );
 
+  const nudgeRef = useRef(() => false);
   useEffect(() => {
     const fn = (e) => {
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
         return;
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
+      // Arrow keys nudge the selected landmark, unless a menu or list has them.
+      const nudge = ctrl ? null : nudgeDelta(e.key, { alt: e.altKey, shift });
+      if (
+        nudge &&
+        !e.target.closest?.('select, [role="menu"], [role="listbox"], [role="tablist"], [role="radiogroup"], [role="dialog"], [data-cmenu]') &&
+        nudgeRef.current(nudge.dx, nudge.dy)
+      ) {
+        e.preventDefault();
+        return;
+      }
       const key = e.key.toLowerCase();
       const matched = KEYBINDINGS.find((b) => {
         if (b.ctrl && !ctrl) return false;
@@ -2796,48 +2809,6 @@ function Workspace({
       const sp = getCanvasPos(e);
       let ip = toImage(sp.x, sp.y);
       ip = snapPoint(ip, markups, snapTolerance / zoomRef.current, snapEnabled);
-      if (
-        placingMode &&
-        placingQueue.length > 0 &&
-        placingIdx < placingQueue.length
-      ) {
-        const qid = placingQueue[placingIdx];
-        const updatedMarkups = markups.map((m) =>
-          m.id === qid ? { ...m, points: [ip], placed: true, ...(placingUnsureRef.current === qid ? { unsure: true } : {}) } : m,
-        );
-        // Only instantiate measurements whose landmarks are all placed, so
-        // partially-placed analyses never show phantom (placeholder-coordinate) values.
-        const placedSet = new Set(
-          updatedMarkups
-            .filter((m) => m.type === "point" && m.placed)
-            .map((m) => m.templateLabel || m.label),
-        );
-        const newAuto = autoCreateMeasurements(
-          updatedMarkups,
-          analysisTemplate,
-          calibration,
-          facingSetting,
-        ).filter((m) => (m.refLabels || []).every((rl) => placedSet.has(rl)));
-        const newNorms = deriveNorms(newAuto, analysisTemplate).filter(
-          (n) =>
-            !norms.some(
-              (x) => x.markupLabel === n.markupLabel && x.measureType === n.measureType,
-            ),
-        );
-        pushUndo();
-        updSession({
-          markups: refreshAutoMeas([...updatedMarkups, ...newAuto]),
-          norms: [...norms, ...newNorms],
-        });
-        if (placingIdx < placingQueue.length - 1)
-          dispatch({ type: "SET", payload: { placingIdx: placingIdx + 1 } });
-        else {
-          dispatch({ type: "SET", payload: { placingMode: false } });
-          dispatch({ type: "SET", payload: { placingQueue: [] } });
-          dispatch({ type: "SET", payload: { placingIdx: 0 } });
-        }
-        return;
-      }
       if (activeTool === "pan") {
         isPanning.current = true;
         panStart.current = {
@@ -3535,9 +3506,6 @@ function Workspace({
       currentDraw,
       selectedMarkup,
       selectedIds,
-      placingMode,
-      placingQueue,
-      placingIdx,
       replacingId,
       setSelectedId,
       updMarkup,
@@ -3546,14 +3514,8 @@ function Workspace({
       toImage,
       getCanvasPos,
       t,
-      analysisTemplate,
-      facingSetting,
       dispatch,
-      norms,
       pushUndo,
-      refreshAutoMeas,
-      updSession,
-      calibration,
       snapTolerance,
       theme,
     ],
@@ -3620,6 +3582,7 @@ function Workspace({
       mousePosRef.current = sp;
       if (
         (snapEnabled.points || snapEnabled.lines) &&
+        !placingMode && // guided landmarks go exactly where they're placed
         activeTool !== "select" &&
         activeTool !== "pan"
       ) {
@@ -4014,6 +3977,7 @@ function Workspace({
       syncTangents,
       syncRefDeps,
       snapTolerance,
+      placingMode,
     ],
   );
 
@@ -4125,6 +4089,63 @@ function Workspace({
     c.addEventListener("wheel", onWheel, { passive: false });
     return () => c.removeEventListener("wheel", onWheel);
   }, [dispatch, getCanvasPos]);
+  // Guided placement: puts the queued landmark at image point `ip`, exactly there
+  // (no snapping), and moves on to the next one.
+  const commitPlacement = (ip) => {
+    const qid = placingQueue[placingIdx];
+    const updatedMarkups = markups.map((m) =>
+      m.id === qid ? { ...m, points: [ip], placed: true, ...(placingUnsureRef.current === qid ? { unsure: true } : {}) } : m,
+    );
+    // Only instantiate measurements whose landmarks are all placed, so
+    // partially-placed analyses never show phantom (placeholder-coordinate) values.
+    const placedSet = new Set(
+      updatedMarkups
+        .filter((m) => m.type === "point" && m.placed)
+        .map((m) => m.templateLabel || m.label),
+    );
+    const newAuto = autoCreateMeasurements(
+      updatedMarkups,
+      analysisTemplate,
+      calibration,
+      facingSetting,
+    ).filter((m) => (m.refLabels || []).every((rl) => placedSet.has(rl)));
+    const newNorms = deriveNorms(newAuto, analysisTemplate).filter(
+      (n) =>
+        !norms.some(
+          (x) => x.markupLabel === n.markupLabel && x.measureType === n.measureType,
+        ),
+    );
+    pushUndo();
+    updSession({
+      markups: refreshAutoMeas([...updatedMarkups, ...newAuto]),
+      norms: [...norms, ...newNorms],
+    });
+    if (placingIdx < placingQueue.length - 1)
+      dispatch({ type: "SET", payload: { placingIdx: placingIdx + 1 } });
+    else {
+      dispatch({ type: "SET", payload: { placingMode: false } });
+      dispatch({ type: "SET", payload: { placingQueue: [] } });
+      dispatch({ type: "SET", payload: { placingIdx: 0 } });
+    }
+  };
+  // Moves the selected landmark, carrying what depends on it, as a drag does. A run
+  // of nudges to one point is a single undo step. Returns false if there's no target.
+  const lastNudgeRef = useRef(null);
+  nudgeRef.current = (dx, dy) => {
+    if (selectedIds.length > 1) return false;
+    const m = markups.find((x) => x.id === selectedId);
+    if (!canNudge(m)) return false;
+    const now = Date.now();
+    const last = lastNudgeRef.current;
+    if (!last || last.id !== m.id || now - last.at > 1000) pushUndo();
+    lastNudgeRef.current = { id: m.id, at: now };
+    syncRefDeps(m, dx, dy);
+    updMarkup(m.id, { points: m.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) });
+    syncTangents(m.id, dx, dy);
+    scheduleRedrawRef.current();
+    return true;
+  };
+  const nudgeTarget = selectedIds.length > 1 ? null : markups.find((m) => m.id === selectedId);
   const pinchRef = useRef(null);
   const syncZoomRef = useRef(false);
   const syncZoom = () => {
@@ -4212,6 +4233,13 @@ function Workspace({
       });
     },
     undo,
+    // Lifting outside the canvas is the way out of an aim.
+    aimCommit: (x, y) => {
+      if (!gestureEnv.getState().placing) return;
+      const r = canvasRef.current.getBoundingClientRect();
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) return;
+      commitPlacement(toImage(x - r.left, y - r.top));
+    },
     // The pen's eraser end. Undoable like any delete; never touches a locked
     // markup, and does nothing during guided placement.
     erase: (x, y) => {
@@ -4229,7 +4257,7 @@ function Workspace({
     createCanvasGestures({
       getState: () => gestureEnv.getState(),
       actions: Object.fromEntries(
-        ["press", "move", "release", "panStart", "pinchStart", "pinchMove", "doubleTapZoom", "finishShape", "longPress", "undo", "erase"]
+        ["press", "move", "release", "panStart", "pinchStart", "pinchMove", "doubleTapZoom", "finishShape", "longPress", "undo", "erase", "aimCommit"]
           .map((name) => [name, (...args) => gestureEnv.actions[name](...args)]),
       ),
     }),
@@ -4996,7 +5024,6 @@ function Workspace({
                 placingIdx < placingQueue.length &&
                 markups.find((x) => x.id === placingQueue[placingIdx]) && (
                   <>
-                    {magnifierOn && !isPhone && <Magnifier canvasRef={canvasRef} t={t} />}
                     <PlacingGuide
                       t={t}
                       markup={markups.find((x) => x.id === placingQueue[placingIdx])}
@@ -5014,6 +5041,45 @@ function Workspace({
                     />
                   </>
                 )}
+              {magnifierOn && sessionImage?.length > 0 && (
+                <Loupe
+                  key={placingMode ? "placing" : "idle"} /* a still pointer gets no event to hide it */
+                  canvasRef={canvasRef}
+                  t={t}
+                  factor={loupeZoom}
+                  getViewZoom={() => zoomRef.current}
+                  getImagePoint={(p) => {
+                    if (gestureEnv.getState().placing) {
+                      if (p.type === "touch" && useUIStore.getState().penOnly) return null;
+                      return toImage(p.x, p.y);
+                    }
+                    if (!isDragging.current || !dragMid.current) return null;
+                    const dragged = useSessionStore.getState().markups.find((m) => m.id === dragMid.current);
+                    return dragged?.type === "point" ? vpts(dragged)[0] || null : null;
+                  }}
+                  drawSource={(ctx, zoom, pan) => drawImageLayers(ctx, sessionImage, { zoom, pan, getProcessed, imgRefs })}
+                  drawMarks={(ctx, zoom, pan) => {
+                    for (const m of useSessionStore.getState().markups) {
+                      if (m.type !== "point" || m.placed === false || m.visible === false || m.id === dragMid.current) continue;
+                      const p = vpts(m)[0];
+                      if (!p) continue;
+                      ctx.beginPath();
+                      ctx.arc(p.x * zoom + pan.x, p.y * zoom + pan.y, 4, 0, Math.PI * 2);
+                      ctx.strokeStyle = m.color || t.acc;
+                      ctx.lineWidth = 1.5;
+                      ctx.stroke();
+                    }
+                  }}
+                />
+              )}
+              {!placingMode && canNudge(nudgeTarget) && navigator.maxTouchPoints > 0 && (
+                <NudgePad
+                  t={t}
+                  label={nudgeTarget.label || "point"}
+                  onNudge={(dx, dy) => nudgeRef.current(dx, dy)}
+                  style={{ right: 12, bottom: isMobile ? 108 : 12 }}
+                />
+              )}
               <div className="draw-status">
                 {currentDraw && (
                   <div

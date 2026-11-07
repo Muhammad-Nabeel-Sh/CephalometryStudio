@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **924 tests (Vitest)**
+- **No TypeScript**, **961 tests (Vitest)**
 
 ---
 
@@ -106,6 +106,7 @@ src/
 │   ├── measureConventions.js   Patient-facing frame + signed cephalometric geometry
 │   ├── distributions.js        Normal CDF / quantile (single source)
 │   ├── procrustes.js           procrustesAlign + centroid helpers (canvas overlay + superimposition)
+│   ├── precision.js            Loupe position and view, loupe zoom steps, nudge steps (pure)
 │   ├── normogram.js            Normogram rows (primary measure + unit, categories, bands, percentiles, comparison)
 │   └── logger.js               Logging utility
 │
@@ -120,7 +121,9 @@ src/
 │   ├── panelIcons.jsx          PANEL_ICONS + PANEL_TABS (single source of truth)
 │   ├── Toolbar.jsx             Desktop (mode tabs, labelled tools) + mobile toolbar
 │   ├── UndoHistory.jsx         Undo history list (under Undo/Redo)
-│   ├── PlacingGuide.jsx        Guided tracing banner, reference map, magnifier
+│   ├── PlacingGuide.jsx        Guided tracing banner, reference map, loupe controls
+│   ├── Loupe.jsx               Magnified view beside the pointer, drawn from the source image
+│   ├── NudgePad.jsx            On-screen arrows that move the selected landmark in exact steps
 │   ├── AITraceOverlay.jsx      AI Trace button + loading screen (download warning/progress, cancel)
 │   ├── TopBar.jsx              Top bar (home, logo, save)
 │   ├── RightPanelSidebar.jsx   Vertical tab sidebar
@@ -240,7 +243,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (924 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (961 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -575,7 +578,9 @@ Recommended settings for `.vscode/settings.json`:
 
 - **AI runtime (Phase 1, item 10)**: inference runs in a module worker (`canvas/landmarkClient.js` + `landmarkDetector.worker.js`), importing `/ort/ort.wasm.min.mjs` at run time by absolute URL (the dev server refuses a root-relative import of a public file); if the worker fails, `landmarkDetector.js` runs on the main thread. Cancelling terminates the worker, so `autoTrace.js` reloads the model on the next trace. Threads: `numThreads` up to 8 when `crossOriginIsolated`, from the `Document-Isolation-Policy` header (`vercel.json`, `vite.config.js`). Do not use COOP: it would break the Google sign-in popup. **WebGPU is not used**: ORT 1.22 rejects the INT8 model (`DequantizeLinear` on int32), so it would need the 114 MB FP32 model. 7 tests in `src/test/landmarkClient.test.js`.
 
-- **Pen and touch input**: the main canvas uses pointer events (not mouse/touch); `canvas/canvasGestures.js` decides what each gesture means and App's `gestureEnv.actions` carries it out. Mouse and pen act on contact; a finger acts on lift, because a landing finger may still become a pan, pinch or long press. Never call `press` from a finger landing. Palm rejection: a touch is ignored while the pen is down or within `PALM_GUARD_MS` of pen activity, including hover. Pen-only mode (uiStore `penOnly`, a saved pref; `PenOnlyBtn` in `Toolbar.jsx`, Settings → Tracing): fingers only pan, zoom and undo. Two-finger tap undoes; the eraser end (`button 5` / `buttons & 32`) deletes the hit markup, except locked ones or during placement. `touchstart` is still cancelled to stop the browser's own callouts and synthetic clicks. Native `dblclick` counts only for the mouse. `ExamplesPanel` keeps its own mouse handlers. Do not read `Touch.touchType`: Chromium lacks it. 47 tests in `src/test/canvasGestures.test.js` + `penOnlyBtn.test.jsx`.
+- **Pen and touch input**: the main canvas uses pointer events (not mouse/touch); `canvas/canvasGestures.js` decides what each gesture means and App's `gestureEnv.actions` carries it out. Mouse and pen act on contact; a finger acts on lift, because a landing finger may still become a pan, pinch or long press. Never call `press` from a finger landing. Palm rejection: a touch is ignored while the pen is down or within `PALM_GUARD_MS` of pen activity, including hover. Pen-only mode (uiStore `penOnly`, a saved pref; `PenOnlyBtn` in `Toolbar.jsx`, Settings → Tracing): fingers only pan, zoom and undo. Two-finger tap undoes; the eraser end (`button 5` / `buttons & 32`) deletes the hit markup, except locked ones or during placement. `touchstart` is still cancelled to stop the browser's own callouts and synthetic clicks. Native `dblclick` counts only for the mouse. `ExamplesPanel` keeps its own mouse handlers. Do not read `Touch.touchType`: Chromium lacks it. 56 tests in `src/test/canvasGestures.test.js` + `penOnlyBtn.test.jsx`.
+
+- **Precision placement**: during guided placement every pointer aims while down and places where it lifts (`aimCommit` → App `commitPlacement`), with no snapping. One finger aims and two pan, except in pen-only mode, where fingers only navigate. Holding still opens no menu while placing, and lifting outside the canvas cancels. `Loupe` draws from the source image through `drawImageLayers`, so it shows real pixels with the current processing; it replaced the corner magnifier (`magnifierOn` still turns it on and off, `loupeZoom` is a saved pref). It shows on hover while placing and while dragging a point, hides for two fingers, and is keyed on `placingMode` because a still pointer sends no event to hide it. Nudging (`nudgeRef`): arrow keys move the selected landmark 1 image px, Alt 0.25, Shift 5; `NudgePad` does the same on touch devices. It moves dependents as a drag does, and a run on one point within 1 s is one undo step. Testing note: the canvas keeps its default 300×150 size until a frame runs, so a script that opens a case and fires events at once sees them rejected as outside the canvas. 28 tests in `src/test/precisionTracing.test.jsx`, plus cases in `canvasGestures.test.js`.
 
 - **Top bar**: every action uses `BarBtn` (`panels/TopBar.jsx`), sized in `index.css` (`.topbar-btn`): 36 px with a 20 px icon, or 44 px with a 22 px icon at 1024 px and below or on coarse pointers. Icons use `currentColor`, so active states stay readable. The app name hides at 1280 px and below; the theme swatches and label-size slider leave the bar on touch sizes (both are in Settings). 5 tests in `src/test/topBar.test.jsx`.
 
@@ -589,7 +594,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 924 tests pass (62 test files, 0 failures)
+- `npm test` — 961 tests pass (63 test files, 0 failures)
 
 
 
