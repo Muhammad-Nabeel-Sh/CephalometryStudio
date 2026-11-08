@@ -12,7 +12,7 @@ export const WHATS_NEW = {
     { icon: "sparkle", color: "#7c5cfc", title: "AI landmark detection", tag: "AI",
       text: "29 landmarks placed in seconds, entirely in your browser. Review each AI point, then pick the analysis — the app shows what's still missing." },
     { icon: "image", color: "#34d399", title: "DICOM and TIFF, calibrated", tag: "Imaging",
-      text: "Open files straight from the cephalostat (JPEG-LS and JPEG 2000 too). Millimetres come from the file; window and level use the full 16-bit image." },
+      text: "Import DICOM straight from the cephalostat, one file or a whole series: multi-frame files and series open in one session you can scroll through. Millimetres come from the file; window and level use the full 16-bit image and follow you across frames." },
     { icon: "target", color: "#f59e0b", title: "Faster, guided tracing", tag: "Workspace",
       text: "A reference map, magnifier and step-by-step placement, tidy labels, visible undo, and ruler calibration that finds the ticks for you." },
     { icon: "lock", color: "#a78bfa", title: "Encrypted, offline, yours", tag: "Privacy",
