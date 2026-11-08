@@ -2516,6 +2516,7 @@ function Workspace({
       activeAnalysis: analysisTemplateRef.current,
       annotationBold: us.annotationBold,
       showGroupsLegend: us.showGroupsLegend,
+      measurementHighlight: us.measurementHighlight,
       getProcessed,
       alignTwoPoints,
       silhouettes: SILHOUETTES,
@@ -2603,6 +2604,7 @@ function Workspace({
         rl1: us.refLandmark1,
         rl2: us.refLandmark2,
         stl: us.showTrackingLines,
+        mh: us.measurementHighlight,
       };
     };
     lastRedrawStateRef.current = pick();

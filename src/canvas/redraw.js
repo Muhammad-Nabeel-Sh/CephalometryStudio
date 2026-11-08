@@ -7,6 +7,7 @@ import { vpts } from "../lib/utils.js";
 import { beginLabelLayout, flushLabelLayout } from "./drawMarkups.js";
 import { drawImageLayers } from "./imageLayers.js";
 import { procrustesAlign } from "../lib/procrustes.js";
+import { highlightTargets, drawMeasurementHighlight } from "./measureHighlight.js";
 
 export function createRedraw(dc) {
   return function redraw() {
@@ -35,7 +36,7 @@ export function createRedraw(dc) {
       showTrackingLines, refLandmark1, refLandmark2, showCalib, pendingRuler,
       showGrid, showAirwayOverlay, airwaySuggestion, airwayPatient, showCpAlways, showAnchorAlways,
       snapTolerance, autoHideLabels, annotationBold, showGroupsLegend,
-      labelLayout, labelsActiveOnly, activeAnalysis,
+      labelLayout, labelsActiveOnly, activeAnalysis, measurementHighlight,
     } = dc;
     const zoom = dc.zoomRef.current;
 
@@ -374,6 +375,14 @@ export function createRedraw(dc) {
     }
 
     if (showScaleBar) dc.drawScaleBar(ctx2d, zoom, drawCalibration, W, H);
+
+    // ── Measurement highlight (hovered or tapped in the Measurements panel) ──
+    if (measurementHighlight) {
+      drawMeasurementHighlight(ctx2d, {
+        markups, ids: highlightTargets(markups, measurementHighlight), zoom, pan, W, H, color: t.acc,
+        drawOne: m => dc.drawMarkup(ctx2d, { ...m, width: (m.width || 1.5) * 1.8, size: (m.size || 6) + 2 }, zoom, pan, drawCalibration, null, t, false, dc.canvasSize.current, angleMode, true, annotationSize, null, { autoHideLabels, annotationBold, facing }),
+      });
+    }
 
     // ── Flash highlight ──
     if (dc.flashMarkupIdRef.current) {

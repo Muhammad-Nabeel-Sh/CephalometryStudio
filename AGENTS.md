@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **1009 tests (Vitest)**
+- **No TypeScript**, **1023 tests (Vitest)**
 
 ---
 
@@ -66,6 +66,7 @@ src/
 │   ├── landmarkClient.js       What the app calls: runs the detector in a worker (cancel, threads, main-thread fallback)
 │   ├── landmarkDetector.worker.js Worker around landmarkDetector.js
 │   ├── landmarkDetector.js     ONNX landmark detection (ORT module in the worker, UMD via <script> on the main thread)
+│   ├── measureHighlight.js     Measurement highlight: what a hovered/tapped card lights up, and the dim-and-redraw (pure)
 │   └── canvasGestures.js       Pointer events → workspace actions: pen, finger and mouse rules, palm rejection, pen-only mode (pure)
 │
 ├── airway/                     Airway analysis: registry, geometry, references, compute, edge suggestions
@@ -248,7 +249,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (1009 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (1023 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -587,6 +588,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Precision placement**: during guided placement every pointer aims while down and places where it lifts (`aimCommit` → App `commitPlacement`), with no snapping. One finger aims and two pan, except in pen-only mode, where fingers only navigate. Holding still opens no menu while placing, and lifting outside the canvas cancels. `Loupe` draws from the source image through `drawImageLayers`, so it shows real pixels with the current processing; it replaced the corner magnifier (`magnifierOn` still turns it on and off, `loupeZoom` is a saved pref). It shows on hover while placing and while dragging a point, hides for two fingers, and is keyed on `placingMode` because a still pointer sends no event to hide it. Nudging (`nudgeRef`): arrow keys move the selected landmark 1 image px, Alt 0.25, Shift 5; `NudgePad` does the same on touch devices. It moves dependents as a drag does, and a run on one point within 1 s is one undo step. Testing note: the canvas keeps its default 300×150 size until a frame runs, so a script that opens a case and fires events at once sees them rejected as outside the canvas. 28 tests in `src/test/precisionTracing.test.jsx`, plus cases in `canvasGestures.test.js`.
 
+- **Measurement highlight**: hovering a card in the Measurements panel (mouse or pen), focusing it with the keyboard, or tapping it on a touch screen sets uiStore `measurementHighlight` (not saved; cleared when the panel closes). The redraw dims the canvas and redraws that markup plus everything its `refLabels`/`refTemplateIds` resolve to, recursively (an angle's landmarks, the angles behind a computed measure), thicker with an accent glow and a ring on each landmark. `highlightTargets` in `canvas/measureHighlight.js` decides the targets (drawable ones only) and reuses `buildLookups`/`resolveRef` from `workspace/markupHelpers.js`. Formula cards have no markup, so they light nothing. 14 tests in `src/test/measureHighlight.test.jsx`.
+
 - **Top bar**: every action uses `BarBtn` (`panels/TopBar.jsx`), sized in `index.css` (`.topbar-btn`): 36 px with a 20 px icon, or 44 px with a 22 px icon at 1024 px and below or on coarse pointers. Icons use `currentColor`, so active states stay readable. The app name hides at 1280 px and below; the theme swatches and label-size slider leave the bar on touch sizes (both are in Settings). 5 tests in `src/test/topBar.test.jsx`.
 
 - **Airway module (`src/airway/`, plan in `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: `definitions.js` is the single registry of landmarks, traced walls and measures; `geometry.js` is pure; `compute.js` (`computeAirway`) returns results with provenance; `norms.js` holds references checked against each paper's page, each tied to one construction. Don't add a reference without its paper, table and page, and don't attach one to a similar-sounding measure: papers define SPAS, MAS and IAS differently. Walls are found by `airwayRole`, points only by label on `type: "point"`. Mislik's p and t are `medianIqr`: no z-score, no flag. No OSA wording or risk score. `edges.js` only ever produces a preview. The overlay and report draw `computeAirway` output. Research reads airway values through `withAirwayMeasures` (in-memory `airwayValue` markups, added in `ResearchWorkspace`, never saved). Saved results from before go through `airwayResultsForDisplay`. `Data/Airway.csv` must list the registry's landmarks (tested).
@@ -601,7 +604,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 1009 tests pass (70 test files, 0 failures)
+- `npm test` — 1023 tests pass (71 test files, 0 failures)
 
 
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { uid, normDeviation, deviationColor } from "../lib/utils.js";
+import { useUIStore } from "../state/uiStore.js";
 import { DEFAULT_NORMS } from "../data/norms.js";
 import { Btn, Tag, Inp, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
@@ -13,6 +14,28 @@ export function MeasurementsPanel({ allMeas, formulaMeas, t, calibration, norms,
   const [showGallery, setShowGallery] = useState(false);
   const [guideKey, setGuideKey] = useState(null);
   const hasMeas = allMeas.length > 0 || (formulaMeas && formulaMeas.length > 0);
+
+  // Hover (mouse or pen), keyboard focus, or a tap on a touch screen shows the
+  // measurement on the canvas (canvas/measureHighlight.js).
+  const highlighted = useUIStore(s => s.measurementHighlight);
+  const setHighlight = id => useUIStore.setState({ measurementHighlight: id });
+  const isHighlighted = id => useUIStore.getState().measurementHighlight === id;
+  const lastPointer = useRef("mouse");
+  useEffect(() => () => setHighlight(null), []);
+  const cardProps = id => ({
+    "data-measurement": id,
+    "data-highlighted": String(highlighted === id),
+    onPointerEnter: e => { if (e.pointerType !== "touch") setHighlight(id); },
+    onPointerLeave: e => { if (e.pointerType !== "touch" && isHighlighted(id)) setHighlight(null); },
+    onPointerDown: e => { lastPointer.current = e.pointerType; },
+    onClick: e => {
+      if (lastPointer.current !== "touch" || e.target.closest("button, input, select, textarea")) return;
+      setHighlight(isHighlighted(id) ? null : id);
+    },
+    onFocus: () => setHighlight(id),
+    onBlur: e => { if (!e.currentTarget.contains(e.relatedTarget) && isHighlighted(id)) setHighlight(null); },
+  });
+  const cardBorder = id => (highlighted === id ? `1px solid ${t.acc}` : `1px solid ${t.bdr}`);
   return (
     <div style={{ padding: 12 }}>
       {!calibration.done && <div style={{ background: t.warn + "22", border: `1px solid ${t.warn}44`, borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12, color: t.warn }}>⚠ Calibrate for mm values.<button onClick={onOpenCalib} style={{ display: "block", marginTop: 6, background: t.warn, color: "#000", border: "none", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Open Calibration</button></div>}
@@ -48,7 +71,7 @@ export function MeasurementsPanel({ allMeas, formulaMeas, t, calibration, norms,
           {[...allMeas].sort((a, b) => (a.m.type === "point" ? 1 : 0) - (b.m.type === "point" ? 1 : 0)).map(({ m, meas }) => {
             const relNorms = (norms || []).filter(n => n.markupLabel === m.label);
             return (
-              <div key={m.id} style={{ marginBottom: 10, padding: 10, background: t.surf2, borderRadius: 8, border: `1px solid ${t.bdr}` }}>
+              <div key={m.id} {...cardProps(m.id)} style={{ marginBottom: 10, padding: 10, background: t.surf2, borderRadius: 8, border: cardBorder(m.id), boxShadow: highlighted === m.id ? `0 0 0 1px ${t.acc}` : "none", transition: "border-color 0.12s, box-shadow 0.12s" }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: m.color || t.acc, marginBottom: 6, display: "flex", justifyContent: "space-between" }}><span>{m.label || m.type}</span><Tag color={m.color || t.acc}>{m.type}</Tag></div>
                   {Object.entries(meas).filter(([k]) => !k.startsWith("_") && (m.type === "point" || (k !== "x" && k !== "y"))).map(([k, v]) => {
                   const calTypes = ["length","distance","area","perimeter","radius","circumference","majorAxis","minorAxis","arcLength","projectedDistance"];

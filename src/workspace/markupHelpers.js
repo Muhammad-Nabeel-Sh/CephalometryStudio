@@ -2,7 +2,7 @@ import { uid } from "../lib/utils.js";
 import { getMeasValue, combinedUnit } from "./template.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 
-function buildLookups(markups) {
+export function buildLookups(markups) {
   const byLabel = {}, byTemplateLabel = {}, byTemplateId = {};
   for (const m of markups) {
     if (m.label) byLabel[m.label] = m;
@@ -15,7 +15,7 @@ function buildLookups(markups) {
 // Resolve a reference entry (label + optional immutable templateId) to a markup.
 // Prefers the immutable templateId so renames never break bindings; falls back
 // to templateLabel, then the current label, for legacy/untemplated markups.
-function resolveRef(rl, refTemplateId, lookups) {
+export function resolveRef(rl, refTemplateId, lookups) {
   if (refTemplateId && lookups.byTemplateId[refTemplateId]) return lookups.byTemplateId[refTemplateId];
   return lookups.byTemplateLabel[rl] || lookups.byLabel[rl] || null;
 }

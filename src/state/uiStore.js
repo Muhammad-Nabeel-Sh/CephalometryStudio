@@ -72,6 +72,8 @@ export const useUIStore = create(() => ({
   snapTolerance: 12,
   // The pen draws; fingers only pan, zoom and undo (canvas/canvasGestures.js).
   penOnly: false,
+  // Markup id whose measurement card is hovered or tapped (canvas/measureHighlight.js).
+  measurementHighlight: null,
   // Loupe magnification, relative to the current view (lib/precision.js).
   loupeZoom: 4,
 
