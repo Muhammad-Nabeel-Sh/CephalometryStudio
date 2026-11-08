@@ -501,7 +501,7 @@ export default function NormogramPanel({ markups, norms, t, formatAngle, calibra
 
       <div style={{ fontSize: 12, color: t.tx3, marginTop: 8, textAlign: "center", lineHeight: 1.6, maxWidth: 720 }}>
         {normSources.length > 0 && <div>Norms: {normSources.join("; ")}</div>}
-        {rows.some(r => r.approxSd) && <div>≈ the published source gives no exact SD for this norm; its position is indicative.</div>}
+        {rows.some(r => r.approxSd) && <div>≈ no published SD has been traced for this norm (approximate or unsourced); its position is indicative.</div>}
         {rows.some(r => Math.abs(r.z) > SD_RANGE) && <div>Arrows at the edge mark values beyond ±{SD_RANGE} SD; the value shows its z-score.</div>}
         {hiddenUncalibrated > 0 && <div style={{ color: t.warn }}>{hiddenUncalibrated} distance or area measurement{hiddenUncalibrated === 1 ? " is" : "s are"} hidden until the image is calibrated (norms are in mm).</div>}
         {compare && Object.keys(compare).length < rows.length && <div>{rows.length - Object.keys(compare).length} measurement(s) are missing in {compareName}.</div>}

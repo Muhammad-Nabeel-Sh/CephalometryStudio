@@ -51,6 +51,10 @@ export default function PlotlyChart({ data, layout, config, style }) {
   const enrichedLayout = useMemo(() => {
     if (!layout) return layout;
     const out = deepClone(layout);
+    // Charts always fit their container's width (a fixed width overflows narrow
+    // columns, e.g. side by side); the height stays as the chart asks.
+    delete out.width;
+    out.autosize = true;
     // Bump base font
     if (out.font && out.font.size != null && out.font.size < 12) out.font.size = 12;
     for (const key of Object.keys(out)) {
@@ -117,8 +121,23 @@ export default function PlotlyChart({ data, layout, config, style }) {
       if (!cancelled) setStatus("error");
     });
 
+    // Plotly's `responsive` only follows window resizes. The chart's own box also
+    // changes when the results switch between tables, charts and side by side, or a
+    // panel opens, so follow the container and refit (debounced; a timer rather than
+    // requestAnimationFrame, which doesn't run while the page is in the background).
+    let timer = 0;
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!cancelled && plotlyRef.current && el.isConnected && el.clientWidth > 0) plotlyRef.current.Plots.resize(el);
+      }, 60);
+    }) : null;
+    ro?.observe(el);
+
     return () => {
       cancelled = true;
+      ro?.disconnect();
+      clearTimeout(timer);
       if (plotlyRef.current && el) {
         plotlyRef.current.purge(el);
         plotlyRef.current = null;

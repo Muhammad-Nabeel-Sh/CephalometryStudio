@@ -42,6 +42,10 @@ export default defineConfig({
   worker: { format: "es" },
   optimizeDeps: {
     exclude: ["onnxruntime-web"],
+    // Packages the app only imports lazily (on a click). Without pre-bundling them at
+    // startup, the dev server discovers them on first use, re-bundles, and the open page's
+    // import fails ("Failed to fetch dynamically imported module …/.vite/deps/jspdf.js").
+    include: ["jspdf", "jspdf-autotable", "plotly.js-basic-dist-min", "mathjs", "katex", "jpeg-lossless-decoder-js"],
   },
   test: {
     environment: "jsdom",

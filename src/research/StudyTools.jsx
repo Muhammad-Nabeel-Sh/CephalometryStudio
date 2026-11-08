@@ -4,6 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { buildDataMatrix, dataMatrixToCSV } from "./dataPreview.js";
+import { downloadRScript, rScriptSupported } from "./rScript.js";
 import { nTwoMeans, nPaired, nCorrelation, nICC, nBlandAltman } from "./sampleSize.js";
 import { fmtNum } from "../lib/utils.js";
 
@@ -33,6 +34,12 @@ export function DataPreview({ study, sessions, calibration, t, defaultOpen = fal
           style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 11, cursor: matrix.rows.length ? "pointer" : "default", opacity: matrix.rows.length ? 1 : 0.4 }}>
           CSV
         </button>
+        {rScriptSupported(study.type) && (
+          <button onClick={() => downloadRScript(study, sessions, calibration)} disabled={!matrix.rows.length} title="A self-contained .R file with these values and the matching analysis"
+            style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 11, cursor: matrix.rows.length ? "pointer" : "default", opacity: matrix.rows.length ? 1 : 0.4 }}>
+            R script
+          </button>
+        )}
       </div>
       {open && (
         <div style={{ marginTop: 6 }}>

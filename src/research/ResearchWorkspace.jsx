@@ -521,7 +521,7 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
         )}
 
         {step === "results" && (
-          <StudyResultsView t={t} study={study} status={status} onFix={fix} wide={wide} />
+          <StudyResultsView t={t} study={study} status={status} onFix={fix} wide={wide} sessions={sessions} calibration={calibration} />
         )}
       </div>
     );

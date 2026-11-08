@@ -445,7 +445,10 @@ function ROCCurveView({
       <svg
         width={W}
         height={H}
+        viewBox={`0 0 ${W} ${H}`}
         style={{
+          maxWidth: "100%",
+          height: "auto",
           border: `1px solid ${t.bdr}`,
           borderRadius: 8,
           background: t.surf2,
@@ -966,7 +969,10 @@ function CompareROCView({ results, t }) {
               <svg
                 width={W}
                 height={H}
+                viewBox={`0 0 ${W} ${H}`}
                 style={{
+                  maxWidth: "100%",
+                  height: "auto",
                   border: `1px solid ${t.bdr}`,
                   borderRadius: 4,
                   background: t.surf,

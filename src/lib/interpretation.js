@@ -1,5 +1,5 @@
 import { normDeviation } from "./utils.js";
-import { isApproximateSd } from "../data/norms.js";
+import { isApproximateSd, sdStatus } from "../data/norms.js";
 
 export const RULES = {
   // ═══════════════════════════════════════════
@@ -1851,6 +1851,7 @@ export function generateInterpretation(allMeas, norms, calibration) {
         interpretation: sdInterpretationText(dev.sdUnits, rule?.label || m.label, interpretFn, value, norm.mean),
         normSource: norm.source,
         sdApproximate: norm.sdApproximate === true || isApproximateSd(norm.source, m.label, norm.sd),
+        sdStatus: norm.sdApproximate === true ? "approximate" : sdStatus(norm.source, m.label, norm.sd),
       });
     }
   }

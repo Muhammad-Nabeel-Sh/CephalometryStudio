@@ -588,7 +588,7 @@ function buildMeasurements(doc, ctx) {
     });
     flow.y = doc.lastAutoTable.finalY + 4;
     const notes = [];
-    if (data.some(r => r.approxSd)) notes.push("~ the published source gives no exact SD for this norm; its z-score is indicative.");
+    if (data.some(r => r.approxSd)) notes.push("~ no published SD has been traced for this norm (approximate or unsourced); its z-score is indicative.");
     if (!calibration?.done && data.some(r => r.norm && LINEAR.has(r.unit))) notes.push("Distances and areas are not compared with norms until the image is calibrated.");
     notes.forEach(n => flow.para(n, { size: 7.5, color: C.tx2, gap: 0.5 }));
   }
@@ -682,7 +682,7 @@ async function buildNormogram(doc, ctx) {
   }
   const sources = [...new Set(rows.map(r => r.norm.source).filter(Boolean))];
   if (sources.length) flow.para(`Norms: ${sources.join("; ")}.`, { size: 7.5, color: C.tx2, gap: 0.5 });
-  if (rows.some(r => r.approxSd)) flow.para("~ the published source gives no exact SD for this norm; its position is indicative.", { size: 7.5, color: C.tx2, gap: 0.5 });
+  if (rows.some(r => r.approxSd)) flow.para("~ no published SD has been traced for this norm (approximate or unsourced); its position is indicative.", { size: 7.5, color: C.tx2, gap: 0.5 });
   if (rows.some(r => Math.abs(r.z) > SD_RANGE)) flow.para(`Arrows at the edge mark values beyond ±${SD_RANGE} SD; the value shows its z-score.`, { size: 7.5, color: C.tx2, gap: 0.5 });
   if (hiddenUncalibrated) flow.para(`${hiddenUncalibrated} distance or area measurement(s) are not shown until the image is calibrated.`, { size: 7.5, color: C.warn, gap: 0.5 });
 }
@@ -916,7 +916,7 @@ function buildInterpretation(doc, interpretation, calibrated) {
     flow.para(head, { size: 9, style: "bold", color: toneOf(d.zScore), gap: 0.5 });
     if (d.description) flow.para(d.description, { size: 8, color: C.tx3, gap: 0.3 });
     flow.para(d.interpretation || "No specific interpretation available.", { size: 8.5, color: C.tx2, gap: 0.3 });
-    flow.para(`Norm ${fmtValue(d.mean, unit)} ± ${d.sd != null ? d.sd.toFixed(1) : "?"}${d.normSource ? ` (${d.normSource})` : ""}${d.sdApproximate ? " — SD approximate" : ""}`, { size: 7.5, color: C.tx3, gap: 2 });
+    flow.para(`Norm ${fmtValue(d.mean, unit)} ± ${d.sd != null ? d.sd.toFixed(1) : "?"}${d.normSource ? ` (${d.normSource})` : ""}${d.sdApproximate ? (d.sdStatus === "unsourced" ? " — SD unsourced" : " — SD approximate") : ""}`, { size: 7.5, color: C.tx3, gap: 2 });
   }
 }
 

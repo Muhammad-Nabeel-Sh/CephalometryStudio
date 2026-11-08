@@ -1,6 +1,7 @@
 import { GuideBtn } from "../ui/ui.jsx";
 import { useMemo, useState, useRef, useCallback } from "react";
 import { generateInterpretation } from "../lib/interpretation.js";
+import { SD_STATUS_TEXT } from "../data/norms.js";
 import { deviationColor } from "../lib/utils.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { Icon } from "../ui/icons.jsx";
@@ -138,7 +139,7 @@ export default function InterpretationPanel({ allMeas, norms, t, formatAngle, ca
                   <div style={{ fontSize: 12, color: t.tx3, marginTop: 4 }}>
                     Patient: {d.measureType === "angle" && formatAngle ? formatAngle(d.value) : d.value.toFixed(2)} &nbsp;|&nbsp; Norm: {d.mean.toFixed(1)} ± {d.sd.toFixed(1)}
                     {d.normSource && <> &nbsp;—&nbsp; {d.normSource}</>}
-                    {d.sdApproximate && <span title="The source published no SD for this norm; the SD is a conventional approximation, so the deviation grade is indicative." style={{ marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px solid ${t.warn}`, color: t.warn }}>SD approx.</span>}
+                    {d.sdApproximate && (() => { const st = SD_STATUS_TEXT[d.sdStatus] || SD_STATUS_TEXT.approximate; return <span title={st.detail} style={{ marginLeft: 6, padding: "0 4px", borderRadius: 3, border: `1px solid ${t.warn}`, color: t.warn }}>{st.tag}</span>; })()}
                   </div>
                 </div>
               );

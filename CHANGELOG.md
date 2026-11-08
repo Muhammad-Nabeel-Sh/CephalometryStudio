@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased] - R script export and norm audit
+
+### Added
+- **Export R script** (study data preview and results): a self-contained .R file holding the exact values
+  the study analyzes, followed by the matching analysis. That's descriptive statistics with Shapiro-Wilk;
+  ICC via `psych::ICC` with Bland-Altman and Dahlberg; Welch, rank-based or paired tests with the study's
+  correction; RM-ANOVA and the REML mixed model (`lmerTest`) using the app's random-slope rule; correlation,
+  linear and logistic regression; and ROC/AUC with DeLong intervals (`pROC`). Each type was checked in
+  R 4.6.1 against the app's results. Superimposition and legacy airway studies export their data only.
+- **Norm provenance** (`src/data/normSources.js`, `docs/NORM_AUDIT.md`): every shipped analysis names its
+  source and population, with PMIDs and DOIs where PubMed confirmed them, and records whether the source
+  published SDs.
+
+### Changed
+- Norms whose SD isn't from a source known to publish one are flagged **SD unsourced** (154 rows) or
+  **SD approx.** (53 rows) in the interpretation, normogram and report. Previously only Steiner and Tweed
+  were flagged. The z-scores are unchanged, but their grades read as indicative.
+- The norm library shows each built-in preset's SD status and DOI.
+
+### Fixed
+- Research charts refit to their container when switching between tables, charts and side by side, or
+  when a panel opens, instead of keeping their old width and overflowing. A fixed chart width is ignored,
+  and the Diagnostic study's SVG charts scale down.
+- Dev server: "PDF failed: Failed to fetch dynamically imported module …/jspdf.js". The packages loaded
+  only on a click (jsPDF, Plotly, mathjs, KaTeX, the JPEG Lossless decoder) are now pre-bundled at startup,
+  so Vite no longer re-bundles them mid-session. Production builds weren't affected.
+
 ## [Unreleased] - Airway analysis rewritten
 
 The airway module is rebuilt from original papers (`docs/AIRWAY_MODULE_REWRITE_PLAN.md`). **Airway values

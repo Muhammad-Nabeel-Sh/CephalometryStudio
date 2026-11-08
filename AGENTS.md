@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **961 tests (Vitest)**
+- **No TypeScript**, **980 tests (Vitest)**
 
 ---
 
@@ -75,6 +75,7 @@ src/
 │   ├── landmarkMap.js          CEPHA29 landmark vocabulary + app-label mapping
 │   ├── landmarkModelInfo.js    Landmark model manifest (ONNX url/checksum/runtime)
 │   ├── norms.js                Normative data definitions
+│   ├── normSources.js          Norm provenance per analysis (citation, PMID/DOI, population, SD status)
 │   ├── normLibrary.js          Library norm browsing
 │   ├── communityNorms.js       GitHub-fetched community norms
 │   ├── silhouettes.js          Silhouette overlay data
@@ -178,6 +179,7 @@ src/
 │   ├── mixedModel.js           REML linear mixed model (random intercept/slope)
 │   ├── sampleSize.js           A-priori sample size
 │   ├── dataPreview.js          Study data matrix + tidy CSV
+│   ├── rScript.js              "Export R script": study data (long format) + matching R analysis
 │   ├── comparative.js          t-tests, ANOVA, MANOVA
 │   ├── correlation.js          Correlation + regression
 │   ├── longitudinal.js         RM-ANOVA, LMM
@@ -243,7 +245,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (961 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (980 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -586,6 +588,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Airway module (`src/airway/`, plan in `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: `definitions.js` is the single registry of landmarks, traced walls and measures; `geometry.js` is pure; `compute.js` (`computeAirway`) returns results with provenance; `norms.js` holds references checked against each paper's page, each tied to one construction. Don't add a reference without its paper, table and page, and don't attach one to a similar-sounding measure: papers define SPAS, MAS and IAS differently. Walls are found by `airwayRole`, points only by label on `type: "point"`. Mislik's p and t are `medianIqr`: no z-score, no flag. No OSA wording or risk score. `edges.js` only ever produces a preview. The overlay and report draw `computeAirway` output. Research reads airway values through `withAirwayMeasures` (in-memory `airwayValue` markups, added in `ResearchWorkspace`, never saved). Saved results from before go through `airwayResultsForDisplay`. `Data/Airway.csv` must list the registry's landmarks (tested).
 
+- **R script export + norm audit (Phase 1 items 9, 11)**: `research/rScript.js` builds the data from the same `sessionPrimaryMeasure` path as the engine, and its R mirrors each module's choices (ICC form, test policy, correction, the LMM random-slope LRT, the logit-scale DeLong CI). If you change a module's method, update its R block too; scripts were checked against the app in R 4.6.1. Norms: `data/normSources.js` gives every shipped analysis `sd: "published" | "approximate" | "unsourced"`, and `isApproximateSd`/`sdStatus` (re-exported from `norms.js`) flag anything not "published". A new analysis with norms needs an entry (tested). Add PMIDs/DOIs only when PubMed confirms them; the rules and the population-norm reading list are in `docs/NORM_AUDIT.md`.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -594,7 +598,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 961 tests pass (63 test files, 0 failures)
+- `npm test` — 980 tests pass (68 test files, 0 failures)
 
 
 

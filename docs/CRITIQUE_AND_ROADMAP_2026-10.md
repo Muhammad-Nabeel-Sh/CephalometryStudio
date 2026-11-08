@@ -325,6 +325,8 @@ Phases 0 and 1 are done. This section says how each Phase 2/3 item would be buil
 - **Done:**
   - **Item 16:** guided tracing, task modes, label decluttering and in-app dialogs (B1–B6).
   - **Item 20 (most of it):** the patient-centred home (C1). Most of the report designer also landed with the PDF report work: clinic logo and name, section choice, session comparison, preview, light/dark themes, bookmarks.
+- **Phase 1, item 9 (R script export): done 2026-11-08.** "R script" in the data preview and the results exports writes a self-contained .R file with the study's values and the matching analysis. Checked in R 4.6.1 against the app for every supported type (descriptive, reliability, comparative, longitudinal, correlation, diagnostic). Superimposition gets the data only.
+- **Phase 1, item 11 (norm audit): partly done 2026-11-08, see `docs/NORM_AUDIT.md`.** Every shipped norm has a provenance entry, and SDs that are approximate or unsourced are flagged (207 of 253 rows). Still to do: check values against the papers, split the sex- and age-specific tables, and add population sets; all three need the papers.
 - **Phase 1, item 10 (AI runtime): done 2026-11-06.**
   - Inference runs in a Web Worker and can be cancelled, with a main-thread fallback.
   - Threads (up to 8) come from `Document-Isolation-Policy`, not COOP/COEP, because COOP would break the Google sign-in popup. Chrome and Edge only; other browsers run one thread.

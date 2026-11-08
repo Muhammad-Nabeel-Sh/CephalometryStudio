@@ -3,6 +3,8 @@
 // All modules (constants.js, descriptive.js) MUST import from here.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { sdStatus } from "./normSources.js";
+
 export const DEFAULT_NORMS = {
   Steiner: {
     source: "Steiner, 1953 / Am J Orthod",
@@ -120,15 +122,12 @@ export const DEFAULT_NORMS = {
   },
 };
 
-// Norms whose SD was not published by the source (conventional approximations).
-// Steiner and Tweed gave means/ranges only, and many compiled analyses copy
-// Steiner's SNA/SNB/ANB ±2°. These are flagged so z-scores read as indicative.
-const APPROXIMATE_SD_ANALYSES = new Set(["Steiner Analysis", "Tweed Analysis", "General Ceph Analysis"]);
-const STEINER_COPIES = new Set(["SNA", "SNB", "ANB", "S-N-A", "S-N-B", "A-N-B"]);
+// Whether a norm's SD is flagged in the interpretation, normogram and report: the
+// source published none ("approximate") or none has been traced ("unsourced").
+// Provenance lives in normSources.js (audit: docs/NORM_AUDIT.md).
+export { sdStatus, normSource, SD_STATUS_TEXT } from "./normSources.js";
 
 export function isApproximateSd(analysisName, label, sd) {
-  if (APPROXIMATE_SD_ANALYSES.has(analysisName)) return true;
-  return STEINER_COPIES.has(label) && sd === 2;
+  const st = sdStatus(analysisName, label, sd);
+  return st === "approximate" || st === "unsourced";
 }
-
-

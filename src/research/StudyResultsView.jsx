@@ -16,6 +16,7 @@ import { AirwayStudyResults } from "./AirwayStudyPanel.jsx";
 import { ReliabilityCharts, DescriptiveCharts, ComparativeCharts, LongitudinalCharts, CorrelationCharts, DiagnosticCharts, SuperimpositionCharts, AirwayCharts } from "./moduleCharts.jsx";
 import { exportResultsCSV, buildResultsTables, tablesToTSV } from "./resultsExport.js";
 import { exportStudyPDF, exportStudyWord } from "./studyReportExport.js";
+import { downloadRScript, rScriptSupported } from "./rScript.js";
 import { summarizeStudy, methodsText, resultsText, referencesFor, stripTags } from "./studyReport.js";
 import { collectStudyWarnings } from "./studyWarnings.js";
 import { glossaryFor } from "./glossary.js";
@@ -156,7 +157,7 @@ function GlossaryPanel({ t, type }) {
   );
 }
 
-export default function StudyResultsView({ t, study, status, onFix, wide }) {
+export default function StudyResultsView({ t, study, status, onFix, wide, sessions, calibration }) {
   const [view, setView] = useState(wide ? "both" : "tables");
   const [panel, setPanel] = useState(null); // "text" | "glossary" | null
   const [msg, setMsg] = useState("");
@@ -194,6 +195,10 @@ export default function StudyResultsView({ t, study, status, onFix, wide }) {
         <Btn t={t} onClick={() => exportResultsCSV(study)}>CSV</Btn>
         <Btn t={t} onClick={pdf}>PDF report</Btn>
         <Btn t={t} onClick={() => { exportStudyWord(study, status); flash("Word document saved."); }}>Word</Btn>
+        {sessions && rScriptSupported(study.type) && (
+          <Btn t={t} onClick={() => { downloadRScript(study, sessions, calibration); flash("R script saved. It holds the study's current data."); }}
+            title="A self-contained .R file with this study's data and the matching analysis, to check the results in R">R script</Btn>
+        )}
       </div>
       {msg && <div role="status" style={{ fontSize: 12, color: t.acc, marginBottom: 8 }}>{msg}</div>}
 

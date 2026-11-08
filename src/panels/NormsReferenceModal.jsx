@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from "react";
-import { DEFAULT_NORMS } from "../data/norms.js";
+import { DEFAULT_NORMS, normSource, SD_STATUS_TEXT } from "../data/norms.js";
 import { addPreset, exportLibraryJSON, exportPresetJSON, exportPresetCSV, importLibraryJSON, importPresetCSV, validatePreset } from "../data/normLibrary.js";
 import { fetchCommunityNorms, installPreset, getContributionURL, getRepoURL } from "../data/communityNorms.js";
 import { Btn, GuideBtn, TabBar } from "../ui/ui.jsx";
@@ -177,7 +177,13 @@ export function NormsReferenceModal({ t, onAdd, onClose, userPresets, onSavePres
       <PresetCard key={p.key} t={t} title={p.name} source={[p.source, p.population].filter(Boolean).join(" · ")}
         tags={<>
           {!p.builtIn && <Tag color={t.ok}>My library</Tag>}
-          {p.sdApproximate && <span title={p.sdNote || "The SDs are approximate."}><Tag color={t.warn}>Approx. SD</Tag></span>}
+          {(() => {
+            const st = p.builtIn ? normSource(p.key) || normSource(p.name) : null;
+            if (p.sdApproximate || st?.sd === "approximate") return <span title={p.sdNote || st?.note || SD_STATUS_TEXT.approximate.detail}><Tag color={t.warn}>Approx. SD</Tag></span>;
+            if (st?.sd === "unsourced") return <span title={st.note || SD_STATUS_TEXT.unsourced.detail}><Tag color={t.warn}>SD unsourced</Tag></span>;
+            return null;
+          })()}
+          {p.builtIn && normSource(p.key)?.doi && <a href={`https://doi.org/${normSource(p.key).doi.split(",")[0].trim()}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: t.acc }}>DOI</a>}
         </>}
         actions={<>
           <Btn t={t} small onClick={() => p.norms.forEach(n => onAdd(n.label, n.mean, n.sd, n.type, p.source))} style={{ ...smallBtn, color: t.acc, border: `1px solid ${t.acc}66` }}>Add all ({p.norms.length})</Btn>
