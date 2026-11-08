@@ -31,6 +31,7 @@
 import { normalizeSessionImages } from "./cephxFormat.js";
 import { deriveKey, DriveError, findFile, listFiles, download, upload, ensureFolder } from "./driveBackup.js";
 import { getImageDataUrl, storeImageBlob, getRawPixels, storeRawPixels, getAllImageKeys } from "./imageStore.js";
+import { sessionImageEntries, mapStackFrames } from "../model/stack.js";
 
 export const SYNC_FOLDER = "Cephalometry Studio sync";
 const CONFIG_NAME = "sync.json";
@@ -48,7 +49,7 @@ export function caseJson(p) {
     ...p,
     sessions: (p.sessions || []).map((s) => {
       const n = normalizeSessionImages(s);
-      return { ...n, images: (n.images || []).map((img) => ({ ...img, dataUrl: null })) };
+      return mapStackFrames({ ...n, images: (n.images || []).map((img) => ({ ...img, dataUrl: null })) }, (f) => ({ ...f, dataUrl: null }));
     }),
   });
 }
@@ -67,7 +68,7 @@ export function hash(str) {
 
 export function imageKeys(p) {
   const keys = new Set();
-  for (const s of p?.sessions || []) for (const img of s?.images || []) {
+  for (const s of p?.sessions || []) for (const img of sessionImageEntries(s)) {
     if (img?.id) keys.add(img.id);
     if (img?.raw?.key) keys.add(img.raw.key);
   }

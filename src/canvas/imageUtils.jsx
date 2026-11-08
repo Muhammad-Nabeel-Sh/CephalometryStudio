@@ -158,17 +158,47 @@ export function applyEdgeKernel(idata, strength) {
 // slider drags don't freeze the UI. Falls back to synchronous processing if
 // the Worker constructor is unavailable (e.g. some test environments).
 //
-// Drain-latest pattern: when a slider is dragged, many processImageToCanvas
-// calls fire in rapid succession. Instead of queuing N worker tasks (one per
-// tick), we keep only the latest job. When the worker finishes the current
-// task, it checks for a newer pending job and dispatches that — skipping all
-// stale intermediate work. The image-processed event fires only for the final
-// result, so the canvas updates once with the latest parameters.
+// Latest-per-image queue: dragging a slider fires many processImageToCanvas
+// calls for the same image, and only the newest one matters. The queue keeps one
+// job per source image (a newer one replaces it) and serves the most recent image
+// first, so the frame on screen isn't kept waiting behind frames scrolled past.
+// It used to keep one job in total, so with several images (layers, the frames of
+// a stack) some were never processed although their canvas was already cached.
+// Jobs beyond MAX_QUEUED images are dropped and their canvas marked `_stale`, so
+// the caller processes it again when that image is drawn next.
+// The image-processed event fires when the queue empties.
 let _procWorker = null;
 let _workerId = 0;
 const _workerCallbacks = new Map();
 let _workerBusy = false;
-let _pendingJob = null; // latest { gen, canvas, ctx, img, nw, nh, proc, lutMode, lutInvert }
+const _pending = new Map(); // source image → its latest { gen, canvas, ctx, img, nw, nh, proc, lutMode, lutInvert }
+const MAX_QUEUED = 24;
+
+function _enqueue(job) {
+  _pending.delete(job.img);
+  _pending.set(job.img, job);
+  while (_pending.size > MAX_QUEUED) {
+    const [oldest, dropped] = _pending.entries().next().value;
+    _pending.delete(oldest);
+    dropped.canvas._stale = true;
+  }
+  if (!_workerBusy) _drain();
+}
+
+function _drain() {
+  if (!_pending.size) {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("Cephalometry Studio:image-processed"));
+    return;
+  }
+  const job = [..._pending.values()].pop(); // most recently requested image
+  _pending.delete(job.img);
+  _runWorker(job);
+}
+
+// For tests: what's waiting.
+export function _procQueueState() {
+  return { busy: _workerBusy, queued: [..._pending.values()].map(j => j.img) };
+}
 
 function _runWorker(job) {
   const worker = getProcWorker();
@@ -185,17 +215,7 @@ function _runWorker(job) {
     result.data.set(processedPixels);
     ctx.putImageData(result, 0, 0);
     _workerBusy = false;
-    if (_pendingJob && _pendingJob.gen > gen) {
-      const next = _pendingJob;
-      _pendingJob = null;
-      _runWorker(next);
-    } else {
-      _pendingJob = null;
-      if (typeof window !== "undefined")
-        window.dispatchEvent(
-          new CustomEvent("Cephalometry Studio:image-processed"),
-        );
-    }
+    _drain();
   });
   worker.postMessage({
     id: gen,
@@ -226,11 +246,7 @@ function getProcWorker() {
     _procWorker.onerror = () => {
       _procWorker = null;
       _workerBusy = false;
-      if (_pendingJob) {
-        const next = _pendingJob;
-        _pendingJob = null;
-        setTimeout(() => _runWorker(next), 0);
-      }
+      if (_pending.size) setTimeout(_drain, 0);
     };
   } catch {
     _procWorker = null;
@@ -278,11 +294,7 @@ export function processImageToCanvas(img, proc, lutMode, lutInvert) {
       lutMode,
       lutInvert,
     };
-    if (_workerBusy) {
-      _pendingJob = job; // overwrite stale intermediate jobs — only the latest matters
-    } else {
-      _runWorker(job);
-    }
+    _enqueue(job);
     return oc; // return canvas immediately — worker will update it async
   }
   // Fallback: synchronous processing (no Worker available)

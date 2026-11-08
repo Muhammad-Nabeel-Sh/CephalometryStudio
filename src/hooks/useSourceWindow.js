@@ -12,21 +12,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { uid } from "../lib/utils.js";
 import { getRawPixels } from "../storage/imageStore.js";
 import { buildLut, renderGray } from "../imaging/voi.js";
+import { rgbaToPngDataUrl } from "../imaging/readImage.js";
 import { logWarn } from "../lib/logger.js";
 
 const COMMIT_MS = 600;
 
-const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
-  const r = new FileReader();
-  r.onload = () => resolve(r.result);
-  r.onerror = () => reject(r.error);
-  r.readAsDataURL(blob);
-});
+// Same window? (A file's VOI LUT counts as one window.)
+export const sameWindow = (a, b) => !!a && !!b && (a.lut ? !!b.lut : !b.lut && Math.abs(a.center - b.center) < 1e-6 && Math.abs(a.width - b.width) < 1e-6);
 
 // `setLoadedImage(id, img)`: register a decoded image for drawing.
 // `onSourceChange(id)`: the pixels drawn for image `id` changed (drop cached
 // processing, redraw). `getImages()`: the session's current images.
-export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getImages, onSourceChange }) {
+// Frame stacks: `sharedWindow` is the window chosen for every frame; a frame shown
+// with another window is re-rendered with it (and saved like a user's change).
+// `onWindowChosen(win)` reports the user's choices so the caller can keep it.
+export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getImages, onSourceChange, sharedWindow = null, onWindowChosen }) {
   const base = (sessionImage || []).find((i) => i?.raw?.key) || null;
   const key = base?.raw?.key || null;
   const [loaded, setLoaded] = useState({ key: null, status: "none" });
@@ -52,11 +52,13 @@ export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getI
     return () => { live = false; };
   }, [key]);
 
-  // Leaving the image ends any preview.
+  // Leaving the image ends any preview, and forgets an unsaved window (so coming
+  // back to it applies the window again instead of waiting for a save that won't come).
   useEffect(() => () => {
-    cancelAnimationFrame(frameRef.current);
+    clearTimeout(frameRef.current);
     clearTimeout(timerRef.current);
     previewRef.current = null;
+    setDraft(null);
   }, [base?.id]);
 
   const status = !key ? "none" : loaded.key === key ? loaded.status : "loading";
@@ -65,8 +67,9 @@ export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getI
     const pv = previewRef.current, entry = baseRef.current, win = pendingRef.current;
     if (!pv || !entry || pv.id !== entry.id || !win) return;
     try {
-      const blob = await new Promise((resolve, reject) => pv.canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG encoding failed"))), "image/png"));
-      const dataUrl = await blobToDataUrl(blob);
+      // Encoded in a worker: a canvas's toBlob is throttled in background tabs.
+      const { width, height } = pv.canvas;
+      const dataUrl = await rgbaToPngDataUrl(pv.canvas.getContext("2d").getImageData(0, 0, width, height).data, width, height);
       if (previewRef.current !== pv || baseRef.current?.id !== entry.id) return; // superseded
       const img = new Image();
       await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = dataUrl; });
@@ -84,13 +87,16 @@ export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getI
   }, [setLoadedImage, updSession, getImages, onSourceChange]);
 
   // Preview `win` now; save it once the user pauses.
-  const setWindow = useCallback((win) => {
+  const applyWindow = useCallback((win) => {
     const entry = baseRef.current, raw = rawRef.current;
     if (!entry || !raw || raw.key !== entry.raw?.key) return;
     pendingRef.current = win;
     setDraft({ id: entry.id, window: win });
-    cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => {
+    // A short timer, not requestAnimationFrame: animation frames don't run while
+    // the page isn't being drawn, and saving waits for this preview. Each new value
+    // cancels the pending one, so a slider drag still renders at most once per tick.
+    clearTimeout(frameRef.current);
+    frameRef.current = setTimeout(() => {
       const w = pendingRef.current, { meta, pixels } = raw;
       let pv = previewRef.current;
       if (!pv || pv.id !== entry.id) {
@@ -105,10 +111,27 @@ export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getI
       ctx.putImageData(pv.image, 0, 0);
       previewRef.current = { ...pv, version: pv.version + 1 };
       onSourceChange(entry.id);
-    });
+    }, 16);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(commit, COMMIT_MS);
   }, [commit, onSourceChange]);
+
+  const onChosenRef = useRef(onWindowChosen);
+  useEffect(() => { onChosenRef.current = onWindowChosen; });
+  const setWindow = useCallback((win) => {
+    applyWindow(win);
+    onChosenRef.current?.(win);
+  }, [applyWindow]);
+
+  // A frame of a stack shown with a different window than the stack's: re-render
+  // it once its original pixels are loaded.
+  const ready = !!key && loaded.key === key && loaded.status === "ready";
+  useEffect(() => {
+    if (!ready || !sharedWindow || !base) return;
+    if (sameWindow(base.raw?.window, sharedWindow)) return;
+    if (draft?.id === base.id && sameWindow(draft.window, sharedWindow)) return;
+    applyWindow(sharedWindow);
+  }, [ready, sharedWindow, base, draft, applyWindow]);
 
   // The canvas to draw for an image instead of its saved rendering (or null),
   // and a version for cache keys. Read from the draw pipeline.
@@ -126,6 +149,7 @@ export function useSourceWindow({ sessionImage, setLoadedImage, updSession, getI
     presets: raw?.presets || [],
     window: draft && draft.id === base?.id ? draft.window : raw?.window || null,
     saving: !!(draft && draft.id === base?.id),
+    shared: !!sharedWindow || !!onWindowChosen && !!sessionImage?.[0]?.stackLayer,
     setWindow,
     previewFor,
   };

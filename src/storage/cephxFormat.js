@@ -23,6 +23,7 @@
 // (no project, no sessions array) are rejected.
 
 import { uid } from "../lib/utils.js";
+import { validStack } from "../model/stack.js";
 
 export const CEPHX_FORMAT = "cephx";
 // v2.0 → v2.1: `session.image` (singular) deprecated in favour of
@@ -98,6 +99,7 @@ function sanitizeSession(session, warnings) {
     ? s.calibration
     : { done: false, pxPerMm: 1, knownMm: "" };
   s.meta = (s.meta && typeof s.meta === "object") ? s.meta : {};
+  if (s.stack != null && !validStack(s.stack)) { s.stack = undefined; warnings.push("A session's frame stack was malformed and was removed; its shown frame is kept."); }
   if (!s.id) { s.id = uid(); warnings.push("A session was missing its id; a new one was generated."); }
   return s;
 }

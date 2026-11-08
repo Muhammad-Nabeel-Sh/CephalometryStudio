@@ -85,8 +85,8 @@ import {
   finalizeCalibManual,
   exportCSV as exportCSVData,
 } from "./workspace/calibration.js";
-import { loadImageFile, handleImageDrop } from "./workspace/images.js";
-import { IMAGE_ACCEPT } from "./imaging/readImage.js";
+import { loadImageFile, loadImageFiles, handleImageDrop } from "./workspace/images.js";
+import { IMAGE_ACCEPT, DICOM_ACCEPT } from "./imaging/readImage.js";
 import { Modal } from "./panels/Modal.jsx";
 import PanelGuideModal from "./panels/PanelGuideModal.jsx";
 import HomePage from "./panels/HomePage.jsx";
@@ -140,6 +140,10 @@ import { nextToReview, confirmPoint } from "./workspace/aiReview.js";
 import { PlacingGuide } from "./panels/PlacingGuide.jsx";
 import { Loupe } from "./panels/Loupe.jsx";
 import { NudgePad } from "./panels/NudgePad.jsx";
+import { StackBar } from "./panels/StackBar.jsx";
+import { hasStack, stackSwitch } from "./model/stack.js";
+// Frames of a stack kept decoded while scrolling (the rest reload from storage).
+const KEEP_DECODED_FRAMES = 12;
 import { canNudge, nudgeDelta } from "./lib/precision.js";
 import { leavesWorkspace, closesSheet } from "./lib/viewHistory.js";
 import { DialogHost } from "./ui/DialogHost.jsx";
@@ -353,6 +357,11 @@ function CalibModal({ t, calibration, onFinish, rulerLabel, rulerCount, onDetect
   const [ticks, setTicks] = useState(null);
   return (
     <div>
+      {calibration.done && calibration.method === "tiff" && (
+        <div style={{ fontSize: 12, color: t.warn, marginBottom: 12, lineHeight: 1.5 }}>
+          Now calibrated from the TIFF resolution ({calibration.source}): {calibration.pxPerMm.toFixed(4)} px/mm. Check it with a ruler: it is wrong if the image was resized, and magnification is included.
+        </div>
+      )}
       {calibration.done && calibration.method === "dicom" && (
         <div style={{ fontSize: 12, color: calibration.magnificationCorrected ? t.tx2 : t.warn, marginBottom: 12, lineHeight: 1.5 }}>
           Now calibrated from the DICOM file ({calibration.source}): {calibration.pxPerMm.toFixed(4)} px/mm.
@@ -1328,6 +1337,7 @@ function Workspace({
 
   // file input refs
   const openImgRef = useRef(null);
+  const dicomImgRef = useRef(null);
   const stackImgRef = useRef(null);
   const importRef = useRef(null);
 
@@ -1869,6 +1879,45 @@ function Workspace({
     // Ref-equality guard in merge() breaks the store→project↔project→store loop.
     useSessionStore.getState().merge(patch);
   }, []);
+  // ─── Frame stack (every frame of a multi-frame DICOM; model/stack.js) ──
+  // `stackRef` runs ahead of renders, so fast wheel steps never start from a
+  // stale index; it follows the project whenever the session's stack changes.
+  const stackRef = useRef(activeSession?.stack || null);
+  const recentFramesRef = useRef([]);
+  useLayoutEffect(() => { stackRef.current = activeSession?.stack || null; }, [activeSession?.stack]);
+  const showFrame = useCallback((target) => {
+    const images = useSessionStore.getState().sessionImage;
+    const stack = stackRef.current;
+    if (!images?.[0]?.stackLayer || !hasStack({ stack })) return;
+    const to = typeof target === "function" ? target(stack.index ?? 0) : target;
+    const patch = stackSwitch({ images, stack }, to);
+    if (!patch) return;
+    stackRef.current = patch.stack;
+    updSession(patch);
+    // Long stacks: keep only the last few frames decoded (each is a full bitmap
+    // plus its processed copy), and load the neighbours ahead of the next step.
+    const recent = recentFramesRef.current.filter((id) => id !== patch.images[0].id);
+    recent.unshift(patch.images[0].id);
+    const keep = new Set(images.map((e) => e.id));
+    for (const id of recent.splice(KEEP_DECODED_FRAMES)) {
+      if (keep.has(id)) continue;
+      delete imgRefs.current[id];
+      for (const k of procCache.current.keys()) if (k.startsWith(id + "-")) procCache.current.delete(k);
+    }
+    recentFramesRef.current = recent;
+    for (const n of [patch.stack.index + 1, patch.stack.index - 1]) {
+      const f = patch.stack.frames[n];
+      if (!f || imgRefs.current[f.id]) continue;
+      (f.dataUrl ? Promise.resolve(f.dataUrl) : getImageDataUrl(f.id)).then((src) => {
+        if (!src || imgRefs.current[f.id]) return;
+        const img = new Image();
+        img.onload = () => { imgRefs.current[f.id] = img; };
+        img.src = src;
+      });
+    }
+  }, [updSession]);
+  const showFrameRef = useRef(showFrame);
+  showFrameRef.current = showFrame;
   // ─── Two-way sync: session ↔ Zustand sessionStore ──────────────
   const lastSessionIdRef = useRef(null);
   useEffect(() => {
@@ -2204,12 +2253,23 @@ function Workspace({
     scheduleRedrawRef.current?.();
   }, []);
   const setLoadedImage = useCallback((id, img) => { imgRefs.current[id] = img; }, []);
+  // Frame stacks share one window: choosing it on a frame keeps it on the stack,
+  // and every frame shown is rendered with it.
+  const onWindowChosen = useCallback((win) => {
+    const st = stackRef.current;
+    if (!st || !useSessionStore.getState().sessionImage?.[0]?.stackLayer) return;
+    const next = { ...st, window: win };
+    stackRef.current = next;
+    updSession({ stack: next });
+  }, [updSession]);
   const sourceWindow = useSourceWindow({
     sessionImage,
     setLoadedImage,
     updSession,
     getImages: getSessionImages,
     onSourceChange,
+    sharedWindow: sessionImage[0]?.stackLayer ? activeSession?.stack?.window || null : null,
+    onWindowChosen,
   });
   const { previewFor } = sourceWindow;
 
@@ -2222,7 +2282,8 @@ function Workspace({
     const pv = previewFor(imgEntry.id);
     const key = `${imgEntry.id}-${JSON.stringify(p)}-${lm}-${li}${pv ? `-pv${pv.version}` : ""}`;
     const cached = procCache.current.get(key);
-    if (cached) return cached;
+    // `_stale`: the worker dropped this job (too many images queued); redo it.
+    if (cached && !cached._stale) return cached;
     const processed = processImageToCanvas(
       pv ? pv.canvas : imgRefs.current[imgEntry.id],
       p,
@@ -2605,6 +2666,20 @@ function Workspace({
       }),
     [dispatch, updSession, imgRefs, canvasSize, panRef, zoomRef],
   );
+  // Several files at once (Import DICOM): one session, one frame stack.
+  const loadImages = useCallback(
+    (files) =>
+      loadImageFiles(files, {
+        getImages: () => useSessionStore.getState().sessionImage,
+        dispatch,
+        updSession,
+        imgRefs,
+        canvasSize,
+        panRef,
+        zoomRef,
+      }),
+    [dispatch, updSession, imgRefs, canvasSize, panRef, zoomRef],
+  );
 
   const handleDrop = useCallback(
     (e) => {
@@ -2628,6 +2703,14 @@ function Workspace({
         nudgeRef.current(nudge.dx, nudge.dy)
       ) {
         e.preventDefault();
+        return;
+      }
+      // Frames of a stack: Page Up / Page Down step, Home / End jump.
+      if (!ctrl && !e.altKey && ["PageUp", "PageDown", "Home", "End"].includes(e.key) && stackRef.current
+        && useSessionStore.getState().sessionImage?.[0]?.stackLayer && !e.target.closest?.('select, [role="listbox"], [role="dialog"], [data-cmenu]')) {
+        e.preventDefault();
+        const last = (stackRef.current.frames?.length || 1) - 1;
+        showFrameRef.current(e.key === "PageUp" ? (i) => i - 1 : e.key === "PageDown" ? (i) => i + 1 : e.key === "Home" ? 0 : last);
         return;
       }
       const key = e.key.toLowerCase();
@@ -4057,7 +4140,17 @@ function Workspace({
     const c = canvasRef.current;
     if (!c) return;
     let syncPending = false;
+    let frameAcc = 0;
     const onWheel = (e) => {
+      // Shift + wheel steps through a frame stack (browsers may report it as deltaX).
+      if (e.shiftKey && stackRef.current && useSessionStore.getState().sessionImage?.[0]?.stackLayer) {
+        e.preventDefault();
+        e.stopPropagation();
+        frameAcc += e.deltaY || e.deltaX;
+        const steps = Math.trunc(frameAcc / 40);
+        if (steps) { frameAcc -= steps * 40; showFrameRef.current((i) => i + Math.sign(steps)); }
+        return;
+      }
       if (Math.abs(e.deltaY) > 0.1 || Math.abs(e.deltaX) > 0.1) {
         e.preventDefault();
         e.stopPropagation();
@@ -4864,6 +4957,19 @@ function Workspace({
         }}
       />
       <input
+        ref={dicomImgRef}
+        type="file"
+        accept={DICOM_ACCEPT}
+        multiple
+        aria-label="Import DICOM"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          e.target.value = "";
+          if (files.length) loadImages(files);
+        }}
+      />
+      <input
         ref={stackImgRef}
         type="file"
         accept={IMAGE_ACCEPT}
@@ -4896,6 +5002,7 @@ function Workspace({
         showDisplacement={showDisplacement}
         onSave={handleSaveProject}
         openImgRef={openImgRef}
+        dicomImgRef={dicomImgRef}
         importRef={importRef}
         dispatch={dispatch}
         calibration={calibration}
@@ -5066,6 +5173,9 @@ function Workspace({
                     }
                   }}
                 />
+              )}
+              {hasStack(activeSession) && sessionImage[0]?.stackLayer && (
+                <StackBar t={t} index={activeSession.stack.index ?? 0} count={activeSession.stack.frames.length} onShow={showFrame} />
               )}
               {!placingMode && canNudge(nudgeTarget) && navigator.maxTouchPoints > 0 && (
                 <NudgePad
@@ -6329,6 +6439,7 @@ export default function CephalometryStudio() {
               transform: { tx: 0, ty: 0, rot: 0, scale: 1 },
             },
       ];
+    if (result.image && result.stack) session.stack = result.stack;
     session.calibration = result.calibration || {
       done: false,
       pxPerMm: 1,

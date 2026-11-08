@@ -1,14 +1,14 @@
 // ─── DICOM import (Phase 2, item 15) ─────────────────────────────────────────
 //
-// Reads the first frame of a DICOM file into either
+// Reads one frame of a DICOM file (the first unless `frame` is given) into either
 //   gray: { pixels, meta }   stored values + display metadata (imaging/voi.js)
-//   rgba                     8-bit colour (photos, JPEG baseline)
+//   rgba                     8-bit colour (photos, JPEG baseline, palette colour)
 // plus a calibration from the pixel-spacing attributes and non-identifying
 // device information. Patient attributes are never read.
 //
 // Transfer syntaxes: implicit/explicit VR little endian, explicit big endian,
-// RLE lossless, JPEG baseline (8-bit), JPEG lossless (process 14), JPEG-LS and
-// JPEG 2000 (lossless and lossy). Decoders for the compressed ones load on
+// RLE lossless, JPEG baseline (8-bit), JPEG extended (12-bit), JPEG lossless
+// (process 14), JPEG-LS and JPEG 2000 (lossless and lossy). Decoders for the compressed ones load on
 // demand (imaging/codecs.js).
 
 import dicomParser from "dicom-parser";
@@ -152,12 +152,62 @@ function toRgba(samples, rows, cols, spp, photometric, planar, bits) {
   return rgba;
 }
 
-// Frame 0 of encapsulated (compressed) pixel data.
-function encapsulatedFrame(ds, el, frames, jpegFamily) {
+const jpegOffsets = new WeakMap(); // frame starts found by scanning, per pixel-data element
+
+// One frame of encapsulated (compressed) pixel data. Frames are found by the
+// Basic Offset Table, else one fragment per frame, else (JPEG) by scanning for
+// each frame's start-of-image marker.
+function encapsulatedFrame(ds, el, frames, index, jpegFamily) {
   if (frames <= 1) return dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, 0, el.fragments.length);
-  if (el.basicOffsetTable?.length) return dicomParser.readEncapsulatedImageFrame(ds, el, 0);
-  if (jpegFamily) return dicomParser.readEncapsulatedImageFrame(ds, el, 0, dicomParser.createJPEGBasicOffsetTable(ds, el));
-  return dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, 0, 1);
+  if (el.basicOffsetTable?.length) return dicomParser.readEncapsulatedImageFrame(ds, el, index);
+  if (el.fragments.length === frames) return dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, index, 1);
+  if (jpegFamily) {
+    if (!jpegOffsets.has(el)) jpegOffsets.set(el, dicomParser.createJPEGBasicOffsetTable(ds, el));
+    return dicomParser.readEncapsulatedImageFrame(ds, el, index, jpegOffsets.get(el));
+  }
+  throw new ImageImportError(`Frame ${index + 1} can't be located in this file's compressed data.`);
+}
+
+// ─── Palette colour (PS3.3 C.7.6.3.1.5) ──────────────────────────────────
+// Each stored value indexes red, green and blue tables. Entries are 8 or 16 bits;
+// segmented tables (an older, rare encoding) aren't supported.
+function paletteTable(ds, c, signed) {
+  if (ds.elements[`x0028122${c}`]) throw new ImageImportError("Segmented palette-colour tables are not supported.");
+  const descTag = `x0028110${c}`, dataTag = `x0028120${c}`;
+  const data = ds.elements[dataTag];
+  if (!ds.elements[descTag] || !data) throw new ImageImportError("This palette-colour image has no colour table.");
+  const n = ds.uint16(descTag, 0) || 65536;
+  const first = signed ? ds.int16(descTag, 1) : ds.uint16(descTag, 1);
+  // 16-bit words normally; some writers pack 8-bit entries one per byte.
+  const packed8 = data.length < n * 2;
+  const values = new Uint16Array(n);
+  for (let i = 0; i < n; i++) values[i] = packed8 ? ds.byteArray[data.dataOffset + i] : ds.uint16(dataTag, i);
+  let max = 0;
+  for (let i = 0; i < n; i++) if (values[i] > max) max = values[i];
+  return { first: first || 0, values, shift: max > 255 ? 8 : 0 };
+}
+
+export function applyPalette(ds, indices, signed) {
+  const [r, g, b] = ["1", "2", "3"].map(c => paletteTable(ds, c, signed));
+  const rgba = new Uint8ClampedArray(indices.length * 4);
+  const look = (t, v) => t.values[Math.min(t.values.length - 1, Math.max(0, v - t.first))] >> t.shift;
+  for (let i = 0, j = 0; i < indices.length; i++, j += 4) {
+    const v = indices[i];
+    rgba[j] = look(r, v); rgba[j + 1] = look(g, v); rgba[j + 2] = look(b, v); rgba[j + 3] = 255;
+  }
+  return rgba;
+}
+
+// Pixel Spacing may sit in the enhanced multi-frame functional groups (Pixel
+// Measures, 0028,9110): this frame's own group first, then the shared one.
+function functionalGroupFloat(ds, frame, tag, i) {
+  for (const [seq, item] of [["x52009230", frame], ["x52009229", 0]]) {
+    const group = ds.elements[seq]?.items?.[item]?.dataSet;
+    const measures = group?.elements?.x00289110?.items?.[0]?.dataSet;
+    const v = measures?.floatString(tag, i);
+    if (Number.isFinite(v)) return v;
+  }
+  return undefined;
 }
 
 function readVoiLut(ds, signed) {
@@ -176,18 +226,32 @@ function readVoiLut(ds, signed) {
 
 // ─── Decode ──────────────────────────────────────────────────────────────
 // `codecs` can be replaced (tests); the defaults load on demand.
-export async function decodeDicom(buffer, { codecs = defaultCodecs } = {}) {
-  const bytes = new Uint8Array(buffer);
-  let ds;
-  try {
-    ds = dicomParser.parseDicom(bytes, looksLikeDicom(bytes) ? undefined : { TransferSyntaxUID: "1.2.840.10008.1.2" });
-  } catch (e) {
-    const why = e?.exception || e?.message || String(e);
-    throw new ImageImportError(`This DICOM file could not be read (${why}).`);
+// Reading frame after frame of one file parses it once (the dataset is only read;
+// pixel data is copied out before any byte swapping).
+const parsed = new WeakMap();
+
+export async function decodeDicom(buffer, { codecs = defaultCodecs, frame = 0 } = {}) {
+  let cached = parsed.get(buffer);
+  if (!cached) {
+    const bytes = new Uint8Array(buffer);
+    try {
+      cached = { bytes, ds: dicomParser.parseDicom(bytes, looksLikeDicom(bytes) ? undefined : { TransferSyntaxUID: "1.2.840.10008.1.2" }) };
+    } catch (e) {
+      const why = e?.exception || e?.message || String(e);
+      throw new ImageImportError(`This DICOM file could not be read (${why}).`);
+    }
+    parsed.set(buffer, cached);
   }
+  const { bytes, ds } = cached;
   const get = {
     str: (tag, i) => ds.string(tag, i),
-    float: (tag, i) => { const v = ds.floatString(tag, i); return Number.isFinite(v) ? v : undefined; },
+    float: (tag, i) => {
+      // dicom-parser throws when an element has fewer values than `i`.
+      let v;
+      try { v = ds.floatString(tag, i); } catch { v = undefined; }
+      if (Number.isFinite(v)) return v;
+      return tag === "x00280030" ? functionalGroupFloat(ds, frame, tag, i) : undefined;
+    },
   };
   const uid = (ds.string("x00020010") || "1.2.840.10008.1.2").trim();
   const [kind, tsName] = TRANSFER[uid] || ["unknown", uid];
@@ -202,33 +266,41 @@ export async function decodeDicom(buffer, { codecs = defaultCodecs } = {}) {
   const photometric = (ds.string("x00280004") || (spp === 1 ? "MONOCHROME2" : "RGB")).trim().toUpperCase();
   const planar = ds.uint16("x00280006") === 1;
   const frames = parseInt(ds.string("x00280008") || "1", 10) || 1;
+  if (!(Number.isInteger(frame) && frame >= 0 && frame < frames)) throw new ImageImportError(`This file has ${frames} frame${frames === 1 ? "" : "s"}; frame ${frame + 1} doesn't exist.`);
   const notes = [];
-  if (frames > 1) notes.push(`The file has ${frames} frames; the first one was opened.`);
+  if (frames > 1) notes.push(`Frame ${frame + 1} of ${frames} was opened.`);
 
   let samples = null, rgba = null, decodedBits = bitsAllocated;
   if (kind === "native" || kind === "native-be") {
     if (bitsAllocated !== 8 && bitsAllocated !== 16) throw new ImageImportError(`${bitsAllocated}-bit pixel data is not supported.`);
     const len = rows * cols * spp * (bitsAllocated / 8);
-    if (el.length < len) throw new ImageImportError("The image data in this DICOM file is incomplete.");
-    const frame = bytes.slice(el.dataOffset, el.dataOffset + len);
+    if (el.length < len * (frame + 1)) throw new ImageImportError("The image data in this DICOM file is incomplete.");
+    const start = el.dataOffset + len * frame;
+    const data = bytes.slice(start, start + len);
     if (bitsAllocated === 16 && kind === "native-be") {
-      for (let i = 0; i < frame.length; i += 2) { const t = frame[i]; frame[i] = frame[i + 1]; frame[i + 1] = t; }
+      for (let i = 0; i < data.length; i += 2) { const t = data[i]; data[i] = data[i + 1]; data[i + 1] = t; }
     }
-    samples = bitsAllocated === 16 ? new Uint16Array(frame.buffer) : frame;
+    samples = bitsAllocated === 16 ? new Uint16Array(data.buffer) : data;
   } else if (["rle", "jpeg-baseline", "jpeg-extended", "jpeg-lossless", "jpeg-ls", "j2k"].includes(kind)) {
-    const frame = encapsulatedFrame(ds, el, frames, kind.startsWith("jpeg-") && kind !== "jpeg-ls");
+    const data = encapsulatedFrame(ds, el, frames, frame, kind.startsWith("jpeg-") && kind !== "jpeg-ls");
     if (kind === "rle") {
-      samples = decodeRle(frame, rows, cols, spp, bitsAllocated);
+      samples = decodeRle(data, rows, cols, spp, bitsAllocated);
     } else if (kind === "jpeg-baseline" || (kind === "jpeg-extended" && bitsStored <= 8)) {
-      rgba = (await codecs.decodeJpegBaseline(frame)).rgba;
+      rgba = (await codecs.decodeJpegBaseline(data)).rgba;
       if (photometric === "MONOCHROME1") {
         for (let i = 0; i < rgba.length; i += 4) { rgba[i] = 255 - rgba[i]; rgba[i + 1] = 255 - rgba[i + 1]; rgba[i + 2] = 255 - rgba[i + 2]; }
       }
-    } else if (kind === "jpeg-extended") {
-      throw new ImageImportError("12-bit JPEG Extended compression is not supported. Export the image uncompressed or as JPEG-LS/JPEG 2000.");
     } else {
-      const d = kind === "jpeg-lossless" ? await codecs.decodeJpegLossless(frame, bitsAllocated)
-        : kind === "jpeg-ls" ? await codecs.decodeJpegLS(frame) : await codecs.decodeJpeg2000(frame);
+      if (kind === "jpeg-extended" && spp !== 1) throw new ImageImportError("12-bit colour JPEG is not supported.");
+      let d;
+      try {
+        d = kind === "jpeg-lossless" ? await codecs.decodeJpegLossless(data, bitsAllocated)
+          : kind === "jpeg-extended" ? await codecs.decodeJpegExtended(data)
+          : kind === "jpeg-ls" ? await codecs.decodeJpegLS(data) : await codecs.decodeJpeg2000(data);
+      } catch (e) {
+        if (e instanceof ImageImportError) throw e;
+        throw new ImageImportError(`The compressed image couldn't be decoded (${e?.message || e}).`);
+      }
       if (d.width !== cols || d.height !== rows) throw new ImageImportError("The compressed image size doesn't match the file's header.");
       samples = d.samples;
       decodedBits = d.bits <= 8 ? 8 : 16;
@@ -251,8 +323,26 @@ export async function decodeDicom(buffer, { codecs = defaultCodecs } = {}) {
   const { calibration, note } = dicomCalibration(get);
   if (note) notes.push(note);
 
+  // Where this image sits in a series: Instance Number, then the slice position
+  // along the image normal (Image Position · (row × column direction)).
+  const ipp = [0, 1, 2].map(i => get.float("x00200032", i));
+  const iop = [0, 1, 2, 3, 4, 5].map(i => get.float("x00200037", i));
+  let position = null;
+  if (ipp.every(Number.isFinite)) {
+    if (iop.every(Number.isFinite)) {
+      const n = [iop[1] * iop[5] - iop[2] * iop[4], iop[2] * iop[3] - iop[0] * iop[5], iop[0] * iop[4] - iop[1] * iop[3]];
+      position = ipp[0] * n[0] + ipp[1] * n[1] + ipp[2] * n[2];
+    } else position = ipp[2];
+  }
+  const instance = parseInt(ds.string("x00200013") || "", 10);
+  const order = { instance: Number.isFinite(instance) ? instance : null, position };
+
   const gray = spp === 1 && photometric.startsWith("MONOCHROME");
-  if (!gray && !rgba && photometric === "PALETTE COLOR") throw new ImageImportError("Palette-colour DICOM images are not supported.");
+  if (!gray && !rgba && photometric === "PALETTE COLOR") {
+    if (spp !== 1) throw new ImageImportError("This palette-colour image has more than one sample per pixel.");
+    const idx = storedValues(samples, Math.min(bitsStored, decodedBits), decodedBits === bitsAllocated ? highBit : undefined, signed && decodedBits > 8);
+    rgba = applyPalette(ds, idx, signed);
+  }
   if (!gray && !rgba) {
     if (spp !== 3 || !["RGB", "YBR_FULL", "YBR_RCT", "YBR_ICT"].includes(photometric)) {
       throw new ImageImportError(`This DICOM colour format (${photometric}) is not supported.`);
@@ -261,7 +351,7 @@ export async function decodeDicom(buffer, { codecs = defaultCodecs } = {}) {
     const ph = kind === "native" || kind === "native-be" || kind === "rle" ? photometric : "RGB";
     rgba = toRgba(samples, rows, cols, spp, ph, planar && (kind === "native" || kind === "native-be"), decodedBits);
   }
-  if (rgba) return { format: "DICOM", width: cols, height: rows, gray: null, rgba, calibration, notes, source };
+  if (rgba) return { format: "DICOM", width: cols, height: rows, gray: null, rgba, calibration, notes, source, frames, frame, order };
 
   const pixels = storedValues(samples, Math.min(bitsStored, decodedBits), decodedBits === bitsAllocated ? highBit : undefined, signed && decodedBits > 8);
   const { lo, hi } = valueRange(pixels);
@@ -286,5 +376,5 @@ export async function decodeDicom(buffer, { codecs = defaultCodecs } = {}) {
     voiLut: readVoiLut(ds, signed),
   };
   if (!meta.slope) meta.slope = 1;
-  return { format: "DICOM", width: cols, height: rows, gray: { pixels, meta }, rgba: null, calibration, notes, source };
+  return { format: "DICOM", width: cols, height: rows, gray: { pixels, meta }, rgba: null, calibration, notes, source, frames, frame, order };
 }

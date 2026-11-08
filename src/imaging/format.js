@@ -1,7 +1,13 @@
 // File-type sniffing and the import error, kept apart from the decoders so the
 // DICOM/TIFF libraries load only when such a file is opened.
 
-export class ImageImportError extends Error {}
+export class ImageImportError extends Error {
+  // `cancelled`: the user chose not to open the file (callers stay silent).
+  constructor(message, { cancelled = false } = {}) {
+    super(message);
+    this.cancelled = cancelled;
+  }
+}
 
 // "DICM" after the 128-byte preamble.
 export function looksLikeDicom(bytes) {

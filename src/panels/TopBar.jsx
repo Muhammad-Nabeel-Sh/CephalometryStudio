@@ -24,7 +24,7 @@ const outline = children => <svg {...SIZE} viewBox="0 0 24 24" fill="none" strok
 export default function TopBar({
   t, theme, project, onHome,
   onSave,
-  openImgRef, importRef, calibration,
+  openImgRef, dicomImgRef, importRef, calibration,
   setTheme,
 }) {
   const dispatch = useStoreDispatch();
@@ -101,6 +101,18 @@ export default function TopBar({
       <BarBtn t={t} title="Open image" onClick={() => openImgRef.current?.click()}>
         {material("M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm40-80h480L570-480 450-320l-90-120-120 160Zm-40 80v-560 560Z")}
       </BarBtn>
+      {dicomImgRef && (
+        <BarBtn t={t} title="Import DICOM: choose one file or several; all their images go into this session as one stack" onClick={() => dicomImgRef.current?.click()}>
+          {outline(<>
+            {/* A stack of image sheets with an arrow into it: import a series */}
+            <rect x="8" y="3" width="13" height="13" rx="2" />
+            <path d="M5 6.5V17a2 2 0 0 0 2 2h10.5" />
+            <path d="M2.5 9.5V20a1.5 1.5 0 0 0 1.5 1.5h10.5" />
+            <path d="M14.5 6v6.5" />
+            <path d="m11.75 9.75 2.75 2.75 2.75-2.75" />
+          </>)}
+        </BarBtn>
+      )}
       <BarBtn t={t} title="Import (.cephx)" onClick={() => importRef.current?.click()}>
         {material("M440-320v-326L336-542l-56-58 200-200 200 200-56 58-104-104v326h-80ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z")}
       </BarBtn>

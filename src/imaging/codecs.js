@@ -80,6 +80,24 @@ export async function decodeJpegLossless(bytes, bitsAllocated) {
   };
 }
 
+// JPEG Extended (process 2 & 4, 12-bit) grayscale: browsers decode only 8-bit
+// JPEG, so this uses the vendored pdf.js-derived decoder (imaging/vendor/jpegImage.js).
+export async function decodeJpegExtended(bytes) {
+  const { default: JpegImage } = await import("./vendor/jpegImage.js");
+  const jpeg = new JpegImage();
+  try {
+    jpeg.parse(bytes);
+    jpeg.colorTransform = false;
+    if (jpeg.components.length !== 1) throw new Error("only grayscale is supported");
+    return {
+      width: jpeg.width, height: jpeg.height, bits: 16, components: 1, signed: false,
+      samples: jpeg.getData16(jpeg.width, jpeg.height),
+    };
+  } catch (e) {
+    throw new Error(`JPEG Extended decoding failed (${e?.message || e})`);
+  }
+}
+
 // 8-bit baseline JPEG (grayscale or colour) → RGBA via the browser.
 export async function decodeJpegBaseline(bytes) {
   const bmp = await createImageBitmap(new Blob([bytes], { type: "image/jpeg" }));

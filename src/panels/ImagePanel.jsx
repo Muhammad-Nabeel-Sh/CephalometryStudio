@@ -4,6 +4,8 @@ import { Sld, Divider, PanelHeader, Btn, GuideBtn, Chip } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 
 const sameWindow = (a, b) => !!a && !!b && (a.lut ? !!b.lut : !b.lut && a.name === b.name && Math.abs(a.center - b.center) < 1e-6 && Math.abs(a.width - b.width) < 1e-6);
+// A stack's window is applied as numbers, so a preset chip stays lit on every frame.
+const sameValues = (a, b) => !!a && !!b && (a.lut ? !!b.lut : !b.lut && Math.abs(a.center - b.center) < 1e-6 && Math.abs(a.width - b.width) < 1e-6);
 
 // Window & level on the original 12–16-bit pixels (useSourceWindow).
 function SourceWindow({ t, sw }) {
@@ -13,13 +15,13 @@ function SourceWindow({ t, sw }) {
     <>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
         {sw.presets.map((p, i) => (
-          <Chip key={i} t={t} on={sameWindow(sw.window, p)} onClick={() => sw.setWindow(p)}>{p.name}</Chip>
+          <Chip key={i} t={t} on={sw.shared ? sameValues(sw.window, p) : sameWindow(sw.window, p)} onClick={() => sw.setWindow(p)}>{p.name}</Chip>
         ))}
       </div>
       <Sld label="Level" value={Math.round(win.center)} min={Math.floor(sw.min)} max={Math.ceil(sw.max)} onChange={v => sw.setWindow({ name: "Custom", center: v, width: win.width })} t={t} />
       <Sld label="Width" value={Math.round(win.width)} min={1} max={Math.ceil(span * 2)} onChange={v => sw.setWindow({ name: "Custom", center: win.center, width: v })} t={t} />
       <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.4, marginBottom: 4 }}>
-        {sw.saving ? "Applying…" : `Uses the original ${sw.bits}-bit image. The adjustments below act on the result.`}
+        {sw.saving ? "Applying…" : `Uses the original ${sw.bits}-bit image${sw.shared ? ", and applies to every frame" : ""}. The adjustments below act on the result${sw.shared ? " and apply to every frame too" : ""}.`}
       </div>
     </>
   );

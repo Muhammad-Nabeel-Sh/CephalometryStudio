@@ -29,6 +29,7 @@ import { storeImageBlob, getImageDataUrl, deleteImageBlob, deleteOrphanBlobs, ge
 import { encryptJSON, decryptJSON, encryptBytes, decryptBytes, secureStorageAvailable, clearSecureStorage, deleteStoredKey } from "./secureStorage.js";
 import { normalizeSessionImages, buildCephxPayload, BACKUP_FORMAT, BACKUP_VERSION } from "./cephxFormat.js";
 import { storageNames, activeProfileId } from "./profiles.js";
+import { sessionImageEntries, mapStackFrames } from "../model/stack.js";
 
 // Legacy localStorage autosave (and fallback store) of the active profile.
 export const STORAGE_KEY = storageNames().legacyKey;
@@ -54,12 +55,12 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 
 // Image-store keys in use: each image's rendering, and its original pixels
-// (`raw:<id>`) for 12–16-bit images.
+// (`raw:<id>`) for 12–16-bit images. Includes the frames of a session's stack.
 export function collectReferencedImageIds(projects) {
   const ids = new Set();
   for (const p of projects || []) {
     for (const s of p?.sessions || []) {
-      for (const img of s?.images || []) {
+      for (const img of sessionImageEntries(s)) {
         if (img && img.id) ids.add(img.id);
         if (img?.raw?.key) ids.add(img.raw.key);
       }
@@ -169,7 +170,7 @@ async function storeNewImages(projects) {
   let quota = false, unavailable = false;
   for (const p of projects) {
     for (const s of p.sessions || []) {
-      for (const img of s.images || []) {
+      for (const img of sessionImageEntries(s)) {
         if (!img || !img.dataUrl || !img.id) continue;
         if (_storedImages.get(img.id) === img.dataUrl) continue;
         const r = await storeImageBlob(img.id, img.dataUrl);
@@ -197,10 +198,10 @@ async function storeNewImages(projects) {
 function stripImages(p, failedIds) {
   return {
     ...p,
-    sessions: p.sessions?.map(s => ({
+    sessions: p.sessions?.map(s => mapStackFrames({
       ...s,
       images: s.images?.map(img => ({ ...img, dataUrl: img && failedIds.has(img.id) ? img.dataUrl : null })),
-    })),
+    }, f => ({ ...f, dataUrl: failedIds.has(f.id) ? f.dataUrl : null }))),
   };
 }
 
@@ -501,16 +502,22 @@ export async function deleteProfileData(profileId) {
 export async function hydrateProjectImages(project) {
   let missing = 0;
   const sessions = [];
+  const fill = async (img) => {
+    if (!img || img.dataUrl || !img.id) return img;
+    const dataUrl = await getImageDataUrl(img.id);
+    if (!dataUrl) missing++;
+    return { ...img, dataUrl: dataUrl || null };
+  };
   for (const s of project?.sessions || []) {
     const images = [];
-    for (const img of s?.images || []) {
-      if (img && !img.dataUrl && img.id) {
-        const dataUrl = await getImageDataUrl(img.id);
-        if (!dataUrl) missing++;
-        images.push({ ...img, dataUrl: dataUrl || null });
-      } else images.push(img);
+    for (const img of s?.images || []) images.push(await fill(img));
+    let out = { ...s, images };
+    if (s?.stack?.frames) {
+      const frames = [];
+      for (const f of s.stack.frames) frames.push(await fill(f));
+      out = { ...out, stack: { ...s.stack, frames } };
     }
-    sessions.push({ ...s, images });
+    sessions.push(out);
   }
   return { project: { ...project, sessions }, missing };
 }

@@ -1,5 +1,53 @@
 # Changelog
 
+## [Unreleased] - DICOM and TIFF import leftovers
+
+### Added
+- **Import DICOM** button in the workspace top bar and in the new-case wizard (DICOM files only in the
+  file dialog; Open image still takes every format). Several files can be chosen at once, for a series
+  saved one image per file: they all go into one session's stack, ordered by Instance Number, then slice
+  position, then file name. Files that can't be read are left out and named, and a note appears if the
+  pixel spacing differs between them (the calibration comes from the first image).
+- **Multi-frame DICOM in one session**: every frame is imported into the same session, and a frame bar over
+  the canvas moves between them (previous/next, slider, "n / N"). On the canvas: Shift + mouse wheel,
+  Page Up / Page Down, Home / End. Markups and calibration belong to the session; window/level saved on a
+  frame stays with that frame, and the shown frame is remembered. Frames are read and stored one at a time.
+  Up to 4,000 images; above 300 the app asks first, with an estimate of the browser storage the stack will
+  take. A single DICOM file may be up to 1 GB (other images 100 MB). While scrolling, only the last 12 frames
+  stay decoded and the neighbours load ahead. Batch import and adding a layer open frame 1 and say so. Compressed frames are found by the offset table, one fragment per frame, or JPEG
+  markers.
+- **Enhanced multi-frame calibration**: pixel spacing is read from the functional groups (the frame's own,
+  then the shared one) when the file has no top-level Pixel Spacing.
+- **Palette-colour DICOM** (8- and 16-bit tables).
+- **12-bit JPEG Extended DICOM**, using a vendored pdf.js-derived decoder with one fix for 12-bit level shift
+  (upstream put every pixel about 15 too high). It agrees with libjpeg within ±1 on the NEMA sample NM1_JPLY.
+- **TIFF resolution as a calibration offer**: when a TIFF gives a believable resolution (inch or cm units,
+  square pixels, 50–850 dpi, not the 72/96 dpi placeholders), a toast offers to use it. It's never applied
+  without a click, and the report says magnification is included.
+
+### Fixed
+- When the app can't load its DICOM/TIFF reader (offline before it was cached, the app updated since the
+  page loaded, or the dev server stopped), the message says to reload the page. It used to call the file
+  unsupported or corrupt.
+- A malformed Image Position or other multi-value attribute with too few values no longer stops a DICOM
+  file from opening.
+- **Adjustments reach every frame and every layer.** The image-processing worker kept one queued job in total,
+  so with several images (the frames of a stack, or layers) some were never processed but were still cached
+  as done: scrolling showed frames without their brightness, contrast, edge enhancement or LUT. The queue now
+  keeps the latest job per image, serves the image on screen first, and marks any it has to drop for redoing.
+- **Window & level is shared by the frames of a stack**: the window chosen on one frame (its values, not the
+  preset name) is applied to every frame as it's shown, and saved with it. Leaving a frame before its window
+  was saved no longer leaves it stuck; saving encodes in the PNG worker; the preview no longer waits for an
+  animation frame (which doesn't come while the page isn't drawn).
+
+### Performance
+- Images are converted to PNG in a worker. A canvas does it about once a second while the tab is in the
+  background, so a 350-frame import that took minutes in a background tab now takes about a second.
+- A multi-frame DICOM file is parsed once, not once per frame.
+
+### Not done
+- Deflated transfer syntax, segmented palette tables, 12-bit colour JPEG, and tests with real vendor files.
+
 ## [Unreleased] - R script export and norm audit
 
 ### Added

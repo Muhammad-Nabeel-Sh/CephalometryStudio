@@ -5,7 +5,7 @@ import { logError } from "../lib/logger.js";
 import { mkSession } from "../model/session.js";
 import { mkSubject, addSubject, addSession } from "../model/project.js";
 import { parseCsv } from "../model/csv.js";
-import { IMAGE_ACCEPT, isImportableFile, MAX_IMAGE_BYTES } from "../imaging/readImage.js";
+import { IMAGE_ACCEPT, isImportableFile, MAX_IMAGE_BYTES, MAX_DICOM_BYTES } from "../imaging/readImage.js";
 import { importImageFile, importErrorMessage } from "../workspace/images.js";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { notify } from "../ui/dialogs.js";
@@ -29,7 +29,8 @@ export default function BatchImportModal({ t, project, onUpdateProject, onClose 
   const handleImages = useCallback(async (files) => {
     const valid = Array.from(files).filter(f => {
       if (!isImportableFile(f)) { notify(`"${f.name}" is not an image file. Skipped.`, { tone: "warn" }); return false; }
-      if (f.size > MAX_IMAGE_BYTES) { notify(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Maximum 100 MB. Skipped.`, { tone: "warn" }); return false; }
+      const limit = /\.(dcm|dicom|dic)$/i.test(f.name) || f.type === "application/dicom" || !f.type ? MAX_DICOM_BYTES : MAX_IMAGE_BYTES;
+      if (f.size > limit) { notify(`"${f.name}" is too large (${(f.size/1024/1024).toFixed(1)} MB). Maximum ${limit / 1024 / 1024} MB. Skipped.`, { tone: "warn" }); return false; }
       return true;
     });
     if (valid.length === 0) return;

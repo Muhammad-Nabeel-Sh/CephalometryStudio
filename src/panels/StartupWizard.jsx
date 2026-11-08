@@ -3,8 +3,8 @@ import { PREDEFINED } from "../data/constants.js";
 import { Btn, Tag, GuideBtn } from "../ui/ui.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { notify } from "../ui/dialogs.js";
-import { IMAGE_ACCEPT } from "../imaging/readImage.js";
-import { importImageFile, importErrorMessage } from "../workspace/images.js";
+import { IMAGE_ACCEPT, DICOM_ACCEPT } from "../imaging/readImage.js";
+import { importImageFile, importImageFiles, importErrorMessage, askLargeImport } from "../workspace/images.js";
 
 const projectionKeyMap={
   "Submentovertex (SMV)":"smv",
@@ -35,19 +35,25 @@ function StepImage({ t, initialPreview, onImage, onNext }) {
   const [preview, setPreview] = useState(initialPreview || null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
+  const dicomRef = useRef(null);
   const [reading, setReading] = useState(false);
 
   // PNG/JPEG, DICOM and TIFF (DICOM brings its own calibration).
-  const load = useCallback((file) => {
-    if (!file) return;
+  // One file, or several chosen together (Import DICOM) → one stack.
+  const load = useCallback((input) => {
+    const files = (Array.isArray(input) ? input : [input]).filter(Boolean);
+    if (!files.length) return;
+    const file = files[0];
     setReading(true);
-    importImageFile(file)
-      .then(({ entry, read }) => {
+    (files.length > 1
+      ? importImageFiles(files, { confirmLarge: askLargeImport, onProgress: (done, total) => notify(`Reading file ${done} of ${total}…`, { key: "frame-import", duration: 4000 }) })
+      : importImageFile(file, { allFrames: true, confirmLarge: askLargeImport, onProgress: (done, total) => notify(`Importing frame ${done} of ${total}…`, { key: "frame-import", duration: 4000 }) }))
+      .then(({ entry, read, stack }) => {
         setPreview(entry.dataUrl);
-        onImage({ file, dataUrl: entry.dataUrl, entry, calibration: read.calibration });
+        onImage({ file, dataUrl: entry.dataUrl, entry, stack: stack || null, calibration: read.calibration });
         if (read.notes.length) notify(read.notes.join(" "), { tone: "info", duration: 12000 });
       })
-      .catch((e) => notify(importErrorMessage(file, e), { tone: "err" }))
+      .catch((e) => { if (!e?.cancelled) notify(importErrorMessage(file, e), { tone: "err" }); })
       .finally(() => setReading(false));
   }, [onImage]);
 
@@ -88,6 +94,16 @@ function StepImage({ t, initialPreview, onImage, onNext }) {
           </div>
         )}
       </div>
+
+      <input ref={dicomRef} type="file" accept={DICOM_ACCEPT} multiple aria-label="Import DICOM" style={{ display: "none" }}
+        onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; if (files.length) load(files); }}
+      />
+      {!preview && (
+        <Btn t={t} onClick={() => dicomRef.current?.click()} disabled={reading} style={{ width: "100%" }}
+          title="One file or several: all their images go into one session as a stack">
+          Import DICOM…
+        </Btn>
+      )}
 
       {preview && (
         <div style={{ display: "flex", gap: 8 }}>
@@ -437,6 +453,7 @@ function buildResult(name, imageData, calib, type, analysis, templateData, image
   return {
     name: imageName || "Untitled Case",
     image: buildImgEntry(imageData),
+    stack: imageData?.stack || null,
     calibration: buildCalib(calib),
     templateType: type,
     analysis,

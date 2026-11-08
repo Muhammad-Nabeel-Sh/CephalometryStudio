@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **980 tests (Vitest)**
+- **No TypeScript**, **1009 tests (Vitest)**
 
 ---
 
@@ -94,7 +94,8 @@ src/
 ├── imaging/                    Image import (DICOM, TIFF) and display
 │   ├── readImage.js            readImageFile (every import path): PNG/JPEG as is; DICOM/TIFF → PNG + original pixels
 │   ├── dicom.js                DICOM decode (dicom-parser): transfer syntaxes, stored values, VOI, dicomCalibration
-│   ├── codecs.js               Lazy decoders: CharLS (JPEG-LS), OpenJPEG (JPEG 2000) WASM, JPEG Lossless, browser JPEG
+│   ├── codecs.js               Lazy decoders: CharLS (JPEG-LS), OpenJPEG (JPEG 2000) WASM, JPEG Lossless, 12-bit JPEG, browser JPEG
+│   ├── vendor/jpegImage.js     Baseline/extended (8/12-bit) JPEG decoder (pdf.js-derived, via cornerstone; one local fix)
 │   ├── tiff.js                 TIFF decode (UTIF): 16-bit grayscale kept, others → RGBA
 │   ├── voi.js                  Modality/VOI LUT, windows, auto window, 8-bit rendering (pure)
 │   ├── ruler.js                Tick-spacing detection along a drawn line (autocorrelation, sub-pixel)
@@ -115,6 +116,7 @@ src/
 │   ├── csv.js                  CSV parsing
 │   ├── project.js              Project data model
 │   ├── patients.js             Home page: cases grouped by patient, timelines, search
+│   ├── stack.js                Frame stacks (multi-frame DICOM in one session): switch, entries, validation
 │   └── session.js              Session data model
 │
 ├── panels/                     All UI panel components
@@ -125,6 +127,7 @@ src/
 │   ├── PlacingGuide.jsx        Guided tracing banner, reference map, loupe controls
 │   ├── Loupe.jsx               Magnified view beside the pointer, drawn from the source image
 │   ├── NudgePad.jsx            On-screen arrows that move the selected landmark in exact steps
+│   ├── StackBar.jsx            Frame bar over the canvas for a multi-frame session (prev/next, slider)
 │   ├── AITraceOverlay.jsx      AI Trace button + loading screen (download warning/progress, cancel)
 │   ├── TopBar.jsx              Top bar (home, logo, save)
 │   ├── RightPanelSidebar.jsx   Vertical tab sidebar
@@ -245,7 +248,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (980 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (1009 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -568,7 +571,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Google Drive backup (cloud stage 1)**: `storage/driveBackup.js` + `panels/DriveBackupDialog.jsx`. Client ID from `VITE_GOOGLE_CLIENT_ID` (`.env.local` / Vercel env; `driveConfigured()` hides the UI without it; setup in `docs/GOOGLE_DRIVE_SETUP.md`). Google Identity Services token model, scope `drive.file`, token in memory only (≈1 h; `connect()` must run in a click — the dialog preloads GIS). The `buildBackupBlob` file is encrypted client-side (PBKDF2-SHA-256 600k + AES-GCM, header authenticated; container "CSB1", `encryptBackup`/`decryptBackup`) and uploaded resumably into the "Cephalometry Studio backups" folder; `passphrase-check.csb` detects a changed passphrase. Restore → `parseBackupPayload` → App `restoreBackup` (home page only). Never auto-deletes; "Trash" moves to the Drive trash. Tests: `src/test/driveBackup.test.js` (in-memory fake Drive via `_setTransport`). Study results views format numbers with `fmtNum` (`lib/utils.js`) so NaN/null statistics show "—" (`src/test/studyResultsRender.test.jsx`).
 
-- **DICOM/TIFF import (Phase 2, item 15)**: all import paths (Open image, drop, setup wizard, batch import) go through `imaging/readImage.readImageFile` via `workspace/images.importImageFile`. DICOM (`imaging/dicom.js`, dicom-parser; first frame; native LE/BE, RLE, JPEG baseline/lossless, JPEG-LS, JPEG 2000 — WASM decoders lazy in `imaging/codecs.js`, precached by the service worker) and TIFF (`imaging/tiff.js`, UTIF) are rendered to a PNG `dataUrl`, so canvas/AI/report/export are unchanged. 12–16-bit grayscale keeps its stored values encrypted in the image store under `raw:<id>` (`imageStore.storeRawPixels`/`getRawPixels`; referenced via `entry.raw.key`, kept by GC); `entry.raw` holds bits, range, window and presets, `entry.source` non-PHI device info. `hooks/useSourceWindow.js` previews a new window (drawn via `previewFor` in `getProcessed`) and saves it as a NEW image id (shared ids in other sessions stay unchanged). Calibration from DICOM (`dicomCalibration`): `{ done, pxPerMm, method: "dicom", source, magnificationCorrected }`; ruler tick detection (`imaging/ruler.js`, CalibModal "Detect Ticks") sets `method: "ticks"`; `calibrationStatement` reports both. Patient attributes are never read from DICOM. Tests: `src/test/imaging.test.js` (incl. JPEG-LS/J2K encoded with the codecs' full builds and a real JPEG Lossless file from `jpeg-lossless-decoder-js`). Not done: 12-bit JPEG Extended, deflate, multi-frame beyond the first frame, palette colour, TIFF resolution as calibration.
+- **DICOM/TIFF import (Phase 2, item 15)**: all import paths (Open image, drop, setup wizard, batch import) go through `imaging/readImage.readImageFile` via `workspace/images.importImageFile`. DICOM (`imaging/dicom.js`, dicom-parser; first frame; native LE/BE, RLE, JPEG baseline/lossless, JPEG-LS, JPEG 2000 — WASM decoders lazy in `imaging/codecs.js`, precached by the service worker) and TIFF (`imaging/tiff.js`, UTIF) are rendered to a PNG `dataUrl`, so canvas/AI/report/export are unchanged. 12–16-bit grayscale keeps its stored values encrypted in the image store under `raw:<id>` (`imageStore.storeRawPixels`/`getRawPixels`; referenced via `entry.raw.key`, kept by GC); `entry.raw` holds bits, range, window and presets, `entry.source` non-PHI device info. `hooks/useSourceWindow.js` previews a new window (drawn via `previewFor` in `getProcessed`) and saves it as a NEW image id (shared ids in other sessions stay unchanged). Calibration from DICOM (`dicomCalibration`): `{ done, pxPerMm, method: "dicom", source, magnificationCorrected }`; ruler tick detection (`imaging/ruler.js`, CalibModal "Detect Ticks") sets `method: "ticks"`; `calibrationStatement` reports both. Patient attributes are never read from DICOM. Tests: `src/test/imaging.test.js` (incl. JPEG-LS/J2K encoded with the codecs' full builds and a real JPEG Lossless file from `jpeg-lossless-decoder-js`). Multi-frame: `decodeDicom(buffer, { frame })` opens any frame (native, or compressed via the offset table / one fragment per frame / JPEG markers). Open image, Import DICOM, drop and the setup wizard import **every frame into one session stack** (`model/stack.js`: `session.stack = { frames, index }`; `readImageFile(file, { allFrames })` → `frameCount` + `readFrame(i)`, read one at a time; frames after the first are stored straight away, so only the shown one keeps a dataUrl; up to `MAX_STACK_FRAMES` (4000); above `LARGE_STACK_FRAMES` (300) callers pass `confirmLarge` (`askLargeImport`, with `estimateStackBytes`); a DICOM file may be 1 GB (`MAX_DICOM_BYTES`). The base layer `images[0]` IS the shown frame (marked `stackLayer`), so nothing else needs to know about stacks; `stackSwitch` swaps it and writes the shown frame back first (window/level saves change its id). Anything that walks a session's images for storage, GC, sync or export must use `sessionImageEntries(s)` / `mapStackFrames`. `StackBar` + Shift+wheel, Page Up/Down, Home/End on the canvas (App `showFrame`, `stackRef` runs ahead of renders; only `KEEP_DECODED_FRAMES` (12) frames stay in `imgRefs`/`procCache`, neighbours prefetched). Image processing (brightness/contrast/edge/LUT) is queued latest-per-image in `canvas/imageUtils.jsx` (most recent image first, >24 dropped → canvas `_stale`, which `getProcessed` redoes). A stack shares one window: `stack.window`, set by `useSourceWindow`'s `onWindowChosen`, applied to each frame shown via `sharedWindow` (compare with `sameWindow`, values only). PNG encoding runs in `imaging/pngEncoder.worker.js` (canvas toBlob is throttled to ~1/s in background tabs; canvas fallback); `decodeDicom` caches the parsed dataset per buffer. Batch import and adding a layer open frame 1. Import DICOM takes several files (`loadImageFiles` / `importImageFiles`): one stack in series order (`compareSeriesItems`: Instance Number, then position along the image normal from `decodeDicom`'s `order`, then natural file name), unreadable files skipped and named. Enhanced multi-frame pixel spacing is read from the functional groups. Palette colour (8/16-bit, not segmented) and 12-bit JPEG Extended (vendored pdf.js-derived decoder in `imaging/vendor/jpegImage.js`, one marked local fix for the 12-bit level shift; matches libjpeg within ±1 on `src/test/fixtures/dicom/JPGExtended.dcm`). TIFF resolution is only *offered* (`suggestedCalibration`, toast with "Use it", `method: "tiff"`) when the unit is inch/cm, X = Y, 50–850 dpi and not 72/96. Not done: deflate, segmented palettes, 12-bit colour JPEG, real vendor files.
 
 - **Encrypted IndexedDB storage (Phase 2, item 17 part 2)**: cases live in `storage/projectStore.js` (not App.jsx): one AES-GCM record per case in the `projects` store of `appDB.js` (DB v2; v1 tabs are fenced off by VersionError). Saves write only changed cases and delete only cases this tab loaded and removed, in one transaction; failed loads never delete. `loadProjects` (once per page) migrates the localStorage envelope with read-back verification, keeps it until a later load, and merges newer cases if an older build wrote it again (fingerprint in `meta.projects`). No usable IndexedDB → the localStorage envelope stays the store (never overwritten if unreadable). Images are encrypted records (`imageStore.js`); `runStorageMaintenance` encrypts older blobs once and sweeps orphans only if unreferenced on two reads a minute apart. Backups: `downloadBackup`/`buildBackupBlob` (format `cephx-backup`, entries are .cephx payloads, restored via `parseBackupPayload`); exports fill images through `hydrateProjectImages`. Tests: `src/test/projectStore.test.js` (fake-indexeddb + WebCrypto).
 
@@ -598,7 +601,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 980 tests pass (68 test files, 0 failures)
+- `npm test` — 1009 tests pass (70 test files, 0 failures)
 
 
 

@@ -382,6 +382,8 @@ Phases 0 and 1 are done. This section says how each Phase 2/3 item would be buil
 #### 15. DICOM/TIFF import, automatic calibration, ruler detection
 **Done 2026-10-30** (see CHANGELOG): DICOM (incl. JPEG-LS/2000, RLE, JPEG Lossless), TIFF, calibration from pixel spacing with magnification provenance, window/level on the original 12–16-bit data, semi-automatic tick detection. Still to test with real vendor files (Carestream, Planmeca, Sirona); 12-bit JPEG Extended and multi-frame are not supported.
 
+**Leftovers done 2026-11-08:** multi-frame files open as one session with a frame bar (Shift + wheel, Page Up/Down), a separate Import DICOM button, enhanced multi-frame pixel spacing, palette colour, 12-bit JPEG Extended (checked against libjpeg on a NEMA sample) and TIFF resolution offered as a calibration. Still open: tests with real Carestream/Planmeca/Sirona files (needs files from a clinic), deflate, segmented palettes, and a ruler detection model (after item 13).
+
 **How:**
 - **DICOM:**
   - Parse with `dicom-parser`. Compressed files need lazy-loaded WASM decoders: CharLS for JPEG-LS and OpenJPEG for JPEG 2000 (~1 MB, loaded only when needed).

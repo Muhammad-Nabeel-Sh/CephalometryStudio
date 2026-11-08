@@ -527,6 +527,10 @@ export function calibrationStatement(calibration, projection) {
       : ceph ? " The spacing is at the detector, so radiographic magnification (typically 8–15% on cephalograms) is included in these values." : "";
     return `Calibrated from the DICOM file (${calibration.source}): ${ppm.toFixed(2)} px/mm (${(1 / ppm).toFixed(3)} mm per pixel).${mag}`;
   }
+  if (calibration.method === "tiff") {
+    const mag = ceph ? " This is the scanner or detector resolution, so radiographic magnification (typically 8–15% on cephalograms) is included." : "";
+    return `Calibrated from the TIFF file's resolution (${calibration.source}): ${ppm.toFixed(2)} px/mm (${(1 / ppm).toFixed(3)} mm per pixel).${mag}`;
+  }
   const how = calibration.method === "ticks" ? `from the tick marks of a ruler on the image (${calibration.source})`
     : calibration.knownMm ? `from a ruler of ${calibration.knownMm} mm on the image` : "manually";
   const mag = ceph

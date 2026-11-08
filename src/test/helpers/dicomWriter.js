@@ -159,16 +159,21 @@ export function rleFrame16(pixels) {
 }
 
 // Baseline uncompressed TIFF (one strip). samples: Uint16Array (gray 16) or Uint8Array (RGB 8).
-export function writeTiff({ width, height, samples, bits = 16, spp = 1, photometric = 1 }) {
+// `resolution`: { x, y, unit } → XResolution/YResolution (RATIONAL) and ResolutionUnit.
+export function writeTiff({ width, height, samples, bits = 16, spp = 1, photometric = 1, resolution = null }) {
   const dataLen = samples.byteLength;
   const entries = [
     [256, 3, 1, width], [257, 3, 1, height], [258, 3, spp, bits], [259, 3, 1, 1],
     [262, 3, 1, photometric], [273, 4, 1, 0 /* patched */], [277, 3, 1, spp],
     [278, 3, 1, height], [279, 4, 1, dataLen],
+    ...(resolution ? [[282, 5, 1, resolution.x], [283, 5, 1, resolution.y ?? resolution.x], ...(resolution.unit ? [[296, 3, 1, resolution.unit]] : [])] : []),
   ];
   const ifdOff = 8, ifdLen = 2 + entries.length * 12 + 4;
   const bpsOff = ifdOff + ifdLen;                 // BitsPerSample array when spp > 1
-  const dataOff = bpsOff + (spp > 1 ? spp * 2 : 0);
+  const ratOff = bpsOff + (spp > 1 ? spp * 2 : 0); // RATIONAL values, 8 bytes each
+  const nRat = entries.filter(e => e[1] === 5).length;
+  const dataOff = ratOff + nRat * 8;
+  let ratAt = ratOff;
   const buf = new ArrayBuffer(dataOff + dataLen), dv = new DataView(buf), u8 = new Uint8Array(buf);
   u8.set([0x49, 0x49, 42, 0]);
   dv.setUint32(4, ifdOff, true);
@@ -176,7 +181,11 @@ export function writeTiff({ width, height, samples, bits = 16, spp = 1, photomet
   entries.forEach(([tag, type, count, value], i) => {
     const o = ifdOff + 2 + i * 12;
     dv.setUint16(o, tag, true); dv.setUint16(o + 2, type, true); dv.setUint32(o + 4, count, true);
-    if (tag === 273) dv.setUint32(o + 8, dataOff, true);
+    if (type === 5) {
+      dv.setUint32(o + 8, ratAt, true);
+      dv.setUint32(ratAt, Math.round(value * 1000), true); dv.setUint32(ratAt + 4, 1000, true);
+      ratAt += 8;
+    } else if (tag === 273) dv.setUint32(o + 8, dataOff, true);
     else if (tag === 258 && spp > 1) dv.setUint32(o + 8, bpsOff, true);
     else if (type === 3) dv.setUint16(o + 8, value, true);
     else dv.setUint32(o + 8, value, true);
