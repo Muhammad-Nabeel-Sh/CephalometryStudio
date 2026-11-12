@@ -12,7 +12,7 @@ export const PREF_KEYS = [
   "autoHideLabels", "annotationBold", "labelLayout", "labelsActiveOnly",
   "snapTolerance", "defaultLineStyle", "defaultMarkupColor", "defaultLineWidth",
   "showCpAlways", "showAnchorAlways", "readableText", "reportTheme",
-  "reportClinicName", "reportClinicLogo", "penOnly", "loupeZoom",
+  "reportClinicName", "reportClinicLogo", "penOnly", "loupeZoom", "researchPaper",
 ];
 const PREFS_KEY = "cephalo_prefs_v1";
 let savedPrefs = {};
@@ -74,6 +74,8 @@ export const useUIStore = create(() => ({
   penOnly: false,
   // Markup id whose measurement card is hovered or tapped (canvas/measureHighlight.js).
   measurementHighlight: null,
+  // Research results page: "white" (default) or "dark" paper (research/paper.js).
+  researchPaper: "white",
   // Loupe magnification, relative to the current view (lib/precision.js).
   loupeZoom: 4,
 
@@ -113,3 +115,10 @@ useUIStore.subscribe((s, prev) => {
   if (!PREF_KEYS.some(k => s[k] !== prev[k])) return;
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries(PREF_KEYS.map(k => [k, s[k]])))); } catch { /* storage blocked */ }
 });
+
+// Choosing a side-panel tab. Research isn't a side panel: it opens the
+// full-screen workspace and leaves the current panel as it was.
+export function showPanel(key, extra = {}) {
+  if (key === "research") useUIStore.setState({ researchOpen: true });
+  else useUIStore.setState({ rightPanel: key, ...extra });
+}

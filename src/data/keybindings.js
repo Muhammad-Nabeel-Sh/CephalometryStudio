@@ -45,6 +45,10 @@ export const KEYBINDINGS = [
   { id: "zoomOut",         key: "-" },
   { id: "zoomReset",       key: "0" },
 
+  // ─── Research workspace ───────────────────────────────────────────────────
+  // Before the tools, so Shift+R isn't taken as the ruler.
+  { id: "research",        key: "r", shift: true },
+
   // ─── Tool shortcuts ─────────────────────────────────────────────────────────
   // Single-key shortcuts that activate a drawing/selection tool.
   // Must come after non-tool bindings so that e.g. Ctrl+Z isn't caught as "z".
@@ -72,3 +76,12 @@ export const KEYBINDINGS = [
   { id: "tool",            key: "w", toolId: "concentric" },
   { id: "tool",            key: "x", toolId: "mirror" },
 ];
+
+// The first binding a key event matches. Bindings that don't ask for Ctrl/Shift
+// also match with them held, so order matters (see the research entry).
+export function matchKeybinding(e) {
+  const ctrl = !!(e.ctrlKey || e.metaKey);
+  const shift = !!e.shiftKey;
+  const key = String(e.key || "").toLowerCase();
+  return KEYBINDINGS.find(b => (!b.ctrl || ctrl) && (!b.shift || shift) && b.key === key) || null;
+}

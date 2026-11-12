@@ -12,3 +12,5 @@ import "@fontsource/dm-mono/400.css";
 import "@fontsource/dm-mono/500.css";
 import "@fontsource/syne/700.css";
 import "@fontsource/syne/800.css";
+import "@fontsource/source-serif-4/400.css";
+import "@fontsource/source-serif-4/600.css";

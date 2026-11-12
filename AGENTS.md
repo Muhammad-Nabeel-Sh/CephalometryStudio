@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **1030 tests (Vitest)**
+- **No TypeScript**, **1057 tests (Vitest)**
 
 ---
 
@@ -53,7 +53,7 @@ npm run setup:ort
 src/
 ├── App.jsx                     Root component (~6150 lines)
 ├── main.jsx                    Entry point (registers the service worker in production)
-├── fonts.js                    Self-hosted interface fonts (@fontsource; no Google Fonts)
+├── fonts.js                    Self-hosted fonts (@fontsource; no Google Fonts): DM Sans, DM Mono, Syne, Source Serif 4 (research write-up)
 ├── pwa.js                      Service worker registration + "new version" toast
 ├── index.css                   Global styles
 │
@@ -199,8 +199,12 @@ src/
 │   ├── SuperimpositionPanel.jsx Superimposition config + results (7 tabs)
 │   ├── AirwayStudyPanel.jsx    Airway study config + results
 │   ├── LabelSelector.jsx       Measurement picker shared by every study setup
-│   ├── ResearchWorkspace.jsx   Full-screen studies workspace (list, stepper, run, blinding lock)
-│   ├── StudyResultsView.jsx    Summary, caveats, APA text, glossary, tables/charts, exports
+│   ├── ResearchWorkspace.jsx   Full-screen studies workspace: study list, header with Run/Export/More, tabs, new-study picker, blinding lock
+│   ├── workspaceUi.jsx         Menu (action menu) and Pipeline (a study's three progress bars)
+│   ├── paper.js                paperTheme / sheetBackground: white or dark paper for the results page
+│   ├── studyExports.js         The Export menu items (PDF, Word, CSV, Copy table, R script)
+│   ├── setupReadiness.js       What a study still needs before it runs (setup page's "Before you run" panel)
+│   ├── StudyResultsView.jsx    Results as a manuscript page: summary, tables, figures, APA text; caveats as margin notes; glossary
 │   ├── studyState.js           Data fingerprint + study status (stale / current / …)
 │   ├── studyWarnings.js        One ranked list of caveats per study
 │   ├── studyReport.js          Plain-language summary + APA 7 methods/results/references
@@ -250,7 +254,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (1030 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (1057 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -593,6 +597,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Top bar**: every action uses `BarBtn` (`panels/TopBar.jsx`), sized in `index.css` (`.topbar-btn`): 36 px with a 20 px icon, or 44 px with a 22 px icon at 1024 px and below or on coarse pointers. Icons use `currentColor`, so active states stay readable. The app name hides at 1280 px and below; the theme swatches and label-size slider leave the bar on touch sizes (both are in Settings). 5 tests in `src/test/topBar.test.jsx`.
 
+- **Research workspace redesign ("protocol to manuscript")**: the open study has one run button in its header (Run analysis, Re-run in amber when out of date, Cancel while running, a lock while blinded), an Export menu and a More menu (Rename, Duplicate, Archive, Delete, Guide); tabs are Setup, Data, Results and Protocol notes (the old Run step is gone; a saved "run" step opens Results). Study rows show three progress bars (`Pipeline`) with the status in their aria-label. New studies are picked by question (`QUESTIONS` in `ResearchWorkspace.jsx`; legacy types stay hidden, unlisted types fall under "Other analyses"). Results are a page (`.rs-sheet` in `index.css` sets the existing result tables as three-rule tables) on white paper by default or dark paper (uiStore `researchPaper`, a saved pref); the per-type tables and charts get the paper theme, and charts are keyed on the paper because Plotly keeps its first colours. Caveats are notes beside the page (above it on narrow screens). `Menu` takes items as a function so exports are built on click, not during render. Setup is titled sections (`Section`: Sessions, Assignment, Analysis) with a "Before you run" panel (`setupReadiness`: groups, cases, subjects with two or more timepoints, measurements for types with a picker, assignment warnings; it never blocks a run), pinned beside the form at 1280 px and above, above it otherwise, and a sticky footer. `.rs-setup` in `index.css` gives the per-type setup panels one set of control sizes and keeps long drop-downs inside a phone screen. Opening: the Research tab is not a side panel; `showPanel(key)` (uiStore) opens the workspace for "research" and leaves `rightPanel` alone, from the sidebar and the phone More sheet; also the top bar's Research button and Shift+R (`matchKeybinding` in `data/keybindings.js`, which App uses; the research entry sits before the tools so plain R stays the ruler). The sample size calculator is a toggle in the workspace header. Above 1024 px the workspace stops 24 px short of the bottom, where the app's disclaimer bar (z-index 999) sits. 13 tests in `src/test/researchRedesign.test.jsx`, 14 in `src/test/researchSetup.test.jsx`.
+
 - **Airway module (`src/airway/`, plan in `docs/AIRWAY_MODULE_REWRITE_PLAN.md`)**: `definitions.js` is the single registry of landmarks, traced walls and measures; `geometry.js` is pure; `compute.js` (`computeAirway`) returns results with provenance; `norms.js` holds references checked against each paper's page, each tied to one construction. Don't add a reference without its paper, table and page, and don't attach one to a similar-sounding measure: papers define SPAS, MAS and IAS differently. Walls are found by `airwayRole`, points only by label on `type: "point"`. Mislik's p and t are `medianIqr`: no z-score, no flag. No OSA wording or risk score. `edges.js` only ever produces a preview. The overlay and report draw `computeAirway` output. Research reads airway values through `withAirwayMeasures` (in-memory `airwayValue` markups, added in `ResearchWorkspace`, never saved). Saved results from before go through `airwayResultsForDisplay`. `Data/Airway.csv` must list the registry's landmarks (tested).
 
 - **R script export + norm audit (Phase 1 items 9, 11)**: `research/rScript.js` builds the data from the same `sessionPrimaryMeasure` path as the engine, and its R mirrors each module's choices (ICC form, test policy, correction, the LMM random-slope LRT, the logit-scale DeLong CI). If you change a module's method, update its R block too; scripts were checked against the app in R 4.6.1. Norms: `data/normSources.js` gives every shipped analysis `sd: "published" | "approximate" | "unsourced"`, and `isApproximateSd`/`sdStatus` (re-exported from `norms.js`) flag anything not "published". A new analysis with norms needs an entry (tested). Add PMIDs/DOIs only when PubMed confirms them; the rules and the population-norm reading list are in `docs/NORM_AUDIT.md`.
@@ -605,7 +611,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 1030 tests pass (72 test files, 0 failures)
+- `npm test` — 1057 tests pass (74 test files, 0 failures)
 
 
 

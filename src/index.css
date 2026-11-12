@@ -325,3 +325,26 @@ html.readable-text [style*="font-size: 11.5px"]:not(svg *):not([data-small]) {
 /* Scrollable without a visible scrollbar (desktop tool rail). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Research results page (research/StudyResultsView.jsx): the result tables are set
+   as three-rule academic tables, whatever their own borders and fonts. */
+.rs-sheet table { border-collapse: collapse; border-top: 1.5px solid var(--rs-rule) !important; border-bottom: 1.5px solid var(--rs-rule) !important;
+  font-family: "DM Sans", sans-serif !important; font-variant-numeric: tabular-nums; margin-bottom: 18px; }
+.rs-sheet tr, .rs-sheet th, .rs-sheet td { border-left: none !important; border-right: none !important; border-top: none !important; border-bottom: none !important; background: transparent !important; }
+.rs-sheet thead tr, .rs-sheet table > tbody:first-child > tr:first-child:has(th) { border-bottom: 1px solid var(--rs-rule) !important; }
+.rs-sheet th { font-weight: 600 !important; }
+
+/* Text for screen readers only. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Research setup (ResearchWorkspace.jsx): the per-type setup panels share one set
+   of control sizes, so the form reads as one piece. */
+.rs-setup { font-size: 13px; line-height: 1.5; }
+.rs-setup select,
+.rs-setup input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  min-height: 32px; padding: 4px 8px !important; border-radius: 6px !important; font-size: 13px !important; box-sizing: border-box;
+}
+.rs-setup input[type="checkbox"], .rs-setup input[type="radio"] { width: 15px; height: 15px; accent-color: var(--focus-ring, #b269f8); }
+.rs-setup label { line-height: 1.5; max-width: 100%; }
+/* Long option text (e.g. the comparative test policy) must not widen a phone screen. */
+.rs-setup select { max-width: 100%; min-width: 0; text-overflow: ellipsis; }

@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESEARCH WORKSPACE — full-screen studies module (A1, A2, A3, A5, A6, A7, A14, A16)
 //
-// Left: study list (status, duplicate, rename, archive, delete with undo).
-// Right: the active study as a four-step wizard — Setup → Check data → Run →
-// Results. The per-type setup screens are the existing *Config components.
+// Left: study list (name, type, progress bars). Right: the open study, with one
+// run button in its header and tabs for Setup, Data, Results and Protocol notes.
+// Results are a manuscript page (StudyResultsView). The per-type setup screens
+// are the existing *Config components.
 // All project writes are functional updates so concurrent edits (e.g. a run
 // finishing while the user edits notes) are never lost.
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -31,21 +32,20 @@ import { saveStudyDefaults, copySettings } from "./studyDefaults.js";
 import { useMediaQuery } from "../hooks/useMediaQuery.js";
 import { Icon } from "../ui/icons.jsx";
 import { fmtNum } from "../lib/utils.js";
+import { Btn, Chip, GuideBtn, TabBar } from "../ui/ui.jsx";
+import { Menu, Pipeline } from "./workspaceUi.jsx";
+import { studyExportItems } from "./studyExports.js";
+import { setupReadiness } from "./setupReadiness.js";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+// Run timing, read only from event handlers.
+const clock = () => performance.now();
 
 const CONFIGS = {
   reliability: ReliabilityConfig, descriptive: DescriptiveConfig, comparative: ComparativeConfig,
   longitudinal: LongitudinalConfig, correlation: CorrelationConfig, diagnostic: DiagnosticConfig,
   superimposition: SuperimpositionConfig, airway: AirwayStudyConfig,
 };
-
-const STEPS = [
-  { id: "setup", label: "Setup" },
-  { id: "data", label: "Check data" },
-  { id: "run", label: "Run" },
-  { id: "results", label: "Results" },
-];
 
 const STATUS_CHIP = {
   "never-run": ["Not run", "tx3"], running: ["Running…", "acc"], error: ["Error", "err"],
@@ -54,20 +54,46 @@ const STATUS_CHIP = {
 
 const sessionName = s => s?.name || s?.label || s?.id?.slice(0, 8) || "Session";
 
-function Chip({ t, label, color }) {
-  return <span style={{ fontSize: 10.5, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: t[color] + "22", color: t[color], whiteSpace: "nowrap" }}>{label}</span>;
+// The shared button, always compact here; primary = the filled accent style.
+function Button({ t, children, onClick, primary, danger, disabled, title }) {
+  return <Btn t={t} small active={primary} danger={danger} disabled={disabled} title={title} onClick={onClick}>{children}</Btn>;
 }
 
-function Button({ t, children, onClick, primary, danger, disabled, title, small }) {
-  const col = danger ? t.err : t.acc;
+// A titled block of the setup form.
+function Section({ t, title, hint, children }) {
   return (
-    <button onClick={onClick} disabled={disabled} title={title}
-      style={{ padding: small ? "4px 10px" : "7px 14px", fontSize: small ? 11.5 : 12.5, fontWeight: 600, borderRadius: 6, fontFamily: "inherit",
-        cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.45 : 1,
-        border: `1px solid ${primary ? col : danger ? t.err + "88" : t.bdr}`,
-        background: primary ? col : "transparent", color: primary ? t.bg : danger ? t.err : t.tx }}>
-      {children}
-    </button>
+    <section style={{ padding: "18px 20px", borderRadius: 10, border: `1px solid ${t.bdr}`, background: t.surf, marginBottom: 16 }}>
+      <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: t.tx }}>{title}</h3>
+      {hint && <p style={{ fontSize: 13, color: t.tx2, margin: "4px 0 0", lineHeight: 1.5 }}>{hint}</p>}
+      <div style={{ marginTop: 14 }}>{children}</div>
+    </section>
+  );
+}
+
+const READY_MARK = { ok: ["✓", "ok"], block: ["", "tx3"], warn: ["!", "warn"] };
+
+// What the study still needs before it runs (setupReadiness.js).
+function Readiness({ t, study, sessions }) {
+  const r = useMemo(() => setupReadiness(study, sessions), [study, sessions]);
+  return (
+    <section role="region" aria-label="Before you run" style={{ padding: "16px 18px", borderRadius: 10, border: `1px solid ${r.ready ? t.ok + "66" : t.bdr}`, background: t.surf }}>
+      <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 12px", color: t.tx }}>Before you run</h3>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
+        {r.items.map(i => {
+          const [mark, col] = READY_MARK[i.level];
+          return (
+            <li key={i.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, lineHeight: 1.45, color: i.level === "ok" ? t.tx2 : t.tx }}>
+              <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: 9, flexShrink: 0, marginTop: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700,
+                border: `1.5px solid ${t[col]}`, background: i.level === "ok" ? t[col] : "transparent", color: i.level === "ok" ? t.bg : t[col] }}>{mark}</span>
+              <span><span className="sr-only">{i.level === "ok" ? "Done: " : i.level === "warn" ? "Check: " : "To do: "}</span>{i.text}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <p style={{ fontSize: 12.5, color: t.tx3, margin: "14px 0 0", lineHeight: 1.5 }}>
+        {r.ready ? "Ready. Check the data next, then run." : "Finish the open items, or run anyway to see what the analysis reports."}
+      </p>
+    </section>
   );
 }
 
@@ -79,8 +105,7 @@ function SessionScope({ t, study, sessions, onUpdateStudy }) {
   const ids = new Set(study.config.sessionIds || []);
   const set = patch => onUpdateStudy({ ...study, config: { ...study.config, ...patch } });
   return (
-    <section style={{ padding: 12, borderRadius: 8, border: `1px solid ${t.bdr}`, marginBottom: 12 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Sessions in this study</div>
+    <Section t={t} title="Sessions" hint="Which sessions this study analyses.">
       <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12.5, color: t.tx2, marginBottom: 4 }}>
         <input type="radio" checked={scope === "all"} onChange={() => set({ sessionScope: "all" })} /> All sessions in the project ({sessions.length}), including ones added later
       </label>
@@ -103,7 +128,7 @@ function SessionScope({ t, study, sessions, onUpdateStudy }) {
           </div>
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 
@@ -134,8 +159,7 @@ function AssignmentTools({ t, study, sessions, onUpdateStudy, notify }) {
   };
 
   return (
-    <section style={{ padding: 12, borderRadius: 8, border: `1px solid ${t.bdr}`, marginBottom: 12 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: t.tx, marginBottom: 6 }}>Assignment check</div>
+    <Section t={t} title="Assignment" hint="Which traced sessions this study uses, and any that are used twice or missing.">
       <div style={{ fontSize: 12, color: t.tx2, lineHeight: 1.6 }}>
         {report.used} session{report.used === 1 ? "" : "s"} used by this study.
         {report.unassigned.length > 0 && <> <b style={{ color: t.warn }}>{report.unassigned.length}</b> traced session{report.unassigned.length > 1 ? "s are" : " is"} not assigned.</>}
@@ -172,76 +196,122 @@ function AssignmentTools({ t, study, sessions, onUpdateStudy, notify }) {
         <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <Button t={t} small onClick={buildLongitudinal}>{confirmReplace ? "Replace existing subjects?" : "Build subjects from patient IDs (ordered by age)"}</Button>
           {confirmReplace && <Button t={t} small onClick={() => setConfirmReplace(false)}>Cancel</Button>}
-          <span style={{ fontSize: 11.5, color: t.tx3 }}>One subject per patient ID; each patient’s sessions become T1, T2, … by age (then date).</span>
+          <span style={{ fontSize: 12, color: t.tx3 }}>One subject per patient ID; each patient’s sessions become T1, T2, … by age (then date).</span>
         </div>
       )}
-    </section>
+    </Section>
   );
 }
 
-// ─── Steps ─────────────────────────────────────────────────────────────────
-
-function Stepper({ t, step, setStep, status, blocked }) {
-  return (
-    <nav aria-label="Study steps" style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
-      {STEPS.map((s, i) => {
-        const active = s.id === step;
-        const doneMark = (s.id === "results" && (status === "current")) ? " ✓" : (s.id === "results" && status === "stale") ? " !" : "";
-        const disabled = s.id === "results" && (status === "never-run" || status === "running");
-        return (
-          <button key={s.id} onClick={() => !disabled && setStep(s.id)} aria-current={active ? "step" : undefined} disabled={disabled}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 14px", borderRadius: 20, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600,
-              cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.45 : 1,
-              border: `1px solid ${active ? t.acc : t.bdr}`, background: active ? t.acc + "22" : "transparent", color: active ? t.acc : t.tx2 }}>
-            <span style={{ width: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, background: active ? t.acc : t.surf3, color: active ? t.bg : t.tx2 }}>{i + 1}</span>
-            {s.label}{doneMark}{s.id === "run" && blocked ? <> <Icon name="lock" size={12} /></> : ""}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
+// ─── Run state (results tab before there are results, while running, or while blinded) ───
 
 function RunPanel({ t, study, status, running, now, onRun, onCancel, blinding }) {
   const p = running?.p || 0;
   const elapsed = running ? Math.max(0, (now - running.startedAt) / 1000) : 0;
   const eta = running && p > 0.1 ? Math.max(0, (elapsed * (1 - p)) / p) : null;
   return (
-    <section style={{ padding: 16, borderRadius: 8, border: `1px solid ${t.bdr}`, maxWidth: 640 }}>
+    <section style={{ padding: "28px 24px", borderRadius: 8, border: `1px dashed ${t.bdr}`, maxWidth: 640, margin: "8px 0" }}>
       {blinding.blocked ? (
-        <div style={{ fontSize: 13, color: t.tx2, lineHeight: 1.6 }}>
-          <b style={{ color: t.acc }}>Blinded data collection in progress</b> — {blinding.done} of {blinding.total} tracings done.
-          Results are locked until every workflow step is complete, so no rater sees agreement figures while still measuring.
+        <div style={{ fontSize: 13.5, color: t.tx2, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: t.tx, marginBottom: 6, display: "flex", gap: 8, alignItems: "center" }}><Icon name="lock" size={15} /> Blinded data collection in progress</div>
+          {blinding.done} of {blinding.total} tracings done. Results stay locked until every workflow step is complete, so no rater sees agreement figures while still measuring.
           {study?.config?.blindingLog?.length > 0 && (
-            <div style={{ marginTop: 6, color: t.warn }}>
-              The seal was broken for {study.config.blindingLog.length} session(s); this will be reported with the results.
+            <div style={{ marginTop: 8, color: t.warn }}>
+              The seal was broken for {study.config.blindingLog.length} session(s). This will be reported with the results.
             </div>
           )}
         </div>
       ) : running ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 13, color: t.tx }} role="status">Running… {running.label ? `${running.label} · ` : ""}{Math.round(p * 100)}% · {fmtNum(elapsed, 1)} s{eta != null ? ` · about ${Math.ceil(eta)} s left` : ""}</div>
-          <div style={{ height: 8, borderRadius: 4, background: t.surf3, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 13.5, color: t.tx }} role="status">Running{running.label ? `: ${running.label}` : ""}. {Math.round(p * 100)}%, {fmtNum(elapsed, 1)} s{eta != null ? `, about ${Math.ceil(eta)} s left` : ""}</div>
+          <div style={{ height: 6, borderRadius: 3, background: t.surf3, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${Math.round(p * 100)}%`, background: t.acc, transition: "width 0.15s" }} />
           </div>
           <div><Button t={t} danger onClick={onCancel}>Cancel</Button></div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontSize: 13, color: t.tx2, lineHeight: 1.6 }}>
-            {status === "current" ? "These results are up to date." : status === "stale" ? "The data or settings changed since the last run." : status === "error" ? "The last run failed — check the setup and run again." : "Ready to run."}
-            {study.lastRun ? ` Last run ${new Date(study.lastRun.at).toLocaleString()} (${(study.lastRun.ms / 1000).toFixed(1)} s).` : ""}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: t.tx }}>{status === "error" ? "The last run failed" : "No results yet"}</div>
+          <div style={{ fontSize: 13.5, color: t.tx2, lineHeight: 1.6 }}>
+            {status === "error" ? "Check the setup and the data, then run again." : "Check the data tab first, then run the analysis. Results appear here as a manuscript page."}
           </div>
-          <div><Button t={t} primary onClick={onRun}>{study.results ? "Re-run analysis" : "Run analysis"}</Button></div>
+          <Button t={t} primary onClick={onRun}>Run analysis</Button>
         </div>
       )}
     </section>
   );
 }
 
+// ─── New study: chosen by the question being asked ─────────────────────────
+
+const QUESTIONS = [
+  { q: "Are my tracings repeatable?", types: ["reliability"] },
+  { q: "How do groups differ?", types: ["comparative"] },
+  { q: "What changed over time?", types: ["longitudinal", "superimposition"] },
+  { q: "What's typical, and what goes together?", types: ["descriptive", "correlation"] },
+  { q: "Does a measure predict a diagnosis?", types: ["diagnostic"] },
+];
+
+function questionGroups() {
+  const live = STUDY_TYPES.filter(st => !st.legacy);
+  const placed = new Set(QUESTIONS.flatMap(g => g.types));
+  const groups = QUESTIONS.map(g => ({ q: g.q, types: g.types.map(id => live.find(st => st.id === id)).filter(Boolean) })).filter(g => g.types.length);
+  const rest = live.filter(st => !placed.has(st.id));
+  return rest.length ? [...groups, { q: "Other analyses", types: rest }] : groups;
+}
+
+function NewStudy({ t, newType, setNewType, onCreate, onGuide }) {
+  return (
+    <div style={{ maxWidth: 920 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 600, color: t.tx, margin: "0 0 4px" }}>New study</h2>
+      <p style={{ fontSize: 13.5, color: t.tx2, margin: "0 0 20px" }}>Start from the question you want to answer.</p>
+      <div role="radiogroup" aria-label="Study type" style={{ display: "grid", gap: 18 }}>
+        {questionGroups().map(g => (
+          <section key={g.q}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: t.tx, margin: "0 0 8px" }}>{g.q}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 8 }}>
+              {g.types.map(st => {
+                const on = newType === st.id;
+                return (
+                  <div key={st.id} role="radio" aria-checked={on} aria-label={`${g.q} ${st.name}`} tabIndex={0}
+                    onClick={() => setNewType(st.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNewType(st.id); } }}
+                    style={{ padding: "12px 14px", borderRadius: 8, cursor: "pointer", border: `1px solid ${on ? t.acc : t.bdr}`, background: on ? t.accMuted : t.surf }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <span aria-hidden="true" style={{ width: 22, height: 22, color: on ? t.acc : t.tx2, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: st.icon }} />
+                      <span style={{ fontSize: 14, fontWeight: 600, color: t.tx, flex: 1 }}>{st.name}</span>
+                      <GuideBtn t={t} label={`Guide: ${st.name}`} onClick={e => { e.stopPropagation(); onGuide(st.id); }} />
+                    </div>
+                    <div style={{ fontSize: 12.5, color: t.tx2, marginTop: 6, lineHeight: 1.5 }}>{st.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div style={{ marginTop: 20 }}><Button t={t} primary onClick={onCreate}>Create study</Button></div>
+    </div>
+  );
+}
+
 // ─── Workspace ─────────────────────────────────────────────────────────────
 
-// The open study and its step survive closing the workspace (e.g. to trace a
+const TABS = [
+  { id: "setup", label: "Setup" },
+  { id: "data", label: "Data" },
+  { id: "results", label: "Results" },
+  { id: "notes", label: "Protocol notes" },
+];
+
+const DISCLAIMER_BAR_PX = 24; // the bar measures 23 px; one spare so nothing hides under it
+
+const STATUS_TEXT = {
+  "never-run": "Not run yet", running: "Running", error: "The last run failed",
+  stale: "Out of date: the data or settings changed after the last run", current: "Up to date",
+  legacy: "Run with an older version of the app; re-run advised",
+};
+
+// The open study and its tab survive closing the workspace (e.g. to trace a
 // reliability step on the canvas), so reopening returns to the same place.
 let lastStudyId = null;
 let lastSteps = {};
@@ -252,6 +322,8 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
   const sessions = useMemo(() => (project?.sessions || []).map(s => withAirwayMeasures(s)), [project]);
   const narrow = useMediaQuery("(max-width: 900px)");
   const wide = useMediaQuery("(min-width: 1280px)");
+  // Above 1024 px the app shows its disclaimer bar along the bottom; stop above it.
+  const barBelow = useMediaQuery("(min-width: 1025px)");
   const [selectedId, setSelectedId] = useState(() => {
     const list = project?.researchStudies || [];
     return (list.find(s => s.id === lastStudyId) || list.find(s => !s.archived))?.id || null;
@@ -264,7 +336,6 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
   const [running, setRunning] = useState(null);
   const [toast, setToast] = useState(null);
   const [guideType, setGuideType] = useState(null);
-  const [showNotes, setShowNotes] = useState(false);
   const [now, setNow] = useState(0);
   const abortRef = useRef(null);
   const toastTimer = useRef(null);
@@ -272,7 +343,7 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
   // Keep the elapsed/ETA readout moving while a run is in progress.
   useEffect(() => {
     if (!running) return undefined;
-    const id = setInterval(() => setNow(performance.now()), 500);
+    const id = setInterval(() => setNow(clock()), 500);
     return () => clearInterval(id);
   }, [running]);
 
@@ -310,7 +381,8 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
   const study = studies.find(s => s.id === selectedId) || null;
   const status = study ? (running?.id === study.id ? "running" : studyStatus(study, sessions, calibration)) : null;
   const blinding = study ? blindingProgress(study) : { blocked: false };
-  const step = study ? (steps[study.id] || (study.results ? "results" : "setup")) : "setup";
+  const savedStep = study ? steps[study.id] : null;
+  const step = study ? (savedStep === "run" ? "results" : savedStep || (study.results ? "results" : "setup")) : "setup";
   const setStep = s => study && setSteps(m => ({ ...m, [study.id]: s }));
   const visible = studies.filter(s => showArchived || !s.archived);
   const archivedCount = studies.filter(s => s.archived).length;
@@ -345,14 +417,14 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
   };
   const toggleArchive = s => {
     updateStudy(s.id, x => ({ ...x, archived: !x.archived }));
-    notify(s.archived ? `Restored “${s.name}”.` : `Archived “${s.name}” — show archived studies to find it again.`);
+    notify(s.archived ? `Restored “${s.name}”.` : `Archived “${s.name}”. Show archived studies to find it again.`);
   };
 
   const run = () => {
     if (!study || running || blinding.blocked) return;
     const snapshot = study;
     const fp = fingerprintStudy(snapshot, sessions, calibration);
-    const startedAt = performance.now();
+    const startedAt = clock();
     updateStudy(snapshot.id, s => ({ ...s, status: "running" }));
     setRunning({ id: snapshot.id, p: 0, label: "starting", startedAt });
     const controller = new AbortController();
@@ -362,8 +434,7 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
       signal: controller.signal,
     }).then(done => {
       // Keep anything edited while the run was in progress (name, notes, config).
-      updateStudy(snapshot.id, s => ({ ...s, status: done.status, results: done.results, updatedAt: Date.now(), dataFingerprint: fp, lastRun: { at: Date.now(), ms: performance.now() - startedAt } }));
-      setStep("results");
+      updateStudy(snapshot.id, s => ({ ...s, status: done.status, results: done.results, updatedAt: Date.now(), dataFingerprint: fp, lastRun: { at: Date.now(), ms: clock() - startedAt } }));
     }).catch(err => {
       const isAbort = err?.name === "AbortError";
       updateStudy(snapshot.id, s => (isAbort ? { ...s, status: s.results ? "completed" : "configured" } : { ...s, status: "error", results: { error: err?.message || String(err), timestamp: Date.now() } }));
@@ -373,6 +444,7 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
       abortRef.current = null;
     });
   };
+  const runAndShow = () => { setStep("results"); run(); };
   const cancel = () => { try { abortRef.current?.abort(); } catch { /* best effort */ } };
 
   const Config = study ? CONFIGS[study.type] : null;
@@ -381,38 +453,42 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
 
   // ── Study list ──
   const list = (
-    <aside aria-label="Studies" style={{ width: narrow ? "auto" : 280, flexShrink: 0, borderRight: narrow ? "none" : `1px solid ${t.bdr}`, borderBottom: narrow ? `1px solid ${t.bdr}` : "none", display: "flex", flexDirection: "column", minHeight: 0, background: t.surf }}>
-      <div style={{ display: "flex", gap: 6, padding: 12 }}>
-        <Button t={t} primary onClick={() => setMode("new")}>+ New study</Button>
-        <Button t={t} onClick={() => setMode("power")} title="A-priori sample size">Sample size</Button>
+    <aside aria-label="Studies" style={{ width: narrow ? "auto" : 264, flexShrink: 0, borderRight: narrow ? "none" : `1px solid ${t.bdr}`, borderBottom: narrow ? `1px solid ${t.bdr}` : "none", display: "flex", flexDirection: "column", minHeight: 0, background: t.surf }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 14px 10px" }}>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: t.tx, margin: 0, flex: 1 }}>Studies</h2>
+        <Button t={t} primary={mode === "new"} onClick={() => setMode("new")}>+ New study</Button>
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px", display: narrow ? "flex" : "block", gap: 6, overflowX: narrow ? "auto" : "hidden" }}>
-        {visible.length === 0 && <div style={{ fontSize: 12.5, color: t.tx3, padding: 12 }}>No studies yet.</div>}
+        {visible.length === 0 && <div style={{ fontSize: 13, color: t.tx3, padding: "8px 6px" }}>No studies yet. Create one to get started.</div>}
         {visible.map(s => {
           const st = running?.id === s.id ? "running" : studyStatus(s, sessions, calibration);
-          const [chip, col] = STATUS_CHIP[st];
           const bl = blindingProgress(s);
+          const statusLabel = bl.blocked ? `Blinded, ${bl.done} of ${bl.total} done` : STATUS_CHIP[st][0];
+          const typeName = STUDY_TYPES.find(x => x.id === s.type)?.name || s.type;
           const active = s.id === selectedId && mode === "study";
           return (
             <div key={s.id} role="button" tabIndex={0} aria-current={active ? "true" : undefined}
+              aria-label={`${s.name}, ${typeName}, ${statusLabel}${s.archived ? ", archived" : ""}`}
+              title={statusLabel}
               onClick={() => { setSelectedId(s.id); setMode("study"); }}
               onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedId(s.id); setMode("study"); } }}
-              style={{ padding: "8px 10px", marginBottom: 4, borderRadius: 8, cursor: "pointer", minWidth: narrow ? 200 : undefined, opacity: s.archived ? 0.6 : 1,
-                border: `1px solid ${active ? t.acc : "transparent"}`, background: active ? t.acc + "18" : "transparent" }}>
+              style={{ padding: "9px 10px", marginBottom: 2, borderRadius: 6, cursor: "pointer", minWidth: narrow ? 200 : undefined, opacity: s.archived ? 0.6 : 1,
+                background: active ? t.accMuted : "transparent" }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: t.tx, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, color: t.tx3 }}>{STUDY_TYPES.find(x => x.id === s.type)?.name || s.type}</span>
-                <Chip t={t} label={bl.blocked ? `Blinded ${bl.done}/${bl.total}` : chip} color={bl.blocked ? "acc" : col} />
-                {s.archived && <Chip t={t} label="Archived" color="tx3" />}
-              </div>
+              <div style={{ fontSize: 12, color: t.tx3, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{typeName}{s.archived ? ", archived" : ""}</div>
+              <div style={{ marginTop: 6 }}><Pipeline t={t} status={bl.blocked ? "running" : st} ran={!!s.results || st !== "never-run"} /></div>
             </div>
           );
         })}
       </div>
       {archivedCount > 0 && (
-        <button onClick={() => setShowArchived(v => !v)} style={{ margin: 8, fontSize: 11.5, background: "none", border: "none", color: t.tx3, cursor: "pointer", textAlign: "left" }}>
-          {showArchived ? "Hide" : "Show"} archived ({archivedCount})
-        </button>
+      <div style={{ borderTop: `1px solid ${t.bdr}`, padding: "8px 8px 10px" }}>
+        {(
+          <button onClick={() => setShowArchived(v => !v)} style={{ fontSize: 13, background: "none", border: "none", color: t.tx3, cursor: "pointer", padding: "4px 6px", fontFamily: "inherit" }}>
+            {showArchived ? "Hide" : "Show"} archived ({archivedCount})
+          </button>
+        )}
+      </div>
       )}
     </aside>
   );
@@ -422,79 +498,78 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
   if (mode === "power") {
     main = <div style={{ maxWidth: 520 }}><SampleSizeCalculator t={t} /></div>;
   } else if (mode === "new" || !study) {
-    main = (
-      <div style={{ maxWidth: 900 }}>
-        <h2 style={{ fontSize: 18, color: t.tx, margin: "0 0 12px" }}>New study</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
-          {STUDY_TYPES.filter(st => !st.legacy).map(st => (
-            <div key={st.id} role="radio" aria-checked={newType === st.id} tabIndex={0}
-              onClick={() => setNewType(st.id)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNewType(st.id); } }}
-              style={{ padding: 12, borderRadius: 8, cursor: "pointer", border: `1px solid ${newType === st.id ? st.color : t.bdr}`, background: newType === st.id ? st.color + "18" : t.surf2 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ width: 24, height: 24, color: st.color }} dangerouslySetInnerHTML={{ __html: st.icon }} />
-                <span style={{ fontSize: 14, fontWeight: 700, color: t.tx, flex: 1 }}>{st.name}</span>
-                <button onClick={e => { e.stopPropagation(); setGuideType(st.id); }} aria-label={`Guide: ${st.name}`}
-                  style={{ fontSize: 11, border: `1px solid ${t.bdr}`, borderRadius: 10, background: "none", color: t.tx3, cursor: "pointer", padding: "1px 7px" }}>Guide</button>
-              </div>
-              <div style={{ fontSize: 12, color: t.tx2, marginTop: 6, lineHeight: 1.4 }}>{st.desc}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 14 }}><Button t={t} primary onClick={create}>Create study</Button></div>
-      </div>
-    );
+    main = <NewStudy t={t} newType={newType} setNewType={setNewType} onCreate={create} onGuide={setGuideType} />;
   } else {
-    const fix = target => setStep(target === "run" ? "run" : target === "data" ? "data" : "setup");
+    const fix = target => setStep(target === "run" || target === "results" ? "results" : target === "data" ? "data" : "setup");
+    const stale = status === "stale" || status === "legacy";
+    const runLabel = study.results ? "Re-run" : "Run analysis";
+    const lastRun = study.lastRun ? ` Last run ${new Date(study.lastRun.at).toLocaleString()}, ${(study.lastRun.ms / 1000).toFixed(1)} s.` : "";
+    const statusLine = blinding.blocked ? `Blinded collection: ${blinding.done} of ${blinding.total} tracings done.` : `${STATUS_TEXT[status] || ""}.${lastRun}`;
     main = (
       <div>
-        {/* Header: name, type, status, actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-          {renaming === study.id ? (
-            <input autoFocus defaultValue={study.name} aria-label="Study name"
-              onBlur={e => { const v = e.target.value.trim(); if (v) updateStudy(study.id, s => ({ ...s, name: v })); setRenaming(null); }}
-              onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setRenaming(null); }}
-              style={{ fontSize: 18, fontWeight: 700, padding: "2px 6px", borderRadius: 6, border: `1px solid ${t.acc}`, background: t.surf2, color: t.tx, minWidth: 260 }} />
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            {renaming === study.id ? (
+              <input autoFocus defaultValue={study.name} aria-label="Study name"
+                onBlur={e => { const v = e.target.value.trim(); if (v) updateStudy(study.id, s => ({ ...s, name: v })); setRenaming(null); }}
+                onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { e.stopPropagation(); setRenaming(null); } }}
+                style={{ fontSize: 20, fontWeight: 600, padding: "2px 6px", borderRadius: 6, border: `1px solid ${t.acc}`, background: t.surf2, color: t.tx, minWidth: 260, fontFamily: "inherit" }} />
+            ) : (
+              <h2 onDoubleClick={() => setRenaming(study.id)} title="Double-click to rename" style={{ fontSize: 20, fontWeight: 600, color: t.tx, margin: 0 }}>{study.name}</h2>
+            )}
+            <div style={{ fontSize: 13, color: stale ? t.warn : status === "error" ? t.err : t.tx2, marginTop: 4 }}>
+              <span style={{ color: t.tx2 }}>{typeMeta?.name || study.type}. </span>{statusLine}
+            </div>
+          </div>
+          {running?.id === study.id ? (
+            <Button t={t} danger onClick={cancel}>Cancel</Button>
+          ) : blinding.blocked ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: t.tx2, padding: "6px 4px" }}><Icon name="lock" size={14} /> Results locked while blinded</span>
           ) : (
-            <h2 onDoubleClick={() => setRenaming(study.id)} title="Double-click to rename" style={{ fontSize: 18, color: t.tx, margin: 0 }}>{study.name}</h2>
+            <Btn t={t} small active onClick={runAndShow} style={stale ? { background: t.warn, borderColor: t.warn, color: t.bg } : undefined}>{runLabel}</Btn>
           )}
-          <Chip t={t} label={typeMeta?.name || study.type} color="tx2" />
-          <Chip t={t} label={blinding.blocked ? `Blinded ${blinding.done}/${blinding.total}` : STATUS_CHIP[status][0]} color={blinding.blocked ? "acc" : STATUS_CHIP[status][1]} />
-          <span style={{ flex: 1 }} />
-          <Button t={t} small onClick={() => setRenaming(study.id)}>Rename</Button>
-          <Button t={t} small onClick={() => setShowNotes(v => !v)}>{showNotes ? "Hide notes" : "Notes"}</Button>
-          <Button t={t} small onClick={() => duplicate(study)}>Duplicate</Button>
-          <Button t={t} small onClick={() => toggleArchive(study)}>{study.archived ? "Unarchive" : "Archive"}</Button>
-          <Button t={t} small danger onClick={() => remove(study)}>Delete</Button>
-          <Button t={t} small onClick={() => setGuideType(study.type)}>Guide</Button>
+          {study.results && !study.results.error && (
+            <Menu t={t} label="Export" items={() => studyExportItems({ study, status, sessions, calibration, say: notify })} />
+          )}
+          <Menu t={t} title="More actions" items={[
+            { label: "Rename", onClick: () => setRenaming(study.id) },
+            { label: "Duplicate", onClick: () => duplicate(study) },
+            { label: study.archived ? "Unarchive" : "Archive", onClick: () => toggleArchive(study) },
+            { label: "Delete", danger: true, onClick: () => remove(study) },
+            { label: "Guide", onClick: () => setGuideType(study.type) },
+          ]}>⋯</Menu>
         </div>
-        {showNotes && (
-          <textarea defaultValue={study.config.notes || ""} aria-label="Study notes" placeholder="Protocol notes, hypotheses, inclusion criteria… (included in the report)"
-            onBlur={e => updateStudy(study.id, s => ({ ...s, config: { ...s.config, notes: e.target.value } }))}
-            style={{ width: "100%", minHeight: 70, boxSizing: "border-box", padding: 8, borderRadius: 6, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 12.5, fontFamily: "inherit", marginBottom: 10 }} />
-        )}
-        {status === "stale" && step !== "run" && (
-          <div role="status" style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 12px", borderRadius: 8, background: t.warn + "18", border: `1px solid ${t.warn}55`, fontSize: 12.5, color: t.tx, marginBottom: 10 }}>
-            <span style={{ flex: 1 }}>The data or settings changed after the last run — the results below may be out of date.</span>
-            <Button t={t} small primary onClick={() => { setStep("run"); run(); }} disabled={!!running || blinding.blocked}>Re-run now</Button>
+        {running?.id === study.id && (
+          <div aria-hidden="true" style={{ height: 3, borderRadius: 2, background: t.surf3, overflow: "hidden", marginTop: 10 }}>
+            <div style={{ height: "100%", width: `${Math.round((running.p || 0) * 100)}%`, background: t.acc, transition: "width 0.15s" }} />
           </div>
         )}
 
-        <Stepper t={t} step={step} setStep={setStep} status={status} blocked={blinding.blocked} />
+        <TabBar t={t} tabs={TABS} active={step} onChange={setStep} style={{ margin: "14px 0 18px" }} />
 
         {step === "setup" && Config && (
           <div>
-            <SessionScope t={t} study={study} sessions={sessions} onUpdateStudy={onUpdateStudy} />
-            <AssignmentTools t={t} study={study} sessions={sessions} onUpdateStudy={onUpdateStudy} notify={notify} />
-            <section style={{ padding: 12, borderRadius: 8, border: `1px solid ${t.bdr}`, maxWidth: 760 }}>
-              <Config study={study} sessions={sessions} onUpdateStudy={onUpdateStudy} onUpdateProject={onConfigProjectUpdate} t={t} project={project} />
-            </section>
-            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <Button t={t} primary onClick={() => setStep("data")}>Next: check data →</Button>
+            <div style={{ display: "grid", gridTemplateColumns: wide ? "minmax(0, 780px) 300px" : "minmax(0, 1fr)", gap: wide ? 24 : 16, alignItems: "start" }}>
+              <div style={{ minWidth: 0, order: wide ? 0 : 1 }}>
+                <SessionScope t={t} study={study} sessions={sessions} onUpdateStudy={onUpdateStudy} />
+                <AssignmentTools t={t} study={study} sessions={sessions} onUpdateStudy={onUpdateStudy} notify={notify} />
+                <Section t={t} title="Analysis" hint={`Design, measurements and settings for this ${(typeMeta?.name || study.type).toLowerCase()} study.`}>
+                  <div className="rs-setup">
+                    <Config study={study} sessions={sessions} onUpdateStudy={onUpdateStudy} onUpdateProject={onConfigProjectUpdate} t={t} project={project} />
+                  </div>
+                </Section>
+              </div>
+              <div style={{ position: wide ? "sticky" : "static", top: 0, order: wide ? 1 : 0 }}>
+                <Readiness t={t} study={study} sessions={sessions} />
+              </div>
+            </div>
+            <div style={{ position: "sticky", bottom: 0, zIndex: 2, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "12px 0", marginTop: 4, background: t.bg, borderTop: `1px solid ${t.bdr}` }}>
+              <Button t={t} primary onClick={() => setStep("data")}>Next: check the data</Button>
               <span style={{ flex: 1 }} />
-              <Button t={t} small onClick={() => notify(saveStudyDefaults(study.type, study.config) ? "Saved as your default settings for new studies of this type." : "Could not save defaults (browser storage is blocked).")} title="α, corrections, test policy, ICC model…">Save settings as my defaults</Button>
+              <Button t={t} onClick={() => notify(saveStudyDefaults(study.type, study.config) ? "Saved as your default settings for new studies of this type." : "Couldn't save defaults: browser storage is blocked.")} title="α, corrections, test policy, ICC model…">Save settings as my defaults</Button>
               {sameTypeStudies.length > 0 && (
                 <select value="" onChange={e => { const src = studies.find(s => s.id === e.target.value); if (src) { onUpdateStudy(copySettings(study, src)); notify(`Settings copied from “${src.name}”.`); } }}
-                  aria-label="Copy settings from another study" style={{ padding: "4px 6px", borderRadius: 4, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 12 }}>
+                  aria-label="Copy settings from another study" style={{ padding: "6px 8px", borderRadius: 6, border: `1px solid ${t.bdr}`, background: t.surf2, color: t.tx, fontSize: 13 }}>
                   <option value="">Copy settings from…</option>
                   {sameTypeStudies.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -505,23 +580,28 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
 
         {step === "data" && (
           <div style={{ maxWidth: 1100 }}>
-            <p style={{ fontSize: 12.5, color: t.tx2, margin: "0 0 8px", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: t.tx2, margin: "0 0 10px", lineHeight: 1.55 }}>
               These are exactly the values the analysis will use: one row per session, one column per measurement. Red dashes are missing values. Check units and any implausible numbers before running.
             </p>
             <DataPreview study={study} sessions={sessions} calibration={calibration} t={t} defaultOpen />
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <Button t={t} onClick={() => setStep("setup")}>← Back to setup</Button>
-              <Button t={t} primary onClick={() => setStep("run")}>Next: run →</Button>
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <Button t={t} onClick={() => setStep("setup")}>Back to setup</Button>
+              {!blinding.blocked && !running && <Button t={t} primary onClick={runAndShow}>{runLabel}</Button>}
             </div>
           </div>
         )}
 
-        {step === "run" && (
-          <RunPanel t={t} study={study} status={status} running={running?.id === study.id ? running : null} now={now} onRun={run} onCancel={cancel} blinding={blinding} />
-        )}
+        {step === "results" && (running?.id === study.id || blinding.blocked || !study.results
+          ? <RunPanel t={t} study={study} status={status} running={running?.id === study.id ? running : null} now={now} onRun={runAndShow} onCancel={cancel} blinding={blinding} />
+          : <StudyResultsView t={t} study={study} status={status} onFix={fix} wide={wide} />)}
 
-        {step === "results" && (
-          <StudyResultsView t={t} study={study} status={status} onFix={fix} wide={wide} sessions={sessions} calibration={calibration} />
+        {step === "notes" && (
+          <div style={{ maxWidth: 760 }}>
+            <p style={{ fontSize: 13, color: t.tx2, margin: "0 0 10px" }}>Protocol notes, hypotheses and inclusion criteria. They're included in the study report.</p>
+            <textarea key={study.id} defaultValue={study.config.notes || ""} aria-label="Protocol notes" placeholder="Twenty Class II patients aged 9 to 12, traced by one examiner…"
+              onBlur={e => updateStudy(study.id, s => ({ ...s, config: { ...s.config, notes: e.target.value } }))}
+              style={{ width: "100%", minHeight: 220, boxSizing: "border-box", padding: 12, borderRadius: 8, border: `1px solid ${t.bdr}`, background: t.surf, color: t.tx, fontSize: 14, lineHeight: 1.6, fontFamily: "'Source Serif 4', Georgia, serif" }} />
+          </div>
         )}
       </div>
     );
@@ -529,22 +609,23 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Research workspace"
-      style={{ position: "fixed", inset: 0, zIndex: 60, background: t.bg, color: t.tx, display: "flex", flexDirection: "column" }}>
+      style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: barBelow ? DISCLAIMER_BAR_PX : 0, zIndex: 60, background: t.bg, color: t.tx, display: "flex", flexDirection: "column" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderBottom: `1px solid ${t.bdr}`, background: t.surf, flexShrink: 0 }}>
         <Button t={t} onClick={onClose} title="Back to the canvas (Esc)">← Canvas</Button>
-        <h1 style={{ fontSize: 16, margin: 0, color: t.tx }}>Research</h1>
-        <span style={{ fontSize: 12, color: t.tx3 }}>{studies.length} stud{studies.length === 1 ? "y" : "ies"} · {sessions.length} session{sessions.length === 1 ? "" : "s"}</span>
+        <h1 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: t.tx }}>Research</h1>
+        <span style={{ fontSize: 13, color: t.tx3, flex: 1 }}>{studies.length} stud{studies.length === 1 ? "y" : "ies"}, {sessions.length} session{sessions.length === 1 ? "" : "s"}</span>
+        <Chip t={t} on={mode === "power"} onClick={() => setMode(m => (m === "power" ? (study ? "study" : "new") : "power"))}>Sample size calculator</Chip>
       </header>
       <div style={{ flex: 1, display: "flex", flexDirection: narrow ? "column" : "row", minHeight: 0 }}>
         {list}
-        <main style={{ flex: 1, overflow: "auto", padding: narrow ? 12 : 20, minWidth: 0 }}>{main}</main>
+        <main style={{ flex: 1, overflow: "auto", padding: narrow ? "14px 12px" : "22px 28px", minWidth: 0 }}>{main}</main>
       </div>
       {toast && (
         <div role="status" style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 61, display: "flex", gap: 12, alignItems: "center",
           padding: "10px 16px", borderRadius: 8, background: t.surf2, border: `1px solid ${t.bdr}`, boxShadow: `0 6px 24px ${t.shadow || "rgba(0,0,0,0.3)"}`, fontSize: 13, color: t.tx, maxWidth: "90vw" }}>
           <span>{toast.text}</span>
-          {toast.undo && <Button t={t} small primary onClick={toast.undo}>Undo</Button>}
-          <button onClick={() => setToast(null)} aria-label="Dismiss" style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 14 }}>×</button>
+          {toast.undo && <Button t={t} primary onClick={toast.undo}>Undo</Button>}
+          <button onClick={() => setToast(null)} aria-label="Dismiss" style={{ background: "none", border: "none", color: t.tx3, cursor: "pointer", fontSize: 16 }}>×</button>
         </div>
       )}
       {guideType && <StudyGuideModal t={t} studyType={guideType} onClose={() => setGuideType(null)} />}

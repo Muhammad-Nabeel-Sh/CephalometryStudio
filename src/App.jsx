@@ -10,7 +10,8 @@ import {
   Fragment,
 } from "react";
 import { THEMES, PREDEFINED, LUT_PRESETS } from "./data/constants.js";
-import { KEYBINDINGS } from "./data/keybindings.js";
+import { matchKeybinding } from "./data/keybindings.js";
+import { showPanel } from "./state/uiStore.js";
 import { SILHOUETTES } from "./data/silhouettes.js";
 import {
   uid,
@@ -1482,7 +1483,7 @@ function Workspace({
     useToolStore.setState({ activeTool: v, currentDraw: null });
   }, []);
   const setRightPanel = useCallback(
-    (v) => useUIStore.setState({ rightPanel: v }),
+    (v) => showPanel(v),
     [],
   );
   const setPlacingQueue = useCallback((v) => {
@@ -2716,16 +2717,15 @@ function Workspace({
         showFrameRef.current(e.key === "PageUp" ? (i) => i - 1 : e.key === "PageDown" ? (i) => i + 1 : e.key === "Home" ? 0 : last);
         return;
       }
-      const key = e.key.toLowerCase();
-      const matched = KEYBINDINGS.find((b) => {
-        if (b.ctrl && !ctrl) return false;
-        if (b.shift && !shift) return false;
-        return b.key === key;
-      });
+      const matched = matchKeybinding(e);
       if (matched) {
         switch (matched.id) {
           case "undo":
             undo();
+            return;
+          case "research":
+            e.preventDefault();
+            useUIStore.setState({ researchOpen: true });
             return;
           case "redo":
             redo();
@@ -5478,7 +5478,8 @@ function Workspace({
               )}
               panelIcons={panelIcons}
               onSelect={(key) => {
-                useUIStore.setState({ mobileTab: key, rightPanel: key });
+                if (key === "research") { closeSheet(); showPanel("research"); }
+                else showPanel(key, { mobileTab: key });
               }}
               theme={theme}
               setTheme={setTheme}

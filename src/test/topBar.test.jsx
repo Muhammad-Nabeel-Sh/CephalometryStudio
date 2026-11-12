@@ -11,7 +11,7 @@ const renderBar = (themeId = "dark") => render(
     openImgRef={{ current: null }} importRef={{ current: null }} calibration={{ done: false }} setTheme={() => {}} />,
 );
 const ACTIONS = ["Back to Home", "Snap settings", "Toggle scale bar", "Toggle definition tooltips", "Toggle annotations",
-  "Open image", "Import (.cephx)", "Save project", "Export", "Normogram", "Anonymize", "Settings"];
+  "Open image", "Import (.cephx)", "Save project", "Export", "Normogram", "Research (Shift+R)", "Anonymize", "Settings"];
 
 afterEach(cleanup);
 
