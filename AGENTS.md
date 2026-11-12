@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **1023 tests (Vitest)**
+- **No TypeScript**, **1030 tests (Vitest)**
 
 ---
 
@@ -164,6 +164,7 @@ src/
 │
 ├── report/                     Export/PDF generation
 │   ├── reportGenerator.js      PDF/DOCX/PNG export
+│   ├── pdfPreview.js           Whether the report can be previewed in the page (not on touch devices or without a PDF viewer)
 │   ├── studyChartCapture.jsx   Off-screen render of a study's charts → PNGs for the PDF
 │   ├── latexCapture.js         KaTeX → self-contained SVG (CSS + fonts inlined) → PNG for formulas
 │   ├── csvParser.js            CSV sidecar parsing
@@ -249,7 +250,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (1023 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (1030 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -578,7 +579,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Design consistency**: shared controls in `ui/ui.jsx` — `Btn` (with `SMALL_BTN` from `ui/tokens.js` for compact ones), `Chip` (toggle/segmented choices), `TabBar` (underlined tabs), `GuideBtn` ("?"), `RemoveBtn` (×), `FieldLabel`; dialogs use `Modal` or `DialogShell` (`panels/Modal.jsx`, same overlay/panel/header, `BACKDROP`); icons come from `ui/icons.jsx`, not emoji; no inline font size under 12 px in panels/research setup (the readable-text CSS floor is only a fallback).
 
-- **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`. Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. Formulas are drawn as equations via the injected `renderLatex` (`report/latexCapture.js`) from `f.latex` or `formulaTex(expression)` (`lib/utils.js`, mathjs `toTex`, multi-letter names as `\mathrm`). 13 tests in `src/test/reportGaps.test.js`.
+- **PDF report themes + research**: `REPORT_THEMES` (light/dark) in `report/reportGenerator.js`, chosen by `generateReport({ theme })` (uiStore `reportTheme`); the active palette is the module-level `C`, and pages are painted on `addPage`. The research section renders `studyReportContent` (shared with the study PDF/Word export) for every non-archived study with results (`studyIds` to choose), plus charts from the injected `captureStudyCharts` (`report/studyChartCapture.jsx`). Other options: `markups`, `compare` (another session), `clinic` ({name, logo}; uiStore `reportClinicName`/`reportClinicLogo`), `save: false` → the App previews `doc.output("blob")` and downloads as `doc._fileName`; where `pdfPreviewSupported()` (`report/pdfPreview.js`) is false (touch-first screens, or no built-in PDF viewer: Android Chrome has none and iOS shows only page 1 in a frame) it calls `doc.save` straight away and the button reads "Download PDF" (7 tests in `src/test/pdfPreview.test.js`). Normogram charts come from `lib/normogram.js`. Text Helvetica lacks goes to Amiri (RTL) or Noto Sans (`public/fonts/`), loaded on demand. Sections are bookmarked via `startSection`. `vercel.json` CSP allows `frame-src blob:` for the preview. Formulas are drawn as equations via the injected `renderLatex` (`report/latexCapture.js`) from `f.latex` or `formulaTex(expression)` (`lib/utils.js`, mathjs `toTex`, multi-letter names as `\mathrm`). 13 tests in `src/test/reportGaps.test.js`.
 
 - **AI Trace loading screen**: `panels/AITraceOverlay.jsx` shows the phase from uiStore `aiTrace` (`runAutoTrace` `onPhase`: downloading, preparing, detecting). The download warning appears only when `loadModelAsset` really downloads (`onDownloadStart`), and Cancel aborts it via `signal`. Without the worker inference blocks the main thread, so animate only opacity/transform on HTML elements (`ai-trace-*` in `index.css`). 7 tests in `src/test/aiTraceOverlay.test.jsx` + `modelCache.test.js`.
 
@@ -604,7 +605,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 1023 tests pass (71 test files, 0 failures)
+- `npm test` — 1030 tests pass (72 test files, 0 failures)
 
 
 

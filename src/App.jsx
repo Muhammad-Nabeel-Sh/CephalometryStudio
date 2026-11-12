@@ -146,6 +146,7 @@ import { hasStack, stackSwitch } from "./model/stack.js";
 const KEEP_DECODED_FRAMES = 12;
 import { canNudge, nudgeDelta } from "./lib/precision.js";
 import { leavesWorkspace, closesSheet } from "./lib/viewHistory.js";
+import { pdfPreviewSupported } from "./report/pdfPreview.js";
 import { DialogHost } from "./ui/DialogHost.jsx";
 import SettingsModal from "./panels/SettingsModal.jsx";
 import DriveBackupDialog from "./panels/DriveBackupDialog.jsx";
@@ -5917,6 +5918,13 @@ function Workspace({
                       clinic: reportClinicName || reportClinicLogo ? { name: reportClinicName, logo: reportClinicLogo } : null,
                       save: false,
                     });
+                    if (!pdfPreviewSupported()) {
+                      // Phones and tablets can't show the preview: download straight away.
+                      doc.save(doc._fileName);
+                      setShowReportOptions(false);
+                      notify(`Report downloaded: ${doc._fileName}`, { tone: "ok" });
+                      return;
+                    }
                     const blob = doc.output("blob");
                     setReportPreview({ url: URL.createObjectURL(blob), fileName: doc._fileName, pages: doc.internal.getNumberOfPages() });
                   } catch (e) {
@@ -5928,7 +5936,7 @@ function Workspace({
                 }}
                 style={{ flex: 1 }}
               >
-                Generate PDF
+                {pdfPreviewSupported() ? "Generate PDF" : "Download PDF"}
               </Btn>
               <Btn
                 t={t}
