@@ -144,6 +144,7 @@ import { PlacingGuide } from "./panels/PlacingGuide.jsx";
 import { Loupe } from "./panels/Loupe.jsx";
 import { NudgePad } from "./panels/NudgePad.jsx";
 import { StackBar } from "./panels/StackBar.jsx";
+import { TrialGuide } from "./panels/TrialGuide.jsx";
 import { hasStack, stackSwitch } from "./model/stack.js";
 // Frames of a stack kept decoded while scrolling (the rest reload from storage).
 const KEEP_DECODED_FRAMES = 12;
@@ -1742,6 +1743,7 @@ function Workspace({
     project.sessions?.find((s) => s.id === project.activeSessionId) ||
     project.sessions?.[0];
   // Blinded reliability collection: is the session on screen sealed?
+  const sealedSessionIds = useMemo(() => new Set(sealedSessions(project).keys()), [project]);
   const activeSeal = useMemo(
     () => (activeSession ? sessionSeal(project, activeSession.id) : null),
     [project, activeSession],
@@ -5202,6 +5204,17 @@ function Workspace({
                       ctx.stroke();
                     }
                   }}
+                />
+              )}
+              {!researchOpen && (
+                <TrialGuide
+                  t={t}
+                  project={project}
+                  sessionId={activeSession?.id}
+                  sealed={sealedSessionIds}
+                  onUpdateProject={onUpdateProject}
+                  onOpenStudy={() => useUIStore.setState({ researchOpen: true })}
+                  style={{ left: 12, bottom: isMobile ? 108 : 12 }}
                 />
               )}
               {activeSession?.lock && (

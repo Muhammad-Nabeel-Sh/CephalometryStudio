@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **1091 tests (Vitest)**
+- **No TypeScript**, **1100 tests (Vitest)**
 
 ---
 
@@ -129,6 +129,7 @@ src/
 │   ├── PlacingGuide.jsx        Guided tracing banner, reference map, loupe controls
 │   ├── Loupe.jsx               Magnified view beside the pointer, drawn from the source image
 │   ├── NudgePad.jsx            On-screen arrows that move the selected landmark in exact steps
+│   ├── TrialGuide.jsx          Reliability tracing guide on the canvas (who/which trial/case, prev/next, done, handover)
 │   ├── StackBar.jsx            Frame bar over the canvas for a multi-frame session (prev/next, slider)
 │   ├── AITraceOverlay.jsx      AI Trace button + loading screen (download warning/progress, cancel)
 │   ├── TopBar.jsx              Top bar (home, logo, save)
@@ -186,6 +187,7 @@ src/
 │   ├── sampleSize.js           A-priori sample size
 │   ├── dataPreview.js          Study data matrix + tidy CSV
 │   ├── landmarkReliability.js  Landmark placement error within case (S–N frame, radial/axis errors, SDR, ellipses) + coordinate rows
+│   ├── trialWorkflow.js        Reliability workflow steps: open/complete, handover and too-soon checks (pure)
 │   ├── rScript.js              "Export R script": study data (long format) + matching R analysis
 │   ├── comparative.js          t-tests, ANOVA, MANOVA
 │   ├── correlation.js          Correlation + regression
@@ -256,7 +258,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (1091 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (1100 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -610,6 +612,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Landmark placement reliability**: `research/landmarkReliability.js` (pure). Config `landmarkLabels` (point labels; nothing selected = none; studies without the key and without measurements analyse every point) and `landmarkFrame` ("SN" default: per case, origin mean S, x along mean S→mean N, y superior; or "image"). Placements are compared within case (intra: case × operator), or with the reference operator in a method comparison; never across patients. `analyzeLandmarks` → per-landmark errors (`results.landmarks.rows`) and coordinate rows "`<L> (x)`"/"`(y)`" that `runReliabilityAll` adds to the ICC/BA/Dahlberg rows (details tagged `coordinate`, `landmark`, `axis`); the same rows go to the data preview (`buildDataMatrix`) and the R script (`buildRData`, plus an R block for pooled SD and repeat distance). Old `results.landmarkMap` (pooled across cases, wrong) shows a re-run note. 7 tests in `src/test/landmarkReliability.test.js`.
 
+- **Trial guide**: `research/trialWorkflow.js` (pure: `stepForSession`, `ensureStepSession`, `openStep`, `completeStep`, `reopenStep`, `nextOpenIndex`, `transition` for handover / too-soon, `workflowProgress`) is the one place reliability workflow steps are opened and completed; `ReliabilityPanel`'s workflow and `panels/TrialGuide.jsx` (canvas, bottom-left, hidden while the research workspace is open) both use it. Steps get `startedAt`/`doneAt`. 9 tests in `src/test/trialGuide.test.jsx`.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -618,7 +622,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 1091 tests pass (77 test files, 0 failures)
+- `npm test` — 1100 tests pass (78 test files, 0 failures)
 
 
 

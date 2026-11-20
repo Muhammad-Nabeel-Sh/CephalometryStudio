@@ -4,10 +4,9 @@
 
 import { useState } from "react";
 import { InfoBox, Btn, Chip, RemoveBtn, TabBar } from "../ui/ui.jsx";
-import { mkReliabilitySession } from "../model/session.js";
-import { addSession } from "../model/project.js";
 import { ICC_MODELS } from "./reliability.js";
 import { LabelSelector } from "./LabelSelector.jsx";
+import { openStep, completeStep, workflowProgress } from "./trialWorkflow.js";
 import { SMALL_BTN } from "../ui/tokens.js";
 import { fmtNum } from "../lib/utils.js";
 
@@ -403,7 +402,7 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
 }
 
 // ─── Workflow Panel (guided data collection) ─────────────────────────────
-function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, project, t }) {
+function ReliabilityWorkflow({ study, onUpdateStudy, onUpdateProject, project, t }) {
   const config = study.config;
   const workflow = config.workflow || {};
   const steps = workflow.steps || [];
@@ -422,101 +421,11 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
     update({ workflow: { ...workflow, active: false } });
   };
 
-  const openSession = () => {
-    if (!current) return;
-    let cloneId = current.cloneSessionId;
-    if (!cloneId) {
-      const baseSession = sessions.find(s => s.id === current.baseSessionId);
-      if (!baseSession) return;
-      const newSession = mkReliabilitySession(baseSession, current.operatorId, current.trialNum);
-      cloneId = newSession.id;
-
-      // Update this step's cloneSessionId
-      const newSteps = steps.map((s, i) =>
-        i === currentStep ? { ...s, cloneSessionId: cloneId } : s
-      );
-
-      // Update the case's session entry to point to the clone (unique sessionId per operator×trial)
-      const updatedCases = config.cases.map(c =>
-        c.id !== current.caseId ? c : {
-          ...c,
-          sessions: (c.sessions || []).map(cs =>
-            cs.operatorId === current.operatorId && cs.occasion === current.trialNum
-              ? { ...cs, sessionId: cloneId }
-              : cs
-          ),
-        }
-      );
-
-      // Single combined project update: add session + update study + navigate
-      const updatedProject = addSession(project, newSession);
-      const updatedStudy = {
-        ...study,
-        config: {
-          ...config,
-          cases: updatedCases,
-          workflow: { ...workflow, steps: newSteps, currentStep },
-        },
-      };
-      onUpdateProject({
-        ...updatedProject,
-        researchStudies: (updatedProject.researchStudies || []).map(s =>
-          s.id === study.id ? updatedStudy : s
-        ),
-      });
-    } else {
-      onUpdateProject({ ...project, activeSessionId: cloneId });
-    }
-  };
-
-  const ensureClone = (step) => {
-    if (step.cloneSessionId) return step;
-    const baseSession = sessions.find(s => s.id === step.baseSessionId);
-    if (!baseSession) return step;
-    const newSession = mkReliabilitySession(baseSession, step.operatorId, step.trialNum);
-    const cloneId = newSession.id;
-    // Update case session entry to point to clone
-    const updatedCases = config.cases.map(c =>
-      c.id !== step.caseId ? c : {
-        ...c,
-        sessions: (c.sessions || []).map(cs =>
-          cs.operatorId === step.operatorId && cs.occasion === step.trialNum
-            ? { ...cs, sessionId: cloneId }
-            : cs
-        ),
-      }
-    );
-    const updatedProject = addSession(project, newSession);
-    onUpdateProject({
-      ...updatedProject,
-      researchStudies: (updatedProject.researchStudies || []).map(s =>
-        s.id === study.id ? {
-          ...study,
-          config: { ...config, cases: updatedCases },
-        } : s
-      ),
-    });
-    return { ...step, cloneSessionId: cloneId };
-  };
-
-  const completeAndNext = () => {
-    if (!current) return;
-    // Auto-create clone if not yet opened (so analysis sees unique sessionIds)
-    const resolved = current.cloneSessionId ? current : ensureClone(current);
-    const newSteps = steps.map((s, i) =>
-      i === currentStep ? { ...resolved, done: true } : s
-    );
-    const nextIdx = currentStep + 1;
-    const complete = nextIdx >= total;
-    const updatedStudy = {
-      ...study,
-      config: {
-        ...config,
-        workflow: { ...workflow, steps: newSteps, currentStep: nextIdx, complete },
-      },
-    };
-    onUpdateStudy(updatedStudy);
-  };
+  // Steps are opened and completed through research/trialWorkflow.js, shared with
+  // the trial guide on the canvas.
+  const openSession = () => { if (current) onUpdateProject(openStep(project, study.id, currentStep)); };
+  const completeAndNext = () => { if (current) onUpdateProject(completeStep(project, study.id, currentStep)); };
+  const goTo = (i) => update({ workflow: { ...workflow, currentStep: Math.max(0, Math.min(total - 1, i)) } });
 
   if (!current && !workflow.complete) {
     return (
@@ -555,8 +464,10 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
       {/* Current step */}
       {!workflow.complete && current && (
         <div style={{ padding: 10, background: t.surf3, borderRadius: 6, border: `1px solid ${t.bdr}44` }}>
-          <div style={{ fontSize: 12, color: t.tx2, marginBottom: 6 }}>
-            Step {currentStep + 1} of {total}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: t.tx2, marginBottom: 6 }}>
+            <Btn t={t} small ghost onClick={() => goTo(currentStep - 1)} disabled={currentStep <= 0} style={SMALL_BTN} title="Previous step">◀</Btn>
+            <span style={{ flex: 1, textAlign: "center" }}>Step {currentStep + 1} of {total}{current.done ? " · done" : ""}</span>
+            <Btn t={t} small ghost onClick={() => goTo(currentStep + 1)} disabled={currentStep >= total - 1} style={SMALL_BTN} title="Next step">▶</Btn>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 8 }}>
             <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
@@ -583,7 +494,7 @@ function ReliabilityWorkflow({ study, sessions, onUpdateStudy, onUpdateProject, 
               {current.cloneSessionId ? "Open session" : "Create and open session"}
             </Btn>
             <Btn t={t} small onClick={completeAndNext} style={{ flex: 1, color: t.ok, border: `1px solid ${t.ok}` }}>
-              {currentStep + 1 >= total ? "Finish" : "Complete and next →"}
+              {workflowProgress(study).done + (current.done ? 0 : 1) >= total ? "Finish" : "Complete and next →"}
             </Btn>
           </div>
         </div>

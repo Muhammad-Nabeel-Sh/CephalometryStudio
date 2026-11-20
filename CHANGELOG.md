@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased] - Trial guide for reliability tracing
+
+### Added
+- **Trial guide on the canvas:** while a reliability study's tracing is open, a panel says who traces which
+  trial of which case (step n of N, progress), with Previous, Next and "Done, next", and a list of every
+  tracing by rater to jump to. It asks for a handover when the next tracing is another rater's, warns when a
+  rater's later trial comes sooner than the study's minimum separation, and marks tracings sealed by
+  blinding. It can be hidden to a one-line reminder. The study's workflow panel gained previous/next arrows
+  and shares the same step logic (`research/trialWorkflow.js`).
+
 ## [Unreleased] - Audit trail and locking, Kim indicators, norm withdrawal, reversed angles
 
 > **Some measured values change.** Facial angle / facial depth, maxillary and mandibular depth, IMPA and
