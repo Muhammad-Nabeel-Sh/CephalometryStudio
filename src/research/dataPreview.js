@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
+import { analyzeLandmarks, landmarkLabelsFor } from "./landmarkReliability.js";
 
 // Studies of these types analyze every project session unless the user limits
 // them to a selection (config.sessionScope === "selected").
@@ -75,6 +76,20 @@ export function buildDataMatrix(study, sessions, calibration) {
       calibrated: s.calibration?.done === true || calibration?.done === true,
       values,
     });
+  }
+  // Reliability: the analysed landmarks' coordinates, as the analysis frames them.
+  if (study?.type === "reliability") {
+    const mapped = rows.map(r => byId.get(r.sessionId)).filter(Boolean);
+    const labels = landmarkLabelsFor(study.config, mapped, columns.size > 0);
+    const lm = analyzeLandmarks(mapped, study.config, calibration, labels);
+    const rowOf = new Map(rows.map(r => [r.sessionId, r]));
+    for (const c of lm.rows) {
+      const r = rowOf.get(c.sessionId);
+      if (!r || r.values[c.label] !== undefined) continue;
+      r.values[c.label] = c.value;
+      if (!columns.has(c.label)) columns.set(c.label, { label: c.label, unit: c.unit, n: 0 });
+      columns.get(c.label).n++;
+    }
   }
   const cols = [...columns.values()].sort((a, b) => a.label.localeCompare(b.label));
   const mixedUnits = cols.filter(c => rows.some(r => r.values[c.label] !== undefined && !r.calibrated) && rows.some(r => r.values[c.label] !== undefined && r.calibrated) && c.unit !== "°");

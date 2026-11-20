@@ -6,7 +6,7 @@ import { SILHOUETTES } from "../data/silhouettes.js";
 import { normalCdf as normalCDF } from "./distributions.js";
 import {
   angle3Convention, angle4Convention, isSignedPerp, orderForVertex, resolveFacing,
-  signedAngle3, convexityAngle, abPlaneAngle, signedPerpDist, signedProjection,
+  signedAngle3, convexityAngle, abPlaneAngle, odiAngle, signedPerpDist, signedProjection,
 } from "./measureConventions.js";
 
 // mathjs (~650 KB) is loaded on first use (C6), not with the app. Until it has
@@ -151,8 +151,9 @@ export function computeMeasurements(m, cal, ctx) {
     else meas.angle = angle3pt(p0, p1, p2);
   }
   if (m.type === "angle4" && vp.length >= 4) {
-    meas.angle = angle4Convention(m) === "abPlane"
-      ? abPlaneAngle(vp[0], vp[1], vp[2], vp[3], facing)
+    const conv = angle4Convention(m);
+    meas.angle = conv === "abPlane" ? abPlaneAngle(vp[0], vp[1], vp[2], vp[3], facing)
+      : conv === "odi" && vp.length >= 8 ? odiAngle(...vp.slice(0, 8), facing)
       : angle4pt(vp[0], vp[1], vp[2], vp[3]);
   }
   if (m.type === "polygon" && vp.length >= 3) {

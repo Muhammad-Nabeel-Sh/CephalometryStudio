@@ -170,62 +170,73 @@ function CollectiveBlandAltman({ details, t }) {
   return <ChartCard title="Collective Bland-Altman — All Landmarks" t={t}><PlotlyChart data={[...refTraces, pointTrace]} layout={layout} style={{ height: layout.height }} /></ChartCard>;
 }
 
+// Landmark placement (landmarkReliability.js): errors ranked, and an error-envelope
+// map with each landmark at its mean position and its 95% ellipse enlarged.
 function ErrorMapPlot({ results, t }) {
-  const map = results.landmarkMap;
-  if (!map) return null;
-  const entries = Object.entries(map).map(([l, v]) => ({
-    label: l,
-    mean: v.meanError || 0,
-    sd: v.sdError || 0,
-    max: v.maxError,
-    unit: v.unit || "",
-  })).filter(e => e.sd > 0);
-  if (entries.length === 0) return null;
-  const sorted = [...entries].sort((a, b) => b.sd - a.sd);
-  const maxV = Math.max(...sorted.map(e => e.sd), 0.5);
-  const unit = sorted[0]?.unit || "mm";
+  const lm = results.landmarks;
+  const rows = (lm?.rows || []).filter(r => !r.skip);
+  if (!rows.length) return null;
+  return <>
+    <LandmarkErrorRanking rows={rows} unit={lm.unit} t={t} />
+    {Object.keys(lm.positions || {}).length >= 2 && <LandmarkEnvelopeMap rows={rows} lm={lm} t={t} />}
+  </>;
+}
 
-  const sdTrace = {
-    type: "bar", orientation: "h",
-    y: sorted.map(e => `${e.label}  (SD=${fmtNum(e.sd, 2)} ${e.unit})`),
-    x: sorted.map(e => e.sd),
-    marker: { color: t.acc, opacity: 0.7 },
-    text: sorted.map(e => fmtNum(e.sd, 2)),
-    textposition: "outside",
-    textfont: { size: 9, color: t.tx3, family: FONT_STACK },
-    showlegend: false,
-    hovertemplate: `%{y}: SD = %{x:.2f} ${unit}<extra></extra>`,
-  };
-  const meanTrace = {
-    type: "scatter", mode: "markers",
-    y: sorted.map(e => `${e.label}  (SD=${fmtNum(e.sd, 2)} ${e.unit})`),
-    x: sorted.map(e => e.mean),
-    marker: { color: t.warn, size: 8, symbol: "diamond", line: { width: 1, color: t.bg } },
-    showlegend: true, name: "Mean Error",
-    hovertemplate: `Mean = %{x:.2f} ${unit}<extra></extra>`,
-  };
-  const maxTrace = {
-    type: "scatter", mode: "markers",
-    y: sorted.map(e => `${e.label}  (SD=${fmtNum(e.sd, 2)} ${e.unit})`),
-    x: sorted.map(e => e.max),
-    marker: { color: t.err, size: 6, symbol: "circle", line: { width: 1, color: t.bg } },
-    showlegend: true, name: "Max Error",
-    hovertemplate: `Max = %{x:.2f} ${unit}<extra></extra>`,
-  };
-
+function LandmarkErrorRanking({ rows, unit, t }) {
+  const ref = rows.some(r => r.mode === "reference");
+  const main = r => (ref ? r.meanRadial : r.meanPairDistance ?? r.meanRadial);
+  const sorted = [...rows].sort((a, b) => main(b) - main(a));
+  const u = unit === "mixed" ? "" : unit;
+  const y = sorted.map(r => r.landmark);
+  const traces = [
+    { type: "bar", orientation: "h", y, x: sorted.map(main), name: ref ? "Mean error vs reference" : "Mean repeat distance",
+      marker: { color: t.acc, opacity: 0.75 }, hovertemplate: `%{y}: %{x:.2f} ${u}<extra></extra>` },
+    { type: "scatter", mode: "markers", y, x: sorted.map(r => r.sdX), name: "SD x", marker: { color: t.warn, size: 8, symbol: "diamond" }, hovertemplate: `SD x %{x:.2f} ${u}<extra></extra>` },
+    { type: "scatter", mode: "markers", y, x: sorted.map(r => r.sdY), name: "SD y", marker: { color: t.ok, size: 8, symbol: "square" }, hovertemplate: `SD y %{x:.2f} ${u}<extra></extra>` },
+  ];
   const layout = {
-    paper_bgcolor: t.surf, plot_bgcolor: t.surf,
-    font: { color: t.tx2, family: FONT_STACK, size: 11 },
-    margin: { l: 180, r: 60, t: 15, b: 45 },
-    xaxis: { title: `Error (${unit})`, range: [0, maxV * 1.3], gridcolor: t.surf3, zeroline: false },
-    yaxis: { title: { text: "Landmark", font: { size: 12 } }, autorange: "reversed", zeroline: false, showgrid: false, tickfont: { size: 10 } },
-    height: Math.max(240, sorted.length * 30 + 60),
-    legend: { orientation: "h", y: 1.02, x: 0.5, xanchor: "center", font: { size: 10 } },
+    paper_bgcolor: t.surf, plot_bgcolor: t.surf, font: { color: t.tx2, family: FONT_STACK, size: 11 },
+    margin: { l: 90, r: 30, t: 15, b: 45 },
+    xaxis: { title: `Error${u ? ` (${u})` : ""}`, gridcolor: t.surf3, zeroline: false, rangemode: "tozero" },
+    yaxis: { autorange: "reversed", showgrid: false, tickfont: { size: 11 } },
+    height: Math.max(240, sorted.length * 26 + 70),
+    legend: { orientation: "h", y: 1.04, x: 0.5, xanchor: "center", font: { size: 10 } },
   };
+  return <ChartCard title="Landmark placement error, largest first" t={t}><PlotlyChart data={traces} layout={layout} style={{ height: layout.height }} /></ChartCard>;
+}
 
-  return <ChartCard title="Method Error Ranking — Sort by SD" t={t}>
-    <PlotlyChart data={[sdTrace, meanTrace, maxTrace]} layout={layout} style={{ height: layout.height }} />
-  </ChartCard>;
+function LandmarkEnvelopeMap({ rows, lm, t }) {
+  const pos = lm.positions;
+  const pts = rows.filter(r => pos[r.landmark]);
+  const xs = Object.values(pos).map(p => p.x), ys = Object.values(pos).map(p => p.y);
+  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+  const biggest = Math.max(...pts.map(r => r.ellipse?.major || 0), 1e-9);
+  // Enlarge so the largest ellipse is about a twelfth of the drawing: errors of a
+  // millimetre or two would be invisible on a head-sized plot.
+  const k = Math.max(1, Math.round(span / 12 / biggest));
+  const shapes = pts.map(r => {
+    const { x, y } = pos[r.landmark], e = r.ellipse || {};
+    const a = (e.major || 0) * k, b = (e.minor || 0) * k, th = ((e.angle || 0) * Math.PI) / 180;
+    const path = Array.from({ length: 49 }, (_, i) => {
+      const u = (i / 48) * 2 * Math.PI, ex = a * Math.cos(u), ey = b * Math.sin(u);
+      return `${i ? "L" : "M"}${x + ex * Math.cos(th) - ey * Math.sin(th)},${y + ex * Math.sin(th) + ey * Math.cos(th)}`;
+    }).join(" ") + " Z";
+    return { type: "path", path, line: { color: t.acc, width: 1.5 }, fillcolor: t.acc + "22" };
+  });
+  const trace = {
+    type: "scatter", mode: "markers+text", x: pts.map(r => pos[r.landmark].x), y: pts.map(r => pos[r.landmark].y),
+    text: pts.map(r => r.landmark), textposition: "top right", textfont: { size: 11, color: t.tx2, family: FONT_STACK },
+    marker: { size: 5, color: t.tx }, hovertemplate: "%{text}<extra></extra>", showlegend: false,
+  };
+  const u = lm.unit === "mixed" ? "" : ` (${lm.unit})`;
+  const layout = {
+    paper_bgcolor: t.surf, plot_bgcolor: t.surf, font: { color: t.tx2, family: FONT_STACK, size: 11 },
+    margin: { l: 50, r: 20, t: 15, b: 45 }, shapes,
+    xaxis: { title: lm.frame === "SN" ? `Along S→N${u}` : `Anterior${u}`, gridcolor: t.surf3, zeroline: true, zerolinecolor: t.bdr },
+    yaxis: { title: lm.frame === "SN" ? `Perpendicular, superior${u}` : `Superior${u}`, gridcolor: t.surf3, zeroline: true, zerolinecolor: t.bdr, scaleanchor: "x" },
+    height: 460,
+  };
+  return <ChartCard title={`Error envelopes: 95% ellipses enlarged ×${k}, at each landmark's mean position`} t={t}><PlotlyChart data={[trace]} layout={layout} style={{ height: layout.height }} /></ChartCard>;
 }
 
 function MethodErrorBarPlot({ details, t }) {

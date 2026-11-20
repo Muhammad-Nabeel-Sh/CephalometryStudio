@@ -7,7 +7,7 @@ Cephalometry Studio is a React + Vite application for cephalometric analysis (me
 - **Framework**: React 19 with Vite 8
 - **Styling**: Inline styles (no CSS framework)
 - **Math**: mathjs for formulas, katex for LaTeX rendering
-- **No TypeScript**, **1057 tests (Vitest)**
+- **No TypeScript**, **1091 tests (Vitest)**
 
 ---
 
@@ -117,6 +117,7 @@ src/
 │   ├── csv.js                  CSV parsing
 │   ├── project.js              Project data model
 │   ├── patients.js             Home page: cases grouped by patient, timelines, search
+│   ├── audit.js                Session audit trail + locking a reliability study's trial sessions (R4)
 │   ├── stack.js                Frame stacks (multi-frame DICOM in one session): switch, entries, validation
 │   └── session.js              Session data model
 │
@@ -184,6 +185,7 @@ src/
 │   ├── mixedModel.js           REML linear mixed model (random intercept/slope)
 │   ├── sampleSize.js           A-priori sample size
 │   ├── dataPreview.js          Study data matrix + tidy CSV
+│   ├── landmarkReliability.js  Landmark placement error within case (S–N frame, radial/axis errors, SDR, ellipses) + coordinate rows
 │   ├── rScript.js              "Export R script": study data (long format) + matching R analysis
 │   ├── comparative.js          t-tests, ANOVA, MANOVA
 │   ├── correlation.js          Correlation + regression
@@ -254,7 +256,7 @@ src/
 │   ├── undoHistory.js          Describes undo steps (toasts + history list)
 │   └── images.js               importImageFile (stores original pixels), loadImageFile, drop handling
 │
-└── test/                       Vitest test files (1057 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
+└── test/                       Vitest test files (1091 tests; realistic fixtures in test/helpers/, DICOM/TIFF writers in test/helpers/dicomWriter.js)
 ```
 
 ### File Organization
@@ -603,6 +605,11 @@ Recommended settings for `.vscode/settings.json`:
 
 - **R script export + norm audit (Phase 1 items 9, 11)**: `research/rScript.js` builds the data from the same `sessionPrimaryMeasure` path as the engine, and its R mirrors each module's choices (ICC form, test policy, correction, the LMM random-slope LRT, the logit-scale DeLong CI). If you change a module's method, update its R block too; scripts were checked against the app in R 4.6.1. Norms: `data/normSources.js` gives every shipped analysis `sd: "published" | "approximate" | "unsourced"`, and `isApproximateSd`/`sdStatus` (re-exported from `norms.js`) flag anything not "published". A new analysis with norms needs an entry (tested). Add PMIDs/DOIs only when PubMed confirms them; the rules and the population-norm reading list are in `docs/NORM_AUDIT.md`.
 
+- **Audit trail and trial locking (R4)**: `model/audit.js`. `updateSessionInProject` (model/project.js) is where every session edit lands: it appends `auditChanges` to `session.auditLog` (merged within `AUDIT_MERGE_MS` per person; actor = profile name via `setAuditActor`; `opts.audit: false` for migrations) and drops `LOCKED_KEYS` (markups, calibration, facing, angleMode) from patches to a session with `session.lock`. The session store refuses edits too (`lock` in sessionStore, set by App; `setLockedEditHandler` toasts), so the canvas never diverges from the project. `lockStudy`/`unlockStudy` lock a reliability study's `trialSessionIds` (cases + workflow copies) and log on the study (`config.lock`, `config.lockLog`, kept out of the fingerprint) and each session; `removeSession` refuses locked sessions; `studyWarnings` reports lock and unlocks. UI: study More menu, canvas banner (History / Unlock…), Sessions panel History (`panels/SessionHistory.js`). Copies (`mkSession`) don't carry lock or log. 11 tests in `src/test/auditTrail.test.js`.
+- **Kim ODI/APDI and angle directions**: ODI is an 8-point angle4 row with convention `odi` (`odiAngle` in `lib/measureConventions.js`); APDI is the directed angle4 `A,B,ANS,PNS`. Near-90° angle4 rows can be reversed and still pass the mean-skull plausibility test, so `src/test/angleDirections.test.js` moves a landmark the clinical way and checks the direction (and FMA + IMPA + FMIA = 180°); add new near-90° angles there. Withdrawn norm analyses: `WITHDRAWN_NORM_ANALYSES` (data/normSources.js), dropped from sessions by `migrateNorms`.
+
+- **Landmark placement reliability**: `research/landmarkReliability.js` (pure). Config `landmarkLabels` (point labels; nothing selected = none; studies without the key and without measurements analyse every point) and `landmarkFrame` ("SN" default: per case, origin mean S, x along mean S→mean N, y superior; or "image"). Placements are compared within case (intra: case × operator), or with the reference operator in a method comparison; never across patients. `analyzeLandmarks` → per-landmark errors (`results.landmarks.rows`) and coordinate rows "`<L> (x)`"/"`(y)`" that `runReliabilityAll` adds to the ICC/BA/Dahlberg rows (details tagged `coordinate`, `landmark`, `axis`); the same rows go to the data preview (`buildDataMatrix`) and the R script (`buildRData`, plus an R block for pooled SD and repeat distance). Old `results.landmarkMap` (pooled across cases, wrong) shows a re-run note. 7 tests in `src/test/landmarkReliability.test.js`.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
@@ -611,7 +618,7 @@ Recommended settings for `.vscode/settings.json`:
 
 - `npm run build` — OK (chunk size warning is pre-existing, mathjs is large; plotly loaded as dynamic import)
 - `npm run lint` — 0 errors, 0 warnings
-- `npm test` — 1057 tests pass (74 test files, 0 failures)
+- `npm test` — 1091 tests pass (77 test files, 0 failures)
 
 
 

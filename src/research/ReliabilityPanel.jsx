@@ -144,6 +144,10 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
     const next = labelIds.includes(labelId) ? labelIds.filter(id => id !== labelId) : [...labelIds, labelId];
     update({ labelIds: next });
   };
+  // Landmark placement (landmarkReliability.js). Nothing selected = no landmarks.
+  const landmarkLabels = config.landmarkLabels || [];
+  const toggleLandmark = (l) => update({ landmarkLabels: landmarkLabels.includes(l) ? landmarkLabels.filter(x => x !== l) : [...landmarkLabels, l] });
+  const landmarkFrame = config.landmarkFrame === "image" ? "image" : "SN";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 12 }}>
@@ -357,7 +361,28 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
       {/* Measurement labels */}
       <div>
         <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>Measurements</div>
-        <LabelSelector sessions={sessions} selected={labelIds} onToggle={toggleLabel} t={t} />
+        <LabelSelector sessions={sessions} selected={labelIds} onToggle={toggleLabel} t={t} kind="measurements" />
+      </div>
+
+      {/* Landmark positions */}
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: t.tx2, marginBottom: 4 }}>Landmark positions</div>
+        <div style={{ fontSize: 12, color: t.tx3, lineHeight: 1.5, marginBottom: 6 }}>
+          How consistently each landmark is placed: the distance between repeated placements on the same case, the error along each axis, the share within 1–4 mm, an error ellipse, and the ICC of its x and y coordinates.
+          {config.design === "method_comparison" && " With a reference operator, each placement is measured against the reference's."}
+        </div>
+        <LabelSelector sessions={sessions} selected={landmarkLabels} onToggle={toggleLandmark} t={t} kind="landmarks" emptyMeansAll={false}
+          onSelectAll={(all) => update({ landmarkLabels: all })} />
+        {landmarkLabels.length > 0 && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+            <span style={{ fontSize: 12, color: t.tx2 }}>Coordinates:</span>
+            <Chip t={t} on={landmarkFrame === "SN"} onClick={() => update({ landmarkFrame: "SN" })}>S–N frame</Chip>
+            <Chip t={t} on={landmarkFrame === "image"} onClick={() => update({ landmarkFrame: "image" })}>Image axes</Chip>
+            <span style={{ fontSize: 12, color: t.tx3 }}>
+              {landmarkFrame === "SN" ? "x along S→N, y perpendicular (superior), from each case's mean S and N. Needs S and N placed." : "x anterior, y superior, as on the film."}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Ready indicator */}
@@ -365,7 +390,7 @@ export function ReliabilityConfig({ study, sessions, onUpdateStudy, t, project, 
         {cases.length === 0 ? "⚠ Add at least one case with a session assigned" :
          cases.every(c => !c.sessionId) ? "⚠ Assign a session to each case" :
          operators.length < (config.design === "intra" ? 1 : 2) ? `⚠ Define enough ${agentLabel.toLowerCase()}s for this design` :
-         `✓ ${cases.length} case(s), ${operators.length} ${agentLabel.toLowerCase()}s × ${occasions} trial(s), ${labelIds.length || "all"} measurement(s)`}
+         `✓ ${cases.length} case(s), ${operators.length} ${agentLabel.toLowerCase()}s × ${occasions} trial(s), ${labelIds.length || "all"} measurement(s)${landmarkLabels.length ? `, ${landmarkLabels.length} landmark(s)` : ""}`}
       </div>
 
       {/* Run Study button */}
@@ -605,7 +630,7 @@ export function ReliabilityResults({ results, t }) {
     { id: "icc", label: "ICC" },
     { id: "ba", label: "Bland-Altman" },
     { id: "error", label: "Method Error" },
-    { id: "map", label: "Error Map" },
+    { id: "map", label: "Landmarks" },
     { id: "summary", label: "Summary" },
   ];
 
@@ -621,7 +646,7 @@ export function ReliabilityResults({ results, t }) {
       {tab === "icc" && <ICCView details={details} t={t} />}
       {tab === "ba" && <BlandAltmanView details={details} t={t} />}
       {tab === "error" && <MethodErrorView details={details} t={t} />}
-      {tab === "map" && <ErrorMapView results={results} t={t} />}
+      {tab === "map" && <LandmarkView results={results} details={details} t={t} />}
       {tab === "summary" && <SummaryView results={results} t={t} />}
     </div>
   );
@@ -747,36 +772,66 @@ function MethodErrorView({ details, t }) {
   );
 }
 
-// ─── Landmark Error Map ─────────────────────────────────────────────────
-function ErrorMapView({ results, t }) {
-  const map = results.landmarkMap;
-  if (!map || Object.keys(map).length === 0) return <EmptyDetail message="No landmark error data available. Ensure point-type markups are placed." t={t} />;
-
+// ─── Landmark placement (landmarkReliability.js) ─────────────────────────
+export function LandmarkView({ results, details = [], t }) {
+  const lm = results.landmarks;
+  if (!lm && results.landmarkMap) {
+    return <EmptyDetail message="This study was run with an older landmark error map that pooled placements across patients, so its numbers mixed anatomy with error. Re-run the analysis for landmark placement errors measured within each case." t={t} />;
+  }
+  const rows = lm?.rows || [];
+  if (!rows.length) return <EmptyDetail message="No landmarks analysed. Choose them under Landmark positions in the study's setup." t={t} />;
+  const ref = rows.some(r => r.mode === "reference");
+  const u = lm.unit === "mixed" ? "" : lm.unit;
+  const icc = (landmark, axis) => {
+    const ds = details.filter(d => d.coordinate && d.landmark === landmark && d.axis === axis && !d.skip);
+    if (ds.length === 1) return fmtNum(ds[0].icc, 2);
+    if (ds.length > 1) return `${fmtNum(Math.min(...ds.map(d => d.icc)), 2)}–${fmtNum(Math.max(...ds.map(d => d.icc)), 2)}`;
+    return "—";
+  };
+  const mm = (v, d = 2) => (v == null ? "—" : fmtNum(v, d));
+  const pct = v => (v == null ? "—" : `${Math.round(v * 100)}%`);
+  const head = ["Landmark", "Cases", ref ? "Placements" : "Placements", ref ? "Mean error" : "Repeat distance", ref ? "Bias x / y" : "From consensus", "SD x", "SD y", "Within 2 mm", "95% ellipse", "ICC x", "ICC y"];
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>
-        <thead>
-          <tr style={{ background: t.surf2 }}>
-            {["Landmark", "Unit", "N", "Mean Error", "SD Error", "Max Error", "Ellipse Major", "Ellipse Minor"].map(h => (
-              <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx2, fontSize: 12 }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(map).sort().map(([label, lm]) => (
-            <tr key={label} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
-              <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{label}</td>
-              <td style={{ padding: "5px 6px", color: t.tx3 }}>{lm.unit || "—"}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.n}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmtNum(lm.meanError, 2)} {lm.unit || ""}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmtNum(lm.sdError, 2)} {lm.unit || ""}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{fmtNum(lm.maxError, 2)} {lm.unit || ""}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.major?.toFixed(2) || "—"} {lm.ellipse?.unit || lm.unit || ""}</td>
-              <td style={{ padding: "5px 6px", color: t.tx2 }}>{lm.ellipse?.minor?.toFixed(2) || "—"} {lm.ellipse?.unit || lm.unit || ""}</td>
+    <div>
+      <div style={{ fontSize: 12, color: t.tx2, lineHeight: 1.55, marginBottom: 8 }}>
+        {ref
+          ? "Each placement is compared with the reference operator's placement on the same case. Bias is the mean offset from the reference."
+          : "Placements are compared only within each case" + (results.summary?.design === "intra" ? " and rater" : "") + ": repeat distance is the mean distance between two placements; from consensus is the mean distance to their average."}
+        {" "}Coordinates in {lm.frame === "SN" ? "the S–N frame (x along S→N, y superior)" : "image axes (x anterior, y superior)"}{u ? `, in ${u}` : ""}. SD x and SD y are the typical error of one placement along each axis.
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>
+          <thead>
+            <tr style={{ background: t.surf2 }}>
+              {head.map(h => <th key={h} style={{ padding: "4px 6px", textAlign: "left", color: t.tx2, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>)}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.landmark} style={{ borderBottom: `1px solid ${t.bdr}22` }}>
+                <td style={{ padding: "5px 6px", color: t.tx, fontWeight: 600 }}>{r.landmark}</td>
+                {r.skip ? <td colSpan={head.length - 1} style={{ padding: "5px 6px", color: t.tx3 }}>{r.reason}</td> : <>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.cases}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.placements}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx }}>{ref ? `${mm(r.meanRadial)} ± ${mm(r.sdRadial)}` : mm(r.meanPairDistance)}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{ref ? `${mm(r.biasX)} / ${mm(r.biasY)}` : mm(r.meanRadial)}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{mm(r.sdX)}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{mm(r.sdY)}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{r.sdr ? pct(r.sdr[2]) : "—"}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2, whiteSpace: "nowrap" }} title="Half-axes of the ellipse holding 95% of placements, and the major axis's angle from x">{mm(r.ellipse?.major)} × {mm(r.ellipse?.minor)}, {fmtNum(r.ellipse?.angle, 0)}°</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{icc(r.landmark, "x")}</td>
+                  <td style={{ padding: "5px 6px", color: t.tx2 }}>{icc(r.landmark, "y")}</td>
+                </>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.some(r => r.sdr) && (
+        <div style={{ fontSize: 12, color: t.tx3, marginTop: 6 }}>
+          Within 1 / 2.5 / 3 / 4 mm: {rows.filter(r => r.sdr).map(r => `${r.landmark} ${[1, 2.5, 3, 4].map(k => pct(r.sdr[k])).join(" / ")}`).join(" · ")}
+        </div>
+      )}
     </div>
   );
 }

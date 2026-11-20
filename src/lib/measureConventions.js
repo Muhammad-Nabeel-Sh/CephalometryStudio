@@ -121,6 +121,22 @@ export function abPlaneAngle(a, b, n, pog, facing = "right") {
   return -Math.atan2(f.x * ab.y - f.y * ab.x, f.x * ab.x + f.y * ab.y) * DEG;
 }
 
+// Kim's overbite depth indicator (Kim 1974; construction as Obamiyi et al. 2019):
+// the acute angle between the A-B plane and the mandibular plane (Go-Me), minus
+// the palatal plane's inclination to Frankfort horizontal when the palatal plane
+// slopes upward anteriorly (ANS higher), plus it when it slopes downward.
+// Measured in the patient frame, so a mirrored image gives the same value.
+export function odiAngle(a, b, go, me, ans, pns, po, or, facing = "right") {
+  const [A, B, Go, Me, ANS, PNS, Po, Or] = [a, b, go, me, ans, pns, po, or].map(p => toFrame(p, facing));
+  const lineAngle = (p, q) => Math.atan2(q.y - p.y, q.x - p.x);
+  let abMp = Math.abs(lineAngle(A, B) - lineAngle(Go, Me)) * DEG % 180;
+  if (abMp > 90) abMp = 180 - abMp;
+  // Image y points down, so the sign is flipped: + = anterior end up.
+  let tilt = -(lineAngle(PNS, ANS) - lineAngle(Po, Or)) * DEG;
+  tilt = ((tilt + 540) % 360) - 180;
+  return abMp - tilt;
+}
+
 // ─── Registry: which named measurements carry which convention ─────────────
 // Keyed by the measurement's template name (`m.measure`, falling back to label).
 const ANGLE3_CONVENTIONS = {
@@ -132,6 +148,7 @@ const ANGLE3_CONVENTIONS = {
 };
 const ANGLE4_CONVENTIONS = {
   "AB plane angle": "abPlane", "AB plane": "abPlane",
+  "ODI": "odi",
 };
 // Landmark that must sit at the vertex for a convention; lets legacy markups
 // saved with the old reference order still compute the right angle.

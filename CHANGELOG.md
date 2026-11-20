@@ -1,5 +1,54 @@
 # Changelog
 
+## [Unreleased] - Audit trail and locking, Kim indicators, norm withdrawal, reversed angles
+
+> **Some measured values change.** Facial angle / facial depth, maxillary and mandibular depth, IMPA and
+> the facial axis reported their supplements (180° − θ); saved cases are corrected when opened, and studies
+> that use them show as out of date. Re-run them.
+
+### Added
+- **Session history (R4):** every session keeps an append-only log of changes to its landmarks and
+  measurements (added, moved, renamed, changed, removed), calibration, profile direction and image, with
+  who made them (the profile's name) and when. Edits a few minutes apart are grouped. History button on each
+  session in the Sessions panel.
+- **Locking a reliability study's trial sessions (R4):** More → "Lock trial sessions…" makes every session
+  the study measures view only. Landmarks, measurements, calibration and profile direction can't change and
+  the session can't be removed; viewing, frames, window/level and image adjustments still work. A banner on
+  a locked session offers History and Unlock. Locking, unlocking and broken blinding seals are recorded in
+  each session's history, and the study's results report when the sessions were locked and any unlocks.
+  Copies of a session don't inherit its lock or history.
+- **Kim's ODI and APDI in full:** ODI = A-B plane to mandibular plane (Go-Me) ∓ the palatal plane's
+  inclination to FH (subtracted when it slopes upward anteriorly); APDI = the A-B plane to the palatal plane,
+  which equals facial angle + A-B plane angle ± palatal plane angle. Both carry Kim's norms again
+  (74.5° ± 6.07, 81.4° ± 3.79). Combination factor stays without a norm.
+
+- **Landmark placement in reliability studies:** choose landmarks under "Landmark positions" in a
+  reliability study's setup. Each placement is compared only with placements on the same case (and rater,
+  for intra-rater studies), or with the reference rater's in a method comparison. Per landmark: mean
+  distance between repeats (or mean error and offset from the reference), typical error along x and y,
+  the share within 1, 2, 2.5, 3 and 4 mm, and a 95% error ellipse. Each landmark's x and y also get ICC,
+  Bland-Altman and Dahlberg. Coordinates are in an S–N frame built from each case's mean S and N (or the
+  image axes). Results: a Landmarks tab, an error ranking and an error-envelope map, the APA write-up (citing
+  Baumrind & Frantz 1971), CSV export, the data preview and the R script (checked in R 4.6.1).
+
+### Fixed
+- **The old landmark error map pooled placements across patients:** it measured every placement of a
+  landmark against one centre for the whole study, so differences in anatomy counted as error. Studies run
+  with it now ask to be re-run.
+- A reliability study without a measurement list no longer fails to run.
+- **Reversed angles near 90°:** facial angle / facial depth, maxillary depth and mandibular depth (Downs,
+  Ricketts, Delaire, Bimler, Lautrou, Gugino, COGS, Cagliari, Chieti, McGann, Coben, Riedel, Wylie) measured
+  from Frankfort pointing forward, so a retrusive chin read as prominent. IMPA (Tweed, ABO DI) measured to
+  the mandibular plane pointing forward, so a proclined lower incisor read as retroclined (FMA + IMPA + FMIA
+  now sums to 180°). Ricketts' facial axis was the supplement, swapping horizontal and vertical growth. A new
+  test moves landmarks the way the literature describes and checks each of these changes the right way.
+- Copying a session (or making a reliability copy) kept its frame stack.
+
+### Removed
+- **67 norms with no known source** (Bimler, Lautrou, Tollaro, Cagliari, Chieti, McGann, Basis, Van
+  Arsdale). The measurements stay; saved sessions drop these norms when opened. The values are kept in
+  `docs/NORM_AUDIT.md` for restoring with a citation.
+
 ## [Unreleased] - DICOM and TIFF import leftovers
 
 ### Added

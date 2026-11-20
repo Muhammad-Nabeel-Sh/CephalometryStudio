@@ -15,11 +15,11 @@ The interpretation, normogram and report already flagged Steiner's and Tweed's S
 
 | SD status | Meaning | Tag | Norm rows |
 |---|---|---|---|
-| `published` | The cited source reports means with SDs | none | 46 |
-| `approximate` | The source gave means or ranges only, or the row copies Steiner's conventional ±2° | **SD approx.** | 53 |
-| `unsourced` | No primary source with SDs has been traced | **SD unsourced** | 154 |
+| `published` | The cited source reports means with SDs | none | 48 |
+| `approximate` | The source gave means or ranges only, or the row copies Steiner's conventional ±2° | **SD approx.** | 32 |
+| `unsourced` | No primary source with SDs has been traced | **SD unsourced** | 108 |
 
-That's 253 norm rows in all. Flagged rows still get a z-score and colour, but the grade reads as indicative. Norm presets you create yourself are never flagged.
+That's 188 norm rows in all, after withdrawing 67 rows with no known source and adding ODI and APDI (2026-11-20; it was 253). Flagged rows still get a z-score and colour, but the grade reads as indicative. Norm presets you create yourself are never flagged.
 
 ## By analysis
 
@@ -32,7 +32,7 @@ That's 253 norm rows in all. Flagged rows still get a z-score and colour, but th
 | COGS | Burstone et al. 1978, J Oral Surg 36:269 | 273073 | published | Sex-specific in the source; the app has one set |
 | Arnett | Arnett et al. 1999, AJODO 116:239 | 10474095 | published | Sex-specific in the source; the app has one set |
 | Moorrees mesh | Moorrees et al. 1976, Am J Orthod 69:57 | [1061501](https://doi.org/10.1016/0002-9416(76)90098-1) | published | Age- and sex-specific in the source |
-| Kim (ODI, APDI, CF) | Kim 1974; Kim & Vietas 1978 | [4524490](https://doi.org/10.1016/0002-9416(74)90255-3), [276266](https://doi.org/10.1016/0002-9416(78)90223-3) | published | **APDI 81.4° ± 3.79** (n = 102, abstract). Norms stay withheld until the composite indicators are implemented |
+| Kim (ODI, APDI, CF) | Kim 1974; Kim & Vietas 1978 | [4524490](https://doi.org/10.1016/0002-9416(74)90255-3), [276266](https://doi.org/10.1016/0002-9416(78)90223-3) | published | **ODI 74.5° ± 6.07, APDI 81.4° ± 3.79**, restored 2026-11-20 with the full composites (construction as Obamiyi et al. 2019, PMID 31306073). CF has no traced norm |
 | Steiner, General Ceph | Steiner 1953 | not indexed | approximate | Means only |
 | Tweed | Tweed 1954 | not indexed | approximate | Target values |
 | Holdaway | Holdaway 1983, Am J Orthod 84:1 | [6575614](https://doi.org/10.1016/0002-9416(83)90144-6) | approximate | Ideal values and ranges |
@@ -45,15 +45,26 @@ That's 253 norm rows in all. Flagged rows still get a z-score and colour, but th
 | Sassouni | Sassouni 1969, Am J Orthod 55:109 | [5249177](https://doi.org/10.1016/0002-9416(69)90122-5) | unsourced | A classification |
 | Hand-wrist | Fishman 1982, Angle Orthod 52:88 | [6980608](https://doi.org/10.1043/0003-3219(1982)052<0088:REOSM>2.0.CO;2) | unsourced | |
 | Harvold, Riedel, Wylie, Coben, Eastman, Delaire, Svanholt-Solow, Epker, Farkas, Hasund, Schwarz, Gugino, CVM, ABO DI | Books or unindexed journals | not verified | unsourced | Citations in `normSources.js` are unverified |
-| Bimler, Lautrou, Tollaro, Cagliari, Chieti, McGann, Basis, Van Arsdale, Hewitt, General PA/SMV/OPG, photo analyses | **No source known** | — | unsourced | Values of unknown origin; the first to replace or withdraw |
+| Bimler, Lautrou, Tollaro, Cagliari, Chieti, McGann, Basis, Van Arsdale | **No source known** | — | withdrawn | Norms withdrawn 2026-11-20; values in the appendix |
+| Hewitt, General PA/SMV/OPG, photo analyses | **No source known** | — | unsourced | Values of unknown origin |
 
 Steiner, Tweed, Ricketts and Björk-Jarabak predate reliable PubMed indexing, so their DOIs weren't verified. "Not indexed" doesn't mean the citation is wrong.
 
 ## Findings that need a decision
 
-1. **Values of unknown origin.** Bimler, Lautrou, Tollaro, Cagliari, Chieti, McGann, Basis and Van Arsdale ship 67 norm rows with no known source; most have integer SDs. I'd keep the measurements and withdraw these norms until a source is found.
+1. **Values of unknown origin: done 2026-11-20.** The 67 norm rows of Bimler, Lautrou, Tollaro, Cagliari, Chieti, McGann, Basis and Van Arsdale were withdrawn; the measurements stay. Saved sessions drop these norms on opening. The values are in the appendix for restoring with a citation.
 2. **Sex- and age-specific tables collapsed into one set.** COGS, Arnett, Moorrees and Wits publish separate values. The app shows one set, so a woman is compared against a pooled or male value. These need the papers' tables.
-3. **APDI and ODI.** The sourced values exist (APDI 81.4° ± 3.79; Obamiyi et al. 2019 give African-American children ODI 70.9° and APDI 78.1°), but the app measures only one of each indicator's angles. Implementing the composites would let these norms return.
+3. **APDI and ODI: done 2026-11-20.** Both composites are now measured in full (ODI with the palatal-plane rule; APDI as the A-B to palatal plane angle, which equals facial angle + A-B plane angle ± palatal plane angle) and carry Kim's norms. Obamiyi et al. 2019 give African-American children ODI 70.9° ± 5.8 and APDI 78.1° ± 4.2 (n = 160) for a population set later.
+
+## Reversed angles found while doing this (fixed 2026-11-20)
+
+Checking APDI's identity against the facial angle showed that several 4-point angles near 90° reported the supplement (180° − θ), which the mean-skull plausibility test can't catch near 90°:
+
+- **Facial angle / facial depth, maxillary depth, mandibular depth** (Downs, Ricketts, Delaire, Bimler, Lautrou, Gugino, COGS, Cagliari, Chieti, McGann, Coben, Riedel, Wylie): measured from Frankfort pointing forward instead of the published posterior-inferior angle, so a retrusive chin read as prominent.
+- **IMPA** (Tweed, ABO DI): measured to the mandibular plane pointing forward instead of the Tweed triangle's angle, so a proclined incisor read as retroclined. FMA + IMPA + FMIA now sums to 180°.
+- **Facial axis** (Ricketts): the supplement, so horizontal and vertical growth were swapped.
+
+`src/test/angleDirections.test.js` now moves one landmark the way the literature describes for each of these and checks the direction of the change.
 
 ## Population norm sets: papers to supply
 
@@ -86,3 +97,77 @@ No Korean or Nigerian set turned up in this search. Korean norms are mostly in t
 - Record the population, n, age range and sex. Keep sex- or age-specific values separate; don't pool them.
 - Only use the paper's own construction. If the app's measure differs, don't attach the norm.
 - Set `sd: "published"` only when the SDs come from that paper.
+
+## Appendix: withdrawn norms (2026-11-20)
+
+These 67 rows had no known source and mostly integer SDs. They were withdrawn from `Data/AnalysisMeasurements.csv` (the measurements stay; only the norm is gone) and from saved sessions on opening. Their values are kept here so they can be restored, with a citation, once a source is found.
+
+| Analysis | Measurement | Mean | SD |
+|---|---|---|---|
+| Van Arsdale | Lo-Lo width | 70 | 3 |
+| Van Arsdale | Z-Z width | 95 | 4 |
+| Van Arsdale | J-J width | 65 | 3 |
+| Van Arsdale | Co-Co width | 115 | 5 |
+| Van Arsdale | Ag-Ag width | 90 | 4 |
+| Bimler Analysis | Facial angle | 87 | 3 |
+| Bimler Analysis | SNA | 82 | 2 |
+| Bimler Analysis | SNB | 80 | 2 |
+| Bimler Analysis | ANB | 2 | 2 |
+| Bimler Analysis | U1-NA | 22 | 5 |
+| Bimler Analysis | L1-NB | 25 | 5 |
+| Bimler Analysis | Interincisal angle | 130 | 10 |
+| Tollaro Analysis | Anterior cranial base | 71 | 3 |
+| Tollaro Analysis | Posterior cranial base | 44 | 4 |
+| Tollaro Analysis | Cranial base angle | 130 | 5 |
+| Tollaro Analysis | SNA | 82 | 2 |
+| Tollaro Analysis | SNB | 80 | 2 |
+| Tollaro Analysis | ANB | 2 | 2 |
+| Tollaro Analysis | Facial axis | 60 | 3 |
+| Lautrou Analysis | SNA | 82 | 2 |
+| Lautrou Analysis | SNB | 80 | 2 |
+| Lautrou Analysis | ANB | 2 | 2 |
+| Lautrou Analysis | Cranial base angle | 130 | 5 |
+| Lautrou Analysis | Articular angle | 143 | 6 |
+| Lautrou Analysis | Facial angle | 87 | 3 |
+| Lautrou Analysis | Mandibular plane angle | 32 | 4 |
+| Lautrou Analysis | Y-axis | 59 | 3 |
+| Lautrou Analysis | Interincisal angle | 130 | 10 |
+| Basis | SNA | 82 | 2 |
+| Basis | SNB | 80 | 2 |
+| Basis | ANB | 2 | 2 |
+| Basis | Convexity | 0 | 5 |
+| Basis | Interincisal | 135 | 5 |
+| Basis | U1-SN | 105 | 5 |
+| Cagliari | SNA | 82 | 2 |
+| Cagliari | SNB | 80 | 2 |
+| Cagliari | ANB | 2 | 2 |
+| Cagliari | Convexity | 0 | 5 |
+| Cagliari | SN-GoGn | 32 | 4 |
+| Cagliari | FMA | 22 | 4 |
+| Cagliari | Interincisal | 135 | 5 |
+| Cagliari | U1-SN | 105 | 5 |
+| Cagliari | Occ plane-SN | 14 | 4 |
+| Cagliari | Facial angle | 87 | 3 |
+| Cagliari | Y-axis | 59 | 3 |
+| Chieti | SNA | 82 | 2 |
+| Chieti | SNB | 80 | 2 |
+| Chieti | ANB | 2 | 2 |
+| Chieti | Convexity | 0 | 5 |
+| Chieti | SN-GoGn | 32 | 4 |
+| Chieti | FMA | 22 | 4 |
+| Chieti | Interincisal | 135 | 5 |
+| Chieti | U1-SN | 105 | 5 |
+| Chieti | Occ plane-SN | 14 | 4 |
+| Chieti | Facial angle | 87 | 3 |
+| Chieti | Y-axis | 59 | 3 |
+| McGann | SNA | 82 | 2 |
+| McGann | SNB | 80 | 2 |
+| McGann | ANB | 2 | 2 |
+| McGann | Convexity | 0 | 5 |
+| McGann | SN-GoGn | 32 | 4 |
+| McGann | FMA | 22 | 4 |
+| McGann | Interincisal | 135 | 5 |
+| McGann | U1-SN | 105 | 5 |
+| McGann | Occ plane-SN | 14 | 4 |
+| McGann | Facial angle | 87 | 3 |
+| McGann | Y-axis | 59 | 3 |

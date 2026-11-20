@@ -25,7 +25,9 @@ import StudyGuideModal from "./StudyGuideModal.jsx";
 import StudyResultsView from "./StudyResultsView.jsx";
 import { DataPreview, SampleSizeCalculator } from "./StudyTools.jsx";
 import { fingerprintStudy, studyStatus } from "./studyState.js";
-import { blindingProgress } from "./blinding.js";
+import { blindingProgress, isBlindingActive } from "./blinding.js";
+import { lockStudy, unlockStudy, studyLockState } from "../model/audit.js";
+import { askConfirm } from "../ui/dialogs.js";
 import { assignmentReport, addSessionsToGroup, buildLongitudinalFromPatients } from "./assignment.js";
 import { ALL_SESSION_TYPES } from "./dataPreview.js";
 import { saveStudyDefaults, copySettings } from "./studyDefaults.js";
@@ -401,9 +403,33 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
     // A reliability workflow points at tracing sessions that belong to the original study.
     if (d.config.workflow) d.config.workflow = undefined;
     if (d.config.blindingLog) d.config.blindingLog = undefined;
+    if (d.config.lock) d.config.lock = undefined;
+    if (d.config.lockLog) d.config.lockLog = undefined;
     updateStudies(list => [...list, d]);
     setSelectedId(d.id);
     notify(`Duplicated “${s.name}” (settings and assignments, without results).`);
+  };
+  // Locking a reliability study's trial sessions (R4, model/audit.js).
+  const lockItem = s => {
+    const st = studyLockState(project, s);
+    if (st.locked) {
+      return { label: "Unlock trial sessions…", onClick: async () => {
+        if (!(await askConfirm({ title: "Unlock the trial sessions?", message: `${st.lockedCount} session(s) become editable again. The unlock is recorded in each session's history and reported with this study's results.`, confirmLabel: "Unlock", danger: true }))) return;
+        onUpdateProject(prev => unlockStudy(prev, s.id));
+        notify(`Unlocked ${st.lockedCount} session(s).`);
+      } };
+    }
+    return { label: st.partly ? "Lock the remaining trial sessions…" : "Lock trial sessions…", onClick: async () => {
+      if (!st.sessions) { notify("This study has no sessions assigned yet, so there's nothing to lock."); return; }
+      const blind = isBlindingActive(s);
+      if (!(await askConfirm({
+        title: "Lock the trial sessions?",
+        message: `${st.sessions} session(s) assigned to this study become view only: their landmarks, measurements and calibration can't change until someone unlocks them, and every unlock is recorded and reported with the results.${blind ? "\n\nBlinded data collection isn't finished yet. Locking now stops raters from completing their tracings." : ""}`,
+        confirmLabel: "Lock",
+      }))) return;
+      onUpdateProject(prev => lockStudy(prev, s.id));
+      notify(`Locked ${st.sessions - st.lockedCount} session(s). Their history is in the Sessions panel.`);
+    } };
   };
   const remove = s => {
     const idx = studies.findIndex(x => x.id === s.id);
@@ -532,6 +558,7 @@ export default function ResearchWorkspace({ t, project, onUpdateProject, calibra
             <Menu t={t} label="Export" items={() => studyExportItems({ study, status, sessions, calibration, say: notify })} />
           )}
           <Menu t={t} title="More actions" items={[
+            ...(study.type === "reliability" ? [lockItem(study)] : []),
             { label: "Rename", onClick: () => setRenaming(study.id) },
             { label: "Duplicate", onClick: () => duplicate(study) },
             { label: study.archived ? "Unarchive" : "Archive", onClick: () => toggleArchive(study) },

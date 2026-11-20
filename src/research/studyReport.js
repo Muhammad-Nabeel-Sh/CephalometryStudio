@@ -40,6 +40,7 @@ const REFS = {
   kooLi: "Koo, T. K., & Li, M. Y. (2016). A guideline of selecting and reporting intraclass correlation coefficients for reliability research. <i>Journal of Chiropractic Medicine, 15</i>(2), 155–163. https://doi.org/10.1016/j.jcm.2016.02.012",
   ba1986: "Bland, J. M., & Altman, D. G. (1986). Statistical methods for assessing agreement between two methods of clinical measurement. <i>The Lancet, 327</i>(8476), 307–310. https://doi.org/10.1016/S0140-6736(86)90837-8",
   ba2007: "Bland, J. M., & Altman, D. G. (2007). Agreement between methods of measurement with multiple observations per individual. <i>Journal of Biopharmaceutical Statistics, 17</i>(4), 571–582. https://doi.org/10.1080/10543400701329422",
+  baumrind: "Baumrind, S., & Frantz, R. C. (1971). The reliability of head film measurements. 1. Landmark identification. <i>American Journal of Orthodontics, 60</i>(2), 111–127. https://doi.org/10.1016/0002-9416(71)90028-5",
   dahlberg: "Dahlberg, G. (1940). <i>Statistical methods for medical and biological students</i>. George Allen & Unwin.",
   welch: "Welch, B. L. (1947). The generalization of ‘Student’s’ problem when several different population variances are involved. <i>Biometrika, 34</i>(1–2), 28–35. https://doi.org/10.1093/biomet/34.1-2.28",
   gamesHowell: "Games, P. A., & Howell, J. F. (1976). Pairwise multiple comparison procedures with unequal n’s and/or variances: A Monte Carlo study. <i>Journal of Educational Statistics, 1</i>(2), 113–125. https://doi.org/10.3102/10769986001002113",
@@ -107,6 +108,19 @@ export function summarizeStudy(study) {
       const counts = {};
       for (const d of ok) { const c = d.iccRating || kooLi(d.icc); counts[c] = (counts[c] || 0) + 1; }
       headline = ok.length ? `${ok.length} measurement${ok.length > 1 ? "s" : ""} assessed — ${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ")} reliability (Koo & Li, from the 95% CI).` : "No measurement could be assessed.";
+      // Landmark placement (landmarkReliability.js).
+      const lms = (res.landmarks?.rows || []).filter(r => !r.skip);
+      if (lms.length) {
+        const key = r => (r.mode === "reference" ? r.meanRadial : r.meanPairDistance ?? r.meanRadial);
+        const worst = [...lms].sort((a, b) => key(b) - key(a))[0];
+        headline += ` ${lms.length} landmark${lms.length > 1 ? "s" : ""} assessed for placement; the least consistent was ${worst.landmark} (${worst.mode === "reference" ? "mean error" : "repeat distance"} ${num(key(worst))} ${worst.unit}).`;
+        for (const r of lms) {
+          findings.push({
+            label: `${r.landmark} placement`, flag: r.unit === "mm" && key(r) > 2 ? "warn" : "ok",
+            text: `${r.mode === "reference" ? `Mean error ${num(r.meanRadial)} ${r.unit} from the reference (bias x ${num(r.biasX)}, y ${num(r.biasY)})` : `Repeat distance ${num(r.meanPairDistance)} ${r.unit}`}; typical error x ${num(r.sdX)}, y ${num(r.sdY)} ${r.unit}${r.sdr ? `; ${Math.round(r.sdr[2] * 100)}% within 2 mm` : ""}.`,
+          });
+        }
+      }
       for (const d of ok) {
         findings.push({
           label: d.label, flag: d.icc < 0.75 ? "warn" : "ok",
@@ -213,6 +227,13 @@ export function methodsText(study) {
       parts.push(`Reliability was quantified with the intraclass correlation coefficient, ${model.label} (${model.description.toLowerCase()}), with 95% confidence intervals (Shrout & Fleiss, 1979; McGraw & Wong, 1996), interpreted following Koo and Li (2016).`);
       parts.push(`Agreement was described with Bland–Altman bias and 95% limits of agreement (${replicates ? "Bland & Altman, 2007, for replicated measurements" : "Bland & Altman, 1986"}), and measurement error with Dahlberg’s formula (Dahlberg, 1940), the standard error of measurement and the minimal detectable change.`);
       ["shroutFleiss", "mcgrawWong", "kooLi", replicates ? "ba2007" : "ba1986", "dahlberg"].forEach(r => refsUsed.add(r));
+      const lmRows = (res.landmarks?.rows || []).filter(r => !r.skip);
+      if (lmRows.length) {
+        const ref = lmRows.some(r => r.mode === "reference");
+        const frame = res.landmarks.frame === "SN" ? "a coordinate system with its origin at sella and its x-axis along the sella–nasion line, defined for each case from the mean of all placements of S and N" : "the image axes (x anterior, y superior)";
+        parts.push(`Landmark identification error was assessed for ${lmRows.length} landmark${lmRows.length > 1 ? "s" : ""} in ${frame}. ${ref ? "Each placement was compared with the reference rater’s placement on the same case (mean radial error, mean offset per axis)" : "Placements were compared only within each case" + (c.design === "intra" ? " and rater" : "") + " (mean distance between repeated placements; distance to their mean position)"}, the typical error along each axis was given by the pooled within-case standard deviation, and the 95% error ellipse described its direction (Baumrind & Frantz, 1971)${res.landmarks.unit === "mm" ? ", with the proportion of placements within 1, 2, 2.5, 3 and 4 mm" : ""}. The x and y coordinates were also analysed with the ICC and Bland–Altman methods above.`);
+        refsUsed.add("baumrind");
+      }
       break;
     }
     case "comparative": {
@@ -275,6 +296,12 @@ export function resultsText(study) {
     case "reliability":
       for (const d of (res.details || []).filter(x => !x.skip && fin(x.icc))) {
         out.push(`${h(d.label)}: ICC = ${bounded(d.icc)}, ${ci(d.ci95?.[0], d.ci95?.[1], bounded)} (${d.iccRating || kooLi(d.icc)}); bias = ${num(d.meanDiff)}${h(u(d.unit))}, 95% limits of agreement [${num(d.loaLower)}, ${num(d.loaUpper)}]${h(u(d.unit))}; Dahlberg error = ${num(d.dahlberg)}${h(u(d.unit))}.`);
+      }
+      for (const r of (res.landmarks?.rows || []).filter(x => !x.skip)) {
+        const main = r.mode === "reference"
+          ? `mean radial error = ${num(r.meanRadial)} ${h(r.unit)} (<i>SD</i> = ${num(r.sdRadial)}), mean offset x = ${num(r.biasX)}, y = ${num(r.biasY)} ${h(r.unit)}`
+          : `mean distance between repeated placements = ${num(r.meanPairDistance)} ${h(r.unit)}`;
+        out.push(`${h(r.landmark)} (placement, ${r.cases} cases): ${main}; typical error x = ${num(r.sdX)}, y = ${num(r.sdY)} ${h(r.unit)}${r.sdr ? `; ${Math.round(r.sdr[2] * 100)}% within 2 mm` : ""}; 95% ellipse half-axes ${num(r.ellipse?.major)} × ${num(r.ellipse?.minor)} ${h(r.unit)}.`);
       }
       break;
     case "comparative":

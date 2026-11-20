@@ -42,7 +42,17 @@ function reliabilityTables(res) {
     d.meanDiff, d.sdDiff, d.cv != null ? fmtNum(d.cv, 2) : "",
     d.dahlberg, d.sem, d.mdc, d.n,
   ]);
-  return [{ title: "Reliability", header: ["Label", "Unit", "ICC", "CI_Lower", "CI_Upper", "F", "df1", "df2", "p_Value", "Mean_Diff", "SD_Diff", "CV%", "Dahlberg", "SEM", "MDC", "n"], rows }];
+  const tables = [{ title: "Reliability", header: ["Label", "Unit", "ICC", "CI_Lower", "CI_Upper", "F", "df1", "df2", "p_Value", "Mean_Diff", "SD_Diff", "CV%", "Dahlberg", "SEM", "MDC", "n"], rows }];
+  const lms = (res.landmarks?.rows || []).filter(r => !r.skip);
+  if (lms.length) {
+    tables.push({
+      title: `Landmark placement (${res.landmarks.frame === "SN" ? "S-N frame" : "image axes"}, ${lms[0].mode === "reference" ? "against the reference" : "within case"})`,
+      header: ["Landmark", "Unit", "Cases", "Placements", "Mean_Repeat_Distance", "Mean_Radial_Error", "SD_Radial", "Median_Radial", "Max_Radial", "SD_x", "SD_y", "Bias_x", "Bias_y", "Within_1mm", "Within_2mm", "Within_2.5mm", "Within_3mm", "Within_4mm", "Ellipse_Major", "Ellipse_Minor", "Ellipse_Angle_deg"],
+      rows: lms.map(r => [r.landmark, r.unit, r.cases, r.placements, r.meanPairDistance ?? "", r.meanRadial, r.sdRadial ?? "", r.medianRadial, r.maxRadial, r.sdX, r.sdY, r.biasX ?? "", r.biasY ?? "",
+        ...[1, 2, 2.5, 3, 4].map(k => (r.sdr ? r.sdr[k] : "")), r.ellipse?.major, r.ellipse?.minor, r.ellipse?.angle]),
+    });
+  }
+  return tables;
 }
 
 function descriptiveTables(res) {

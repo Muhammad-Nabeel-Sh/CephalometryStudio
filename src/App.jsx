@@ -108,6 +108,8 @@ const ResearchWorkspace = lazy(() => import("./research/ResearchWorkspace.jsx"))
 import { useFormulaEngine } from "./hooks/useFormulaEngine.js";
 import { useSourceWindow } from "./hooks/useSourceWindow.js";
 import { sessionSeal, unsealSession, sealedSessions } from "./research/blinding.js";
+import { setAuditActor, unlockStudy } from "./model/audit.js";
+import { showSessionHistory } from "./panels/SessionHistory.js";
 import InterpretationPanel from "./panels/InterpretationPanel.jsx";
 import NormogramPanel from "./panels/NormogramPanel.jsx";
 import MobileTabBar from "./ui/MobileTabBar.jsx";
@@ -166,6 +168,7 @@ import { useToolStore, useUIStore } from "./state/workspaceStore.js";
 import {
   useSessionStore,
   setSessionChangeHandler,
+  setLockedEditHandler,
 } from "./state/sessionStore.js";
 
 function profileProject(project) {
@@ -1929,6 +1932,30 @@ function Workspace({
       useSessionStore.getState().loadFromSession(activeSession);
     }
   }, [activeSession]);
+  // Locked sessions (model/audit.js): the store refuses edits while the active
+  // session is locked, and says so. Edits are recorded under the profile's name.
+  useLayoutEffect(() => {
+    useSessionStore.setState({ lock: activeSession?.lock || null });
+  }, [activeSession?.lock]);
+  useEffect(() => {
+    setAuditActor(activeProfile()?.name || "");
+    setLockedEditHandler((lock) => notify(
+      `This session is locked by the study “${lock.studyName}”, so its landmarks, measurements and calibration can't change. Unlock it from the banner or the study.`,
+      { tone: "warn", key: "session-locked" },
+    ));
+    return () => setLockedEditHandler(null);
+  }, []);
+  const unlockActiveSession = useCallback(async () => {
+    const lock = activeSession?.lock;
+    if (!lock) return;
+    const ok = await askConfirm({
+      title: "Unlock this session?",
+      message: `It was locked by the study “${lock.studyName}”. After unlocking, its tracing can be changed again. The unlock is recorded in the session's history and reported with the study's results.`,
+      confirmLabel: "Unlock",
+      danger: true,
+    });
+    if (ok) onUpdateProject((prev) => unlockStudy(prev, lock.studyId, { sessionId: activeSession.id }));
+  }, [activeSession, onUpdateProject]);
   useEffect(() => {
     setSessionChangeHandler(() => {
       const s = useSessionStore.getState();
@@ -5176,6 +5203,21 @@ function Workspace({
                     }
                   }}
                 />
+              )}
+              {activeSession?.lock && (
+                <div role="status" style={{
+                  position: "absolute", left: 12, top: hasStack(activeSession) && sessionImage[0]?.stackLayer ? 58 : 12, zIndex: 6,
+                  display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", maxWidth: "calc(100% - 24px)",
+                  padding: "6px 8px 6px 10px", borderRadius: 8, background: t.surf + "ee", border: `1px solid ${t.warn}`,
+                  boxShadow: `0 4px 14px ${t.shadow}`, fontSize: 13, color: t.tx,
+                }}>
+                  <span style={{ display: "inline-flex", color: t.warn }}><Icon name="lock" size={15} /></span>
+                  <span>Locked by “{activeSession.lock.studyName}”: view only</span>
+                  <button type="button" onClick={() => showSessionHistory(activeSession)}
+                    style={{ padding: "3px 8px", borderRadius: 5, border: `1px solid ${t.bdr}`, background: "transparent", color: t.tx2, fontSize: 13, cursor: "pointer" }}>History</button>
+                  <button type="button" onClick={unlockActiveSession}
+                    style={{ padding: "3px 8px", borderRadius: 5, border: `1px solid ${t.warn}`, background: "transparent", color: t.warn, fontSize: 13, cursor: "pointer" }}>Unlock…</button>
+                </div>
               )}
               {hasStack(activeSession) && sessionImage[0]?.stackLayer && (
                 <StackBar t={t} index={activeSession.stack.index ?? 0} count={activeSession.stack.frames.length} onShow={showFrame} />

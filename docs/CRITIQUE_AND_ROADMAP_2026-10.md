@@ -554,4 +554,4 @@ Lip behind E-line: +2.06
 
 ## Appendix B — Status of items from earlier audits (still open)
 
-From `docs/CODE_REVIEW_CRITIQUE.md`, these are confirmed still open: R1/R3 (statsCore consolidation), R4 (audit trail / lock completed reliability trials — **important for research integrity**), R5 (password-encrypted export), R6/R7 (render cache, spatial index), R10 (reliability clones share image IDs), R12–R14 (mirror refs, context-menu a11y, modal a11y), W2, W9, W16 (i18n), W17.
+From `docs/CODE_REVIEW_CRITIQUE.md`, these are confirmed still open: R1/R3 (statsCore consolidation), ~~R4 (audit trail / lock completed reliability trials)~~ **done 2026-11-20** (`model/audit.js`), R5 (password-encrypted export), R6/R7 (render cache, spatial index), R10 (reliability clones share image IDs), R12–R14 (mirror refs, context-menu a11y, modal a11y), W2, W9, W16 (i18n), W17.

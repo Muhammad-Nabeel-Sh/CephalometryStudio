@@ -28,7 +28,7 @@ export const NORM_SOURCES = {
   "Bjork Analysis": { citation: "Björk A. The face in profile. Sven Tandlak Tidskr. 1947;40(5B, suppl).", population: "Swedish boys (12 years) and conscripts (21-23 years)", sd: "unsourced", note: "Björk's tables have SDs, but the app's values have not been traced to them." },
   "Jarv-Bjork": { citation: "Jarabak JR, Fizzell JA. Technique and treatment with light-wire edgewise appliances. 2nd ed. Mosby; 1972.", population: "North American (white)", sd: "unsourced" },
   "Wits Analysis": { citation: `Jacobson A. The "Wits" appraisal of jaw disharmony. ${AJO}. 1975;67(2):125-138.`, pmid: "1054214", doi: "10.1016/0002-9416(75)90065-2", population: "North American adults with excellent occlusion (21 men, 25 women)", sd: "published", note: "Women 0 mm, men 1 mm (BO ahead of AO), per the paper's abstract; the app's single 0 ± 2 mm row has not been checked against the paper's SDs." },
-  "Kim Analysis": { citation: `Kim YH. Overbite depth indicator with particular reference to anterior open-bite. ${AJO}. 1974;65(6):586-611. Kim YH, Vietas JJ. Anteroposterior dysplasia indicator. ${AJO}. 1978;73(6):619-633.`, pmid: "4524490, 276266", doi: "10.1016/0002-9416(74)90255-3, 10.1016/0002-9416(78)90223-3", population: "Children with normal occlusion (APDI: n = 102)", sd: "published", note: "APDI 81.4° ± 3.79 (Kim & Vietas abstract). Norms stay withheld until the composite indicators are implemented." },
+  "Kim Analysis": { citation: `Kim YH. Overbite depth indicator with particular reference to anterior open-bite. ${AJO}. 1974;65(6):586-611. Kim YH, Vietas JJ. Anteroposterior dysplasia indicator. ${AJO}. 1978;73(6):619-633.`, pmid: "4524490, 276266", doi: "10.1016/0002-9416(74)90255-3, 10.1016/0002-9416(78)90223-3", population: "Children with normal occlusion (APDI: n = 102)", sd: "published", note: "ODI 74.5° ± 6.07 (Kim 1974) and APDI 81.4° ± 3.79 (Kim & Vietas 1978), as quoted in Obamiyi et al. 2019 (PMID 31306073), which also gives the composites' construction. No source is traced for the combination factor's norm." },
   "Holdaway Analysis": { citation: `Holdaway RA. A soft-tissue cephalometric analysis and its use in orthodontic treatment planning. Part I. ${AJO}. 1983;84(1):1-28.`, pmid: "6575614", doi: "10.1016/0002-9416(83)90144-6", population: "Patients from the author's practice", sd: "approximate", note: "Holdaway gave ideal values and acceptable ranges, not SDs." },
   "Merrifield Z-angle": { citation: `Merrifield LL. The profile line as an aid in critically evaluating facial esthetics. ${AJO}. 1966;52(11):804-822.`, pmid: "5223046", doi: "10.1016/0002-9416(66)90250-8", population: "North American (white), adolescents and adults", sd: "approximate", note: "Merrifield gave an ideal value with a range." },
   "Legan and Burstone Soft Tissue": { citation: "Legan HL, Burstone CJ. Soft tissue cephalometric analysis for orthognathic surgery. J Oral Surg. 1980;38(10):744-751.", pmid: "6932485", population: "North American (white) adults", sd: "published" },
@@ -48,20 +48,20 @@ export const NORM_SOURCES = {
   "Farkas and Coworkers Soft Tissue": { citation: "Farkas LG. Anthropometry of the head and face. 2nd ed. Raven Press; 1994.", sd: "unsourced" },
   "Hasund (Bergen)": { citation: "Hasund A. Klinische Kephalometrie für die Bergen-Technik. Bergen; 1974.", sd: "unsourced" },
   "Schwartz": { citation: "Schwarz AM. Die Röntgenostatik. Urban & Schwarzenberg; 1958.", sd: "unsourced" },
-  "Bimler Analysis": { citation: "", sd: "unsourced" },
-  "Lautrou Analysis": { citation: "", sd: "unsourced" },
+  "Bimler Analysis": { citation: "", sd: "unsourced", withdrawn: true },
+  "Lautrou Analysis": { citation: "", sd: "unsourced", withdrawn: true },
   "Gugino Analysis": { citation: "Gugino CF. An orthodontic philosophy. Rocky Mountain Orthodontics; 1977.", sd: "unsourced" },
-  "Tollaro Analysis": { citation: "", sd: "unsourced" },
+  "Tollaro Analysis": { citation: "", sd: "unsourced", withdrawn: true },
   "Delaire Analysis": { citation: "Delaire J. L'analyse architecturale et structurale crânio-faciale (de profil). Rev Stomatol Chir Maxillofac. 1978;79(1):1-33.", sd: "unsourced" },
   "Eastman Analysis": { citation: "Mills JRE. The application and importance of cephalometry in orthodontic treatment. Orthodontist. 1970;2:32-47.", population: "British (white)", sd: "unsourced" },
   "Hewitt": { citation: "", sd: "unsourced" },
   "Svanholt-Solow": { citation: "Svanholt P, Solow B. Assessment of midline discrepancies on the postero-anterior cephalometric radiograph. Trans Eur Orthod Soc. 1977:261-268.", sd: "unsourced" },
   "Grayson Multiplane": { citation: "Grayson BH, McCarthy JG, Bookstein F. Analysis of craniofacial asymmetry by multiplane cephalometry. Am J Orthod. 1983;84(3):217-224.", pmid: "6577794", doi: "10.1016/0002-9416(83)90129-x", sd: "unsourced" },
-  "Van Arsdale": { citation: "", sd: "unsourced" },
-  "Cagliari": { citation: "", sd: "unsourced" },
-  "Chieti": { citation: "", sd: "unsourced" },
-  "McGann": { citation: "", sd: "unsourced" },
-  "Basis": { citation: "", sd: "unsourced" },
+  "Van Arsdale": { citation: "", sd: "unsourced", withdrawn: true },
+  "Cagliari": { citation: "", sd: "unsourced", withdrawn: true },
+  "Chieti": { citation: "", sd: "unsourced", withdrawn: true },
+  "McGann": { citation: "", sd: "unsourced", withdrawn: true },
+  "Basis": { citation: "", sd: "unsourced", withdrawn: true },
   "ABO DI Analysis": { citation: "American Board of Orthodontics. Discrepancy Index.", sd: "unsourced", note: "The DI uses scoring thresholds, not population norms." },
   "CVM Analysis": { citation: "Baccetti T, Franchi L, McNamara JA Jr. The cervical vertebral maturation (CVM) method. Semin Orthod. 2005;11(3):119-129.", sd: "unsourced" },
   "Hand-Wrist Analysis": { citation: "Fishman LS. Radiographic evaluation of skeletal maturation. Angle Orthod. 1982;52(2):88-112.", pmid: "6980608", doi: "10.1043/0003-3219(1982)052<0088:REOSM>2.0.CO;2", sd: "unsourced" },
@@ -72,6 +72,11 @@ export const NORM_SOURCES = {
   "Lateral Photo Analysis": { citation: "", sd: "unsourced" },
   "Frontal Photo Analysis": { citation: "", sd: "unsourced" },
 };
+
+// Analyses whose norms were withdrawn (2026-11-20): no source is known, so the
+// measurements ship without a norm, and saved sessions drop these norms on opening
+// (workspace/template.migrateNorms). The values are kept in docs/NORM_AUDIT.md.
+export const WITHDRAWN_NORM_ANALYSES = new Set(Object.entries(NORM_SOURCES).filter(([, v]) => v.withdrawn).map(([k]) => k));
 
 // Norm presets in norms.js are keyed by short names.
 // A norm added from a preset carries the preset's `source` text, so those match too.

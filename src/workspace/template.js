@@ -6,6 +6,7 @@ import { uid, dist, primaryMeasure } from "../lib/utils.js";
 import { resolveFacing } from "../lib/measureConventions.js";
 import { PREDEFINED } from "../data/constants.js";
 import { isApproximateSd } from "../data/norms.js";
+import { WITHDRAWN_NORM_ANALYSES } from "../data/normSources.js";
 
 // Value a computed measurement (ratio/sum/difference/percentage) reads from a
 // referenced markup: its primary measurement, never a raw coordinate.
@@ -167,8 +168,12 @@ export function migrateMeasurementDefinitions(markups) {
 // (docs/AIRWAY_MODULE_REWRITE_PLAN.md). Norms the user entered have other sources.
 const isWithheldAirwayNorm = n => n?.source === "Airway Analysis" || /^Composite — McNamara, Riley-Powell/.test(n?.source || "");
 
+// Norms the app no longer ships: the airway ones, and analyses withdrawn for lack
+// of a source (data/normSources.js).
+const isDroppedNorm = n => isWithheldAirwayNorm(n) || WITHDRAWN_NORM_ANALYSES.has(n?.source);
+
 export function migrateNorms(normsIn, markups) {
-  const norms = normsIn?.some(isWithheldAirwayNorm) ? normsIn.filter(n => !isWithheldAirwayNorm(n)) : normsIn;
+  const norms = normsIn?.some(isDroppedNorm) ? normsIn.filter(n => !isDroppedNorm(n)) : normsIn;
   if (!Array.isArray(norms) || !norms.length) return norms;
   const byLabel = new Map((markups || []).filter(m => m.autoCreated && m.norm).map(m => [m.label, m.norm]));
   let changed = false;

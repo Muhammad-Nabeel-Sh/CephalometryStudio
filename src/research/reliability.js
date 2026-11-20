@@ -1,3 +1,4 @@
+import { analyzeLandmarks, landmarkLabelsFor } from "./landmarkReliability.js";
 import { tDistributeCDF, fCDF } from "../lib/utils.js";
 import { fQuantile, tQuantile } from "./statsCore.js";
 export { fQuantile, tQuantile };
@@ -208,87 +209,10 @@ function methodError(matrix, icc) {
   return { dahlberg, sem, mdc: 1.96 * Math.sqrt(2) * sem, cv, totalSD, grandMean, nCases: n };
 }
 
-// ─── Landmark coordinate error mapping ────────────────────────────────────
-// Coordinates are collected in PIXELS. The error map must convert to mm using the
-// session's calibration (pxPerMm) so that errors are comparable across sessions
-// captured at different resolutions. The previous version reported errors in raw
-// pixels without labeling them as such, leading clinicians to misread the numbers
-// as millimeters.
-function collectLandmarkCoords(sessions, labelIds, calibration) {
-  const rows = [];
-  for (const s of sessions) {
-    if (!s) continue;
-    const cal = s.calibration?.done ? s.calibration : calibration || { done: false, pxPerMm: 1 };
-    const calDone = cal?.done === true;
-    const ppm = calDone ? (cal.pxPerMm || 1) : 1;
-    const unit = calDone ? "mm" : "px";
-    const markups = s.markups || [];
-    for (const m of markups) {
-      if (!m.label) continue;
-      if (labelIds.length > 0 && !labelIds.includes(m.label)) continue;
-      if (m.type === "ruler" || m.type === "silhouette" || m.type === "line" || m.type === "angle3") continue;
-      if (!m.visible || !m.placed) continue;
-      for (const p of (m.points || [])) {
-        rows.push({ sessionId: s.id, label: m.label, x: p.x / ppm, y: p.y / ppm, unit });
-      }
-    }
-  }
-  return rows;
-}
-
-function runLandmarkErrorMap(coords) {
-  const byLabel = {};
-  for (const c of coords) {
-    if (!byLabel[c.label]) byLabel[c.label] = [];
-    byLabel[c.label].push(c);
-  }
-
-  const result = {};
-  for (const [label, pts] of Object.entries(byLabel)) {
-    if (pts.length < 2) continue;
-    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
-    const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-    const radialErrors = pts.map(p => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2));
-    const meanError = radialErrors.reduce((a, b) => a + b, 0) / radialErrors.length;
-    const maxError = Math.max(...radialErrors);
-    const sdError = Math.sqrt(radialErrors.reduce((s, r) => s + (r - meanError) ** 2, 0) / (radialErrors.length - 1));
-
-    // 2x2 covariance matrix
-    const m = pts.length;
-    const cxx = pts.reduce((s, p) => s + (p.x - cx) ** 2, 0) / (m - 1);
-    const cyy = pts.reduce((s, p) => s + (p.y - cy) ** 2, 0) / (m - 1);
-    const cxy = pts.reduce((s, p) => s + (p.x - cx) * (p.y - cy), 0) / (m - 1);
-
-    const trace = cxx + cyy;
-    const det = cxx * cyy - cxy * cxy;
-    const disc = Math.max(0, trace * trace - 4 * det);
-    const eig1 = (trace + Math.sqrt(disc)) / 2;
-    const eig2 = (trace - Math.sqrt(disc)) / 2;
-    const angle = cxx !== cyy ? 0.5 * Math.atan2(2 * cxy, cxx - cyy) : Math.PI / 4;
-
-    const coordsUnit = pts[0]?.unit || "mm";
-    result[label] = {
-      centroid: { x: cx, y: cy },
-      n: m,
-      meanError,
-      maxError,
-      sdError,
-      unit: coordsUnit,
-      ellipse: {
-        major: Math.sqrt(5.991) * Math.sqrt(Math.max(eig1, 0)),
-        minor: Math.sqrt(5.991) * Math.sqrt(Math.max(eig2, 0)),
-        angle,
-        unit: coordsUnit,
-      },
-    };
-  }
-
-  return result;
-}
-
 // ─── Main entry point ─────────────────────────────────────────────────────
 export function runReliabilityAll(sessions, config, calibration) {
-  const { labelIds, cases, operators, protocol } = config;
+  const { cases, operators, protocol } = config;
+  const labelIds = config.labelIds || [];
   if (!cases || cases.length === 0) {
     return { measurements: 0, sessions: 0, labels: 0, details: [], note: "No cases defined. Add cases and map sessions first." };
   }
@@ -329,17 +253,20 @@ export function runReliabilityAll(sessions, config, calibration) {
     }
   }
 
+  // Landmark placement (landmarkReliability.js): errors per landmark, and each
+  // landmark's x and y as rows for the ICC / Bland-Altman analysis below.
+  const nMeasureRows = mRows.length;
+  const mappedSessions = sessions.filter(s => s && sessionMap[s.id]);
+  const landmarkLabels = landmarkLabelsFor(config, mappedSessions, nMeasureRows > 0);
+  const lm = analyzeLandmarks(mappedSessions, config, calibration, landmarkLabels);
+  const coordinateOf = {};
+  for (const r of lm.rows) { mRows.push(r); coordinateOf[r.label] = { landmark: r.landmark, axis: r.axis }; }
+  const landmarks = lm.summary ? { ...lm.summary, rows: lm.errors } : null;
+
   if (mRows.length === 0) {
-    // Landmark-only studies (point placement reliability) have no scalar
-    // measurements but still get the coordinate error map.
-    const mappedIds = new Set(Object.keys(sessionMap));
-    const landmarkMap = runLandmarkErrorMap(collectLandmarkCoords(sessions.filter(s => s && mappedIds.has(s.id)), labelIds, calibration));
-    const hasMap = Object.keys(landmarkMap).length > 0;
     return {
-      measurements: 0, sessions: sessions.length, labels: 0, details: [], landmarkMap, warnings: [],
-      note: hasMap
-        ? "No angle/length measurements in the mapped sessions — only landmark placement error is reported."
-        : "No measurements collected from mapped sessions.",
+      measurements: 0, sessions: sessions.length, labels: 0, details: [], landmarks, warnings: [],
+      note: "No measurements or landmarks were collected from the mapped sessions. Choose the measurements or landmarks to analyse.",
     };
   }
 
@@ -436,15 +363,11 @@ export function runReliabilityAll(sessions, config, calibration) {
     if (multiOperatorIntra) {
       // Intra-rater reliability is a property of each rater: report every operator separately.
       const ops = [...new Set(samples.map(r => r.operatorId))].sort((a, b) => opOrder.indexOf(a) - opOrder.indexOf(b));
-      for (const op of ops) analyze(label, samples.filter(r => r.operatorId === op), `${label} · ${opName(op)}`, { operator: op });
+      for (const op of ops) analyze(label, samples.filter(r => r.operatorId === op), `${label} · ${opName(op)}`, { operator: op, ...(coordinateOf[label] ? { coordinate: true, ...coordinateOf[label] } : {}) });
     } else {
-      analyze(label, samples, label);
+      analyze(label, samples, label, coordinateOf[label] ? { coordinate: true, ...coordinateOf[label] } : {});
     }
   }
-
-  // Landmark error map (now calibrated to mm)
-  const coords = collectLandmarkCoords(sessions, labelIds, calibration);
-  const landmarkMap = runLandmarkErrorMap(coords);
 
   // Minimum-sample-size warnings
   const warnings = [];
@@ -464,8 +387,11 @@ export function runReliabilityAll(sessions, config, calibration) {
     }
   }
 
+  for (const n of lm.summary?.notes || []) warnings.push(n);
+
   return {
-    measurements: mRows.length,
+    measurements: nMeasureRows,
+    landmarkPlacements: mRows.length - nMeasureRows,
     sessions: sessions.length,
     labels: labelList.length,
     details,
@@ -475,7 +401,7 @@ export function runReliabilityAll(sessions, config, calibration) {
       cases: cases?.length || 0,
       occasions: protocol?.occasions || 2,
     },
-    landmarkMap,
+    landmarks,
     warnings,
     timeSeparation: timeSep,
   };

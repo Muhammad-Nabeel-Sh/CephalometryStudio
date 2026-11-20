@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { refreshAutoMeasurements } from "../workspace/markupHelpers.js";
 import { markMovedAiPoints } from "../workspace/aiReview.js";
 import { migrateMeasurementDefinitions, migrateNorms } from "../workspace/template.js";
+import { LOCKED_KEYS } from "../model/audit.js";
 
 const EMPTY_CALIB = { done: false, pxPerMm: 1 };
 const EMPTY_PROC = { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 128, edgeEnhance: 0 };
@@ -9,6 +10,17 @@ const EMPTY_PROC = { brightness: 0, contrast: 0, windowWidth: 0, windowCenter: 1
 let _onChange = null;
 export function setSessionChangeHandler(fn) { _onChange = fn; }
 export function getSessionChangeHandler() { return _onChange; }
+
+// A session locked by a study (model/audit.js) is read-only here: edits are refused
+// before anything changes on screen, and `_onLockedEdit(lock)` tells the user.
+let _onLockedEdit = null;
+export function setLockedEditHandler(fn) { _onLockedEdit = fn; }
+function refuseIfLocked(get) {
+  const lock = get().lock;
+  if (!lock) return false;
+  _onLockedEdit?.(lock);
+  return true;
+}
 
 export const useSessionStore = create((set, get) => ({
   markups: [],
@@ -22,6 +34,7 @@ export const useSessionStore = create((set, get) => ({
   facing: "auto",
   lutMode: "gray",
   lutInvert: false,
+  lock: null, // the active session's lock, set by the app
 
   undoStack: [],
   redoStack: [],
@@ -76,7 +89,7 @@ export const useSessionStore = create((set, get) => ({
 
   undo() {
     const state = get();
-    if (!state.undoStack.length) return;
+    if (!state.undoStack.length || refuseIfLocked(get)) return;
     const current = state.snapshot();
     const prevStr = state.undoStack[state.undoStack.length - 1];
     const parsed = JSON.parse(prevStr);
@@ -95,7 +108,7 @@ export const useSessionStore = create((set, get) => ({
 
   redo() {
     const state = get();
-    if (!state.redoStack.length) return;
+    if (!state.redoStack.length || refuseIfLocked(get)) return;
     const current = state.snapshot();
     const nextStr = state.redoStack[state.redoStack.length - 1];
     const parsed = JSON.parse(nextStr);
@@ -113,6 +126,7 @@ export const useSessionStore = create((set, get) => ({
   },
 
   updMarkups(fn) {
+    if (refuseIfLocked(get)) return;
     const prev = get().markups;
     const ms = refreshAutoMeasurements(markMovedAiPoints(prev, fn(prev)), get().calibration, get().facing);
     set({ markups: ms });
@@ -124,11 +138,13 @@ export const useSessionStore = create((set, get) => ({
   },
 
   delMarkup(id) {
+    if (refuseIfLocked(get)) return;
     get().pushUndo();
     get().updMarkups(ms => ms.filter(m => m.id !== id));
   },
 
   addMarkup(m) {
+    if (refuseIfLocked(get)) return;
     get().pushUndo();
     set(state => ({ markups: [...state.markups, m] }));
     _onChange?.();
@@ -141,6 +157,8 @@ export const useSessionStore = create((set, get) => ({
     const s = get();
     const next = {};
     for (const k of ["markups", "calibration", "norms", "formulas", "processing", "angleMode", "facing", "lutMode", "lutInvert"]) {
+      // A locked session's measured data doesn't change (the project refuses it too).
+      if (s.lock && LOCKED_KEYS.includes(k)) continue;
       if (patch[k] !== undefined && patch[k] !== s[k]) next[k] = patch[k];
     }
     if (patch.images !== undefined && patch.images !== s.sessionImage) next.sessionImage = patch.images;

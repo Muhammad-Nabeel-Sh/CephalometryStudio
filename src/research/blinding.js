@@ -11,6 +11,8 @@
 // Results stay locked until the workflow is complete.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { appendAudit, auditActor } from "../model/audit.js";
+
 const hasTracing = s => (s?.markups || []).some(m => m.type === "point" && m.placed !== false);
 
 export function isBlindingActive(study) {
@@ -41,10 +43,15 @@ export function sessionSeal(project, sessionId) {
   return sealedSessions(project).get(sessionId) || null;
 }
 
-// Break the seal on one session; the event is logged on the study.
+// Break the seal on one session; the event is logged on the study and in the
+// session's audit log.
 export function unsealSession(project, studyId, sessionId, now = Date.now()) {
+  const study = (project.researchStudies || []).find(s => s.id === studyId);
   return {
     ...project,
+    sessions: (project.sessions || []).map(s => s.id !== sessionId ? s : {
+      ...s, auditLog: appendAudit(s.auditLog, [{ at: now, by: auditActor(), kind: "unseal", studyId, studyName: study?.name || "" }]),
+    }),
     researchStudies: (project.researchStudies || []).map(s => s.id !== studyId ? s : {
       ...s,
       config: { ...s.config, blindingLog: [...(s.config.blindingLog || []), { sessionId, at: now }] },

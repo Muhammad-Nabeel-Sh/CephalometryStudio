@@ -28,6 +28,8 @@ export function mkSession(opts = {}) {
       trialNumber: opts.meta?.trialNumber ?? null,
       tags: opts.meta?.tags || [],
     },
+    // A frame stack's frames share image ids like `images` (model/stack.js).
+    ...(opts.stack ? { stack: { ...opts.stack, frames: opts.stack.frames.map(f => ({ ...f })) } } : {}),
   };
 }
 
@@ -43,6 +45,7 @@ export function mkReliabilitySession(baseSession, operatorId, trialNumber) {
     // have neither a dataUrl nor a blob, so the image would never load.
     images: (baseSession.images || []).map(img => ({ ...img })),
     calibration: baseSession.calibration,
+    stack: baseSession.stack,
     subjectId: baseSession.subjectId,
     processing: baseSession.processing,
     analysisTemplate: baseSession.analysisTemplate,

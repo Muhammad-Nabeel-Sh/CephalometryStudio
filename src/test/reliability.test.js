@@ -41,21 +41,22 @@ describe("runReliabilityAll", () => {
     expect(s.nSubjects).toBe(2);
   });
 
-  it("returns landmark error map", () => {
+  it("analyses chosen landmarks within each case, never across patients", () => {
+    // Two different patients: A sits 100 px apart between them, but each case's two
+    // placements are only √2 px apart. Pooling cases would report ~50 px of "error".
     const sessions = [
       makeSession("s1", [makePoint("A", 100, 200)]),
       makeSession("s2", [makePoint("A", 101, 201)]),
-      makeSession("s3", [makePoint("A", 99, 199)]),
-      makeSession("s4", [makePoint("A", 100, 200)]),
+      makeSession("s3", [makePoint("A", 200, 300)]),
+      makeSession("s4", [makePoint("A", 199, 299)]),
     ];
-    const config = { labelIds: ["A"], cases, operators: ["OP1", "OP2"], protocol: { occasions: 1 }, design: "inter" };
+    const config = { labelIds: [], landmarkLabels: ["A"], landmarkFrame: "image", cases, operators: ["OP1", "OP2"], protocol: { occasions: 1 }, design: "inter" };
     const result = runReliabilityAll(sessions, config);
-
-    expect(result.landmarkMap).toBeDefined();
-    expect(result.landmarkMap.A).toBeDefined();
-    expect(result.landmarkMap.A.n).toBe(4);
-    expect(result.landmarkMap.A.meanError).toBeGreaterThan(0);
-    expect(result.landmarkMap.A.centroid.x).toBeCloseTo(100, 0);
+    const a = result.landmarks.rows.find(r => r.landmark === "A");
+    expect(a).toMatchObject({ cases: 2, placements: 4, mode: "consensus" });
+    expect(a.meanPairDistance).toBeCloseTo(Math.SQRT2, 6);
+    expect(a.meanRadial).toBeCloseTo(Math.SQRT2 / 2, 6);
+    expect(result.landmarkMap).toBeUndefined();
   });
 });
 
@@ -81,15 +82,20 @@ describe("runReliabilityAll — analyzes the measurement, not coordinates", () =
     expect(d.unit).toBe("°");
   });
 
-  it("landmark-only studies still report the placement error map", () => {
+  it("older landmark-only studies (no landmark setting, no measurements) analyse every landmark", () => {
     const sessions = [
       makeSession("s1", [makePoint("A", 100, 200)]),
       makeSession("s2", [makePoint("A", 103, 204)]),
     ];
     const cases = [{ id: "C1", name: "C1", sessions: [{ sessionId: "s1", operatorId: "OP1", occasion: 1 }, { sessionId: "s2", operatorId: "OP2", occasion: 1 }] }];
     const r = runReliabilityAll(sessions, { labelIds: ["A"], cases, design: "inter" });
-    expect(r.details).toEqual([]);
-    expect(r.landmarkMap.A.n).toBe(2);
-    expect(r.landmarkMap.A.meanError).toBeCloseTo(2.5, 6);
+    expect(r.measurements).toBe(0);
+    const a = r.landmarks.rows[0];
+    expect(a.landmark).toBe("A");
+    expect(a.meanPairDistance).toBeCloseTo(5, 6);     // a 3-4-5 triangle
+    expect(a.meanRadial).toBeCloseTo(2.5, 6);         // each placement to their mean
+    // One case is too few for an ICC of the coordinates: reported as skipped, not dropped.
+    expect(r.details.map(d => d.label).sort()).toEqual(["A (x)", "A (y)"]);
+    expect(r.details.every(d => d.skip && d.coordinate)).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import { uid } from "../lib/utils.js";
 import { mkSession, duplicateSession } from "./session.js";
+import { auditChanges, appendAudit, withoutLockedFields } from "./audit.js";
 
 export function mkSubject(opts = {}) {
   return { id: uid(), label: opts.label || "Subject", age: opts.age || "", sex: opts.sex || "" };
@@ -33,13 +34,20 @@ export function getSession(project, sessionId) {
   return project.sessions.find(s => s.id === sessionId);
 }
 
-export function updateSessionInProject(project, sessionId, patch) {
+// Every session edit passes here: changes to measured data are added to the
+// session's audit log, and a locked session's measured data is left as it is
+// (model/audit.js). `opts.audit: false` skips the log (migrations, imports).
+export function updateSessionInProject(project, sessionId, patch, opts = {}) {
+  const now = opts.now ?? Date.now();
   return {
     ...project,
-    modified: Date.now(),
-    sessions: project.sessions.map(s =>
-      s.id === sessionId ? { ...s, ...patch } : s
-    ),
+    modified: now,
+    sessions: project.sessions.map(s => {
+      if (s.id !== sessionId) return s;
+      const { patch: allowed } = withoutLockedFields(s, patch);
+      const entries = opts.audit === false ? [] : auditChanges(s, allowed, { now });
+      return entries.length ? { ...s, ...allowed, auditLog: appendAudit(s.auditLog, entries) } : { ...s, ...allowed };
+    }),
   };
 }
 
@@ -52,8 +60,10 @@ export function addSession(project, session) {
   };
 }
 
+// A session locked by a study can't be removed until it's unlocked.
 export function removeSession(project, sessionId) {
   if (project.sessions.length <= 1) return project;
+  if (project.sessions.find(s => s.id === sessionId)?.lock) return project;
   const filtered = project.sessions.filter(s => s.id !== sessionId);
   return {
     ...project,

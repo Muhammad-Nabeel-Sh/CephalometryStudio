@@ -36,7 +36,7 @@ function sessionSignature(s) {
 }
 
 // Configuration keys that do not affect the numbers (UI-only state).
-const UI_ONLY_KEYS = new Set(["notes", "blindingLog"]);
+const UI_ONLY_KEYS = new Set(["notes", "blindingLog", "lock", "lockLog"]);
 
 export function fingerprintStudy(study, sessions, calibration) {
   const byId = new Map((sessions || []).filter(Boolean).map(s => [s.id, s]));

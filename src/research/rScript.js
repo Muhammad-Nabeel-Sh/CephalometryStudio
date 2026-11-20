@@ -10,6 +10,7 @@
 
 import { isResearchMarkup, sessionPrimaryMeasure } from "./collect.js";
 import { scopedSessions } from "./dataPreview.js";
+import { analyzeLandmarks, landmarkLabelsFor } from "./landmarkReliability.js";
 
 const SUPPORTED = new Set(["descriptive", "reliability", "comparative", "longitudinal", "correlation", "diagnostic"]);
 export const rScriptSupported = type => SUPPORTED.has(type);
@@ -68,7 +69,8 @@ export function buildRData(study, sessions, calibration) {
   const labels = labelsFor(study);
   const rows = [];
   const extraKeys = [];
-  for (const { session: s, extra } of designRows(study, sessions)) {
+  const design = designRows(study, sessions);
+  for (const { session: s, extra } of design) {
     for (const k of Object.keys(extra)) if (!extraKeys.includes(k)) extraKeys.push(k);
     const seen = new Set();
     for (const m of s.markups || []) {
@@ -82,6 +84,24 @@ export function buildRData(study, sessions, calibration) {
         session_id: s.id, session: s.name || s.label || s.id, patient_id: patientIdOf(s),
         age: s.meta?.age ?? "", sex: s.meta?.sex ?? "", group: s.meta?.group ?? "",
         ...extra, measure: m.label, unit: pm.unit || "", value: pm.value,
+      });
+    }
+  }
+  // Reliability: each analysed landmark's x and y (landmarkReliability.js), the
+  // same values the app's ICC of coordinates uses.
+  if (study?.type === "reliability") {
+    const mapped = design.map((d) => d.session);
+    const labels = landmarkLabelsFor(study.config, mapped, rows.length > 0);
+    const lm = analyzeLandmarks(mapped, study.config, calibration, labels);
+    const bySession = new Map(design.map((d) => [d.session.id, d]));
+    for (const r of lm.rows) {
+      const d = bySession.get(r.sessionId);
+      if (!d) continue;
+      const s = d.session;
+      rows.push({
+        session_id: s.id, session: s.name || s.label || s.id, patient_id: patientIdOf(s),
+        age: s.meta?.age ?? "", sex: s.meta?.sex ?? "", group: s.meta?.group ?? "",
+        ...d.extra, measure: r.label, unit: r.unit, value: r.value,
       });
     }
   }
@@ -171,6 +191,27 @@ for (m in measures) {
 }
 rel <- do.call(rbind, out)
 print(rel, digits = 4)
+# Landmark placement: measures "<landmark> (x)" and "(y)" are coordinates (${c.landmarkFrame === "image" ? "image axes" : "S-N frame"}).
+# Spread within each ${design === "intra" ? "case and rater" : "case"}: pooled SD per axis and the mean distance between repeats.
+lm_x <- grep(" \\\\(x\\\\)$", measures, value = TRUE)
+if (length(lm_x)) {
+  lm <- do.call(rbind, lapply(lm_x, function(mx) {
+    L <- sub(" \\\\(x\\\\)$", "", mx)
+    dx <- dat[dat$measure == mx, ]; dy <- dat[dat$measure == paste0(L, " (y)"), ]
+    d <- merge(dx[, c("session_id", "case", "operator", "value")], dy[, c("session_id", "value")], by = "session_id", suffixes = c(".x", ".y"))
+    d$g <- if (design == "intra") paste(d$case, d$operator) else d$case
+    gs <- split(d, d$g); gs <- gs[sapply(gs, nrow) >= 2]
+    if (!length(gs)) return(NULL)
+    ssx <- sum(sapply(gs, function(g) sum((g$value.x - mean(g$value.x))^2)))
+    ssy <- sum(sapply(gs, function(g) sum((g$value.y - mean(g$value.y))^2)))
+    dfp <- sum(sapply(gs, nrow) - 1)
+    pair <- unlist(lapply(gs, function(g) as.vector(dist(cbind(g$value.x, g$value.y)))))
+    data.frame(landmark = L, cases = length(gs), sd_x = sqrt(ssx / dfp), sd_y = sqrt(ssy / dfp), mean_repeat_distance = mean(pair))
+  }))
+  print(lm, digits = 4)
+  ${(c.operators || []).some((o) => o?.role === "reference") && design === "method_comparison" ? '# This study measures placements against a reference rater in the app; the spread above is within case instead.' : ""}
+}
+
 # The Bland-Altman columns compare the first two raters/occasions. For methods measured
 # with replicates the app uses the Bland & Altman (2007) method instead.`;
 }

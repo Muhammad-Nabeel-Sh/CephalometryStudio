@@ -6,7 +6,8 @@ import BatchImportModal from "./BatchImportModal.jsx";
 import SessionMetadataModal from "./SessionMetadataModal.jsx";
 import PanelGuideModal from "./PanelGuideModal.jsx";
 import { sealedSessions } from "../research/blinding.js";
-import { askConfirm } from "../ui/dialogs.js";
+import { askConfirm, notify } from "../ui/dialogs.js";
+import { showSessionHistory } from "./SessionHistory.js";
 import { Icon } from "../ui/icons.jsx";
 
 
@@ -56,6 +57,11 @@ export default function SessionsPanel({
 
   const handleRemove = async (id) => {
     if (sessionList.length <= 1) return;
+    const locked = sessionList.find(s => s.id === id)?.lock;
+    if (locked) {
+      notify(`This session is locked by the study “${locked.studyName}”, so it can't be removed. Unlock it in the study first.`, { tone: "warn" });
+      return;
+    }
     const name = sessionList.find(s => s.id === id)?.name;
     if (!(await askConfirm({ title: `Remove session${name ? ` “${name}”` : ""}?`, message: "Its image, tracing and measurements are removed from this case.", confirmLabel: "Remove session", danger: true }))) return;
     onUpdateProject(removeSession(project, id));
@@ -150,6 +156,9 @@ export default function SessionsPanel({
                   </div>
                 </div>
                 {s.id === activeId && <Tag color={t.ok} style={{ fontSize: 12 }}>Active</Tag>}
+                {s.lock && <span title={`Locked by the study “${s.lock.studyName}”`} style={{ display: "inline-flex", color: t.warn }}><Icon name="lock" size={14} /></span>}
+                <button onClick={e => { e.stopPropagation(); showSessionHistory(s); }} title="Session history" aria-label={`History of ${s.name || "this session"}`}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: t.tx2, padding: 2, display: "inline-flex" }}><Icon name="list" size={14} /></button>
                 <button onClick={e => { e.stopPropagation(); handleDuplicate(s.id); }} title="Duplicate session"
                   style={{ background: "none", border: "none", cursor: "pointer", color: t.tx2, padding: 2, fontSize: 14 }}>⧉</button>
                 <button onClick={e => { e.stopPropagation(); handleRemove(s.id); }} disabled={sessionList.length <= 1} title="Remove session"

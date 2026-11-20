@@ -47,3 +47,24 @@ describe("norm sources", () => {
     expect(d.sdStatus).toBe("unsourced");
   });
 });
+
+describe("withdrawn norms (no known source)", () => {
+  it("ship no norm rows, and saved sessions drop them on opening", async () => {
+    const { WITHDRAWN_NORM_ANALYSES } = await import("../data/normSources.js");
+    const { migrateNorms, migrateMeasurementDefinitions } = await import("../workspace/template.js");
+    expect([...WITHDRAWN_NORM_ANALYSES].sort()).toEqual(["Basis", "Bimler Analysis", "Cagliari", "Chieti", "Lautrou Analysis", "McGann", "Tollaro Analysis", "Van Arsdale"]);
+    for (const a of analysesWithNorms()) expect(WITHDRAWN_NORM_ANALYSES.has(a), a).toBe(false);
+    const norms = [{ markupLabel: "SNA", measureType: "angle", mean: 82, sd: 2, source: "Lautrou Analysis" }, { markupLabel: "SNA", measureType: "angle", mean: 82, sd: 2, source: "Steiner Analysis" }];
+    expect(migrateNorms(norms, []).map(n => n.source)).toEqual(["Steiner Analysis"]);
+    // An auto-created measurement saved with a withdrawn norm loses it.
+    const m = { id: "m", type: "angle3", label: "SNA", autoCreated: true, templateId: "Lautrou Analysis::SNA", refLabels: ["S", "N", "A"], norm: { mean: 82, sd: 2 }, points: [] };
+    const [migrated] = migrateMeasurementDefinitions([m]);
+    expect(migrated.norm).toBeUndefined();
+  });
+
+  it("restores Kim's sourced APDI and ODI norms", () => {
+    const rows = csv.split(/\r?\n/).filter(l => l.startsWith("Kim Analysis,"));
+    expect(rows.find(l => l.includes(",APDI,"))).toMatch(/"A,B,ANS,PNS",81\.4,3\.79$/);
+    expect(rows.find(l => l.includes(",ODI,"))).toMatch(/"A,B,Go,Me,ANS,PNS,Po,Or",74\.5,6\.07$/);
+  });
+});

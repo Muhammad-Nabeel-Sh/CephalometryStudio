@@ -21,6 +21,10 @@ export function collectStudyWarnings(study, extra = {}) {
   if (extra.status === "stale") add("warn", "The data or settings changed after this run — these results may not match the current sessions. Re-run the analysis.", "run");
   if (extra.status === "legacy") add("info", "These results were produced before change-tracking existed; re-run to be sure they reflect the current data.", "run");
   if (study?.config?.blindingLog?.length) add("warn", `Blinding was broken for ${study.config.blindingLog.length} session(s) during data collection (see the study log).`);
+  // Locking the trial sessions (model/audit.js): reported either way.
+  const unlocks = (study?.config?.lockLog || []).filter(e => e.kind === "unlock");
+  if (study?.config?.lock?.at) add("info", `The trial sessions were locked on ${new Date(study.config.lock.at).toLocaleDateString(undefined, { dateStyle: "medium" })}, so their tracings can't have changed since.`);
+  if (unlocks.length) add("warn", `Trial sessions were unlocked ${unlocks.length} time${unlocks.length === 1 ? "" : "s"} after locking (last on ${new Date(unlocks[unlocks.length - 1].at).toLocaleDateString(undefined, { dateStyle: "medium" })}). Each session's history shows what changed.`);
   if (!res) return uniq(out);
   if (res.error) add("error", `The analysis failed: ${res.error}`, "setup");
   if (res.note) add("info", res.note, "setup");
