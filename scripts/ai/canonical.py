@@ -96,6 +96,31 @@ PROD_MODEL_URL = ("https://huggingface.co/MuhammadNabeelSh/cephalometry-landmark
 PROD_MODEL_SHA256 = "f7f1db9cc2de37c0fa94dab431d7d3446d1d8ffc62fa92e6610c2380af83080d"
 
 
+# ── ISBI labelling conventions ────────────────────────────────────────────────
+# The ISBI 2015 labels change convention at film 301 (Test2): films 1-300 and
+# 301-400 place six landmarks differently (Pog' 9.9 mm apart, B 5.4, Or 4.3,
+# UL 2.9, LL 2.6, A 2.3; docs/AI_DIAGNOSIS_2026-11.md). The app follows Aariz
+# (and the textbook definition for Pog' and B), so on each film the landmarks
+# labelled the other way are masked: never trained on, never scored.
+ISBI_CONVENTION_SPLIT = 300          # films 1..300 vs 301..400
+ISBI_MASK_BY_GROUP = {
+    "1-300": ["Pog'", "B", "A"],     # Aariz / textbook agree with films 301-400 here
+    "301-400": ["Or", "UL", "LL"],   # ... and with films 1-300 here
+}
+
+
+def isbi_group(stem):
+    """'1-300' or '301-400' for an ISBI film stem such as '042' or '342.jpg'."""
+    import os
+    n = int(os.path.splitext(os.path.basename(str(stem)))[0].split("_")[-1])
+    return "1-300" if n <= ISBI_CONVENTION_SPLIT else "301-400"
+
+
+def isbi_masked(stem):
+    """ISBI symbols whose label on this film follows the other convention."""
+    return list(ISBI_MASK_BY_GROUP[isbi_group(stem)])
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def cepha_index(symbol):
     """Index of a CEPHA29 symbol, or -1."""
@@ -118,6 +143,10 @@ def _self_check():
     assert len(set(ISBI_TO_CEPHA.values())) == 19, "mapping must be injective"
     assert all(cepha_index(ISBI_TO_CEPHA[s]) >= 0 for s in ISBI19)
     assert len(CEPHA29_ONLY) == 10, CEPHA29_ONLY
+    for syms in ISBI_MASK_BY_GROUP.values():
+        assert set(syms) <= set(ISBI19), syms
+    assert not set(ISBI_MASK_BY_GROUP["1-300"]) & set(ISBI_MASK_BY_GROUP["301-400"])
+    assert isbi_group("300.jpg") == "1-300" and isbi_group("isbi_301") == "301-400"
     print("canonical mapping OK:", len(ISBI19), "shared,", len(CEPHA29_ONLY), "Aariz-only")
     print("  ISBI channel -> CEPHA index:", isbi_to_cepha_channel())
     print("  Aariz-only:", ", ".join(CEPHA29_ONLY))

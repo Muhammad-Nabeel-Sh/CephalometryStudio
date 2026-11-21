@@ -108,16 +108,25 @@ def load_annotations_cepha29(ann_dir, syms=None):
 
 
 def load_spacing_csv(path):
-    """Optional CSV: ceph_id, mm_per_pixel (uses the first and last columns)."""
+    """Optional CSV: ceph_id, mm_per_pixel. With a header, the columns are found by
+    name (an id column, and one naming pixel/spacing/mm), e.g. Aariz's
+    cephalogram_machine_mappings.csv; without one, the first and last columns."""
     mapping = {}
+    idc, pxc = 0, -1
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         for i, row in enumerate(csv.reader(f)):
             if not row:
                 continue
+            if i == 0:
+                head = [h.strip().lower() for h in row]
+                if not any(h.replace(".", "", 1).isdigit() for h in head):
+                    idc = next((j for j, h in enumerate(head) if "id" in h), 0)
+                    pxc = next((j for j, h in enumerate(head) if "pixel" in h or "spacing" in h or "mm" in h), -1)
+                    continue
             try:
-                mapping[row[0]] = float(row[-1])
-            except ValueError:
-                continue  # header
+                mapping[os.path.splitext(row[idc].strip())[0]] = float(row[pxc])
+            except (ValueError, IndexError):
+                continue
     return mapping
 
 

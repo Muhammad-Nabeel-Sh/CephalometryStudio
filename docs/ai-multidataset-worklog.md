@@ -669,3 +669,35 @@ Still open:
 - **ISBI Pog' and B** are worse than the original model (8.06 vs 3.76, 5.19 vs 2.73
   mm), as they were in md19. Pog' has mean ≈ median, which suggests a consistent
   offset, possibly an annotation difference between datasets. Not confirmed.
+
+### Step 29 — Diagnosis: ISBI convention change at film 301, Kaggle INT8 root cause
+
+Full write-up: `docs/AI_DIAGNOSIS_2026-11.md`.
+
+- ISBI labels change convention at film 301 (Test2): Pog' 9.9 mm, B 5.4, Or 4.3, UL 2.9, LL 2.6,
+  A 2.3 mm shifts. All 50 test films are from 301–400, and the model follows films 1–300, so its
+  ISBI errors there are mostly bias. With the convention corrected from the labels, md29 ISBI is
+  MRE 1.42 mm / SDR@2 76.5% (1.25 / 83.1% with per-landmark offsets removed).
+- Real weak landmarks: Po, PNS, Go, Ar, Or, ANS. PSR confidence correlates only −0.1 to −0.24 with
+  error.
+- Kaggle INT8: reproduced locally. ISBI films in the calibration set (their top frame border drives
+  stage-1 activations to ~3,000) widen MinMax ranges ~40×; Aariz-only calibration is fine;
+  Percentile does not help.
+
+### Step 30 — One labelling convention (Aariz's) for the next run
+
+Masks ISBI labels made in the other convention (films 1–300: Pog', B, A; 301–400: Or, UL, LL)
+in `kaggle-multidomain29.ipynb`, holds out 40 films from 1–300 as a second ISBI test group,
+calibrates INT8 on Aariz only, and adds `--mask-conventions` (per-group scores) to
+`external_benchmark.py`. Details: `docs/AI_DIAGNOSIS_2026-11.md`, "Decision and changes".
+Note: md19 and the current md29 trained on ISBI films 1–300, so their `ISBI 1-300` scores in
+the next table are not held out.
+
+### Step 31 — md29b run bundle
+
+Same notebook, one run: fine-tune from `best_md29.pt` (30 epochs, lr 2e-4), convention
+masks, mirror/invert/frame augmentation (`scripts/ai/cephalohrnet_aug_patch.py`), Aariz-only
+INT8 calibration, and a robustness evaluation (`scripts/ai/robustness_eval.py`). Aariz test
+is now scored with true pixel sizes; `eval-landmark-model.py --spacing-csv` reads the
+columns by header name. Outputs are `landmarks-md29b.*` / `best_md29b.pt`. Details:
+`docs/AI_DIAGNOSIS_2026-11.md`, "Next run bundle".

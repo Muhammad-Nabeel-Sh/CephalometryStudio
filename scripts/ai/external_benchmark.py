@@ -43,7 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from canonical import (  # noqa: E402
-    CEPHA29, ISBI19, ISBI_TO_CEPHA, isbi_to_cepha_channel,
+    CEPHA29, ISBI19, ISBI_TO_CEPHA, isbi_to_cepha_channel, isbi_group, isbi_masked,
     ISBI_PIXEL_MM, ISBI_ANN_TEST, ISBI_ANN_TRAIN, ISBI_IMG_TEST, ISBI_IMG_TRAIN,
 )
 
@@ -234,6 +234,9 @@ def main():
     ap.add_argument("--ssm-gate-max", type=float, default=None,
                     help="only refine when residualRatio <= this (upper gate)")
     ap.add_argument("--ann-extra", default=None, help="extra annotation CSV(s), comma-separated")
+    ap.add_argument("--mask-conventions", action="store_true",
+                    help="skip each film's landmarks labelled in the other ISBI convention "
+                         "(canonical.ISBI_MASK_BY_GROUP) and report films 1-300 and 301-400 apart")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -264,6 +267,7 @@ def main():
         raise SystemExit("No ISBI images found.")
 
     per_lm = defaultdict(list)          # symbol -> [err_mm]
+    per_group = defaultdict(list)       # '1-300' / '301-400' -> [err_mm]
     raw_errors = []                     # all raw errors (pre-refinement)
     per_img = []                        # dicts
     worst = []
@@ -287,9 +291,14 @@ def main():
         gt19 = ann[stem]
         err = np.linalg.norm(pts[chan] - gt19, axis=1) * args.pixel_mm
         err_raw = np.linalg.norm(raw[chan] - gt19, axis=1) * args.pixel_mm
+        group = isbi_group(stem)
+        skip = set(isbi_masked(stem)) if args.mask_conventions else set()
+        keep = np.array([s not in skip for s in ISBI19])
+        err, err_raw = err[keep], err_raw[keep]
         raw_errors.extend(float(e) for e in err_raw)
-        for i, sym in enumerate(ISBI19):
-            per_lm[sym].append(float(err[i]))
+        for e, sym in zip(err, [s for s in ISBI19 if s not in skip]):
+            per_lm[sym].append(float(e))
+            per_group[group].append(float(e))
 
         n_mirror += 1 if chosen["mirror"] else 0
         n_invert += 1 if chosen["invert"] else 0
@@ -297,15 +306,16 @@ def main():
             "image": name, "mean_mm": float(err.mean()), "max_mm": float(err.max()),
             "raw_mean_mm": float(err_raw.mean()), "meanConf": float(np.mean(psr)),
             "mirror": chosen["mirror"], "invert": chosen["invert"],
-            "refined": bool(apply_ref), "residualRatio": rr,
+            "refined": bool(apply_ref), "residualRatio": rr, "group": group,
         })
-        worst.append((float(err.mean()), name, img, gt19, pts[chan]))
+        worst.append((float(err.mean()), name, img, gt19[keep], pts[chan][keep]))
 
     # ── metrics ──
     all_err = np.array([e for v in per_lm.values() for e in v])
     raw_err = np.array(raw_errors) if raw_errors else all_err
-    per_lm_mre = {s: float(np.mean(v)) for s, v in per_lm.items()}
-    per_lm_med = {s: float(np.median(v)) for s, v in per_lm.items()}
+    # A landmark masked on every film (e.g. Or when only films 301-400 are scored) has no values.
+    per_lm_mre = {s: float(np.mean(v)) for s, v in per_lm.items() if v}
+    per_lm_med = {s: float(np.median(v)) for s, v in per_lm.items() if v}
 
     def block(e):
         return {
@@ -329,13 +339,16 @@ def main():
             "ssm_refine": ssm is not None,
             "ssm_gate_min": args.ssm_gate_min,
             "ssm_gate_max": args.ssm_gate_max,
+            "mask_conventions": bool(args.mask_conventions),
         },
         "orientation_mirrored_frac": round(n_mirror / n, 3),
         "polarity_inverted_frac": round(n_invert / n, 3),
         "refined_frac": round(n_refined / n, 3),
         "overall": block(all_err),
         "raw_overall": block(raw_err),
-        "per_landmark": {s: {"mre_mm": per_lm_mre[s], "median_mm": per_lm_med[s]} for s in ISBI19},
+        "per_landmark": {s: {"mre_mm": per_lm_mre[s], "median_mm": per_lm_med[s]} for s in ISBI19 if s in per_lm_mre},
+        "by_group": {g: dict(block(np.array(v)), images=sum(1 for r in per_img if r["group"] == g))
+                     for g, v in sorted(per_group.items()) if v},
     }
     json.dump(metrics, open(os.path.join(args.out, "isbi_metrics.json"), "w", encoding="utf-8"), indent=2)
 
@@ -343,7 +356,8 @@ def main():
         w = csv.writer(f)
         w.writerow(["isbi_symbol", "cepha_symbol", "mre_mm", "median_mm", "n"])
         for s in ISBI19:
-            w.writerow([s, ISBI_TO_CEPHA[s], f"{per_lm_mre[s]:.4f}", f"{per_lm_med[s]:.4f}", len(per_lm[s])])
+            if s in per_lm_mre:
+                w.writerow([s, ISBI_TO_CEPHA[s], f"{per_lm_mre[s]:.4f}", f"{per_lm_med[s]:.4f}", len(per_lm[s])])
 
     with open(os.path.join(args.out, "isbi_per_image.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
