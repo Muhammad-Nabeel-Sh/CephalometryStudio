@@ -180,3 +180,58 @@ still separate them; the suggested 0.065 "medium" would flag 5% of good films. N
 **Verdict:** md29b is better than or equal to md29 on every held-out column, with no change to
 the app's search or gate. Ship it. A later run that fixes the NaNs (validation in FP32, or
 `--amp` off) could still teach orientation and polarity.
+
+## Next run: md29c (prepared 2026-11-27)
+
+`kaggle-multidomain29.ipynb` now runs, in one session (about 6–7 h on a T4):
+
+1. **Stable fine-tune from md29b** (`scripts/ai/cephalohrnet_stability_patch.py`).
+   Validation ran under fp16 autocast even without `--amp`; it is now FP32. An EMA
+   of the weights (decay 0.998) is validated and saved. `best.pt` is chosen on the
+   mean error with each point capped at 10 mm, so one film that blows up cannot
+   decide it. Each epoch logs non-finite losses/heatmaps and films over 5 mm
+   (`val_outliers.jsonl`). Training validation uses true Aariz pixel sizes.
+2. **No inversion augmentation** (mirror 0.5 and film-frame 0.3 stay). A brightness
+   test cannot replace the polarity search: on 373 films the best simple feature
+   (dark minus bright pixel share) told normal from inverted only 89% of the time,
+   so the app keeps its model-based search.
+3. **Crop refiner** for Po, PNS, Go, Ar, Or, ANS (`scripts/ai/refiner.py`): ResNet-18
+   encoder (ImageNet) + FPN decoder, 256 px crop of 25.6 mm (about 0.1 mm/px, 128 px
+   heatmap), sized from S–N (70 mm), so no calibration is needed. Trained on crops
+   offset like first-pass errors (mostly ~1.5 mm, sometimes ~4 mm), small rotation,
+   scale and contrast changes; foreground-weighted MSE.
+4. **Evaluation** on the same held-out films: md29c vs md29b (app now), and
+   `refine_eval.py`: each model, + refiner, + refiner gated at 4 mm of movement, and
+   the md29c + md29b ensemble (mean of two passes).
+
+Not in this run, and why:
+- **Higher-resolution main model** (1024 px or a stride-2 head): the refiner gets the
+  same resolution only where it is needed, at a fraction of the browser cost.
+- **Flip-TTA:** md29b's mirrored pass is 3.75 mm, so averaging hurts (2.81 mm). The
+  robustness table reports it again for md29c.
+- **Seed ensembles:** a second full training run does not fit one session; the
+  md29c + md29b ensemble measures what a two-model ensemble is worth first.
+
+### More landmarks: what the analyses actually need
+
+Count over the app's 38 lateral analyses (`PREDEFINED.lateral`) against the 29 points
+AI Trace places: 5 analyses are fully covered; 133 of 308 measurements need at
+least one other point. The 88 missing labels fall in three groups:
+
+- **Other names for points AI Trace already places** (no model work, an alias
+  table): `PG`, `Pogonion`, `pg` = Pog; `GN` = Gn; `M` = Me; `Isi` = Is; `Isa` = Ia;
+  `Iii` = Ii; `Li`/`Ls`/`ls` = LL/UL; `Ans` = ANS; `prn` = Prn; `sn` = Sn; `s` (sella,
+  "midpoint of the horizontal diameter") = S, close enough to check per analysis.
+  They are most of what is missing in Basis, Cagliari, Chieti, McGann, Harvold, Wylie
+  and Riedel (`s` alone is in 21 measurements).
+- **Points constructed from others** (geometry, no training): APOcc (midpoint of the
+  incisor tips) and PPOcc (from the molar cusps, already in `CEPHA31`), Xi, constructed
+  Gn/Go. APOcc/PPOcc alone block 28 measurements in 8 analyses.
+- **New anatomical points** (need labelled films): Ba (11 analyses), Ptm (4), Stms/Stmi
+  (4), Me', Cm, C (soft tissue, 3 each), Si (4), U6/L6 (3), G' (2), TMJ/snp (2), the
+  C3/C4 vertebral corners (CVM). The masked training already supports landmarks that
+  only some films have, so each can be added as a channel once about 150–300 films
+  are labelled; public sets to check (licence, landmark list) are CL-Detection 2023
+  (38 landmarks, 3 centres) and the PKU cephalogram set.
+
+The first two groups are app work; the third needs data.

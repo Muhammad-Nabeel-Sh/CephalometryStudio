@@ -20,6 +20,13 @@ dataset report + external benchmark exist).
 | `profile_dataset.py` | 1 | Profiles a dataset directory (counts, dimensions, aspect, polarity, annotations). |
 | `external_benchmark.py` | 2 | Runs the Aariz 29-model on ISBI 2015 and scores the 19 shared landmarks. |
 | `kaggle-ai-audit.ipynb` | 0–2 | Orchestrates everything on Kaggle. |
+| `cephalohrnet_mask_patch.py` | — | CephaloHRNet: per-landmark visibility masks (multi-dataset training). |
+| `cephalohrnet_aug_patch.py` | — | CephaloHRNet: mirror / invert / film-frame augmentation flags. |
+| `cephalohrnet_stability_patch.py` | — | CephaloHRNet: FP32 validation, EMA, capped-error checkpoint choice, outlier log. |
+| `refiner.py` | — | Crop refiner for selected landmarks: train, export (geometry documented in the file). |
+| `refine_eval.py` | — | Held-out scoring of model(s) + refiner + ensemble (`refine.csv`). |
+| `robustness_eval.py` | — | One pass per orientation/polarity, flip-consistency uncertainty, quality-gate thresholds. |
+| `kaggle-multidomain29.ipynb` | — | The 29-landmark fine-tune + refiner run (md29c). |
 
 ## Quick start (Kaggle)
 
