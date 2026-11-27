@@ -124,7 +124,7 @@ describe("shouldRefine", () => {
 describe("production refine policy", () => {
   it("ships the masked multi-domain 29-landmark model by default", () => {
     expect(LANDMARK_MODEL.landmarkSet).toBe("cepha29");
-    expect(LANDMARK_MODEL.version).toBe("md29-hrnet-w32-v1");
+    expect(LANDMARK_MODEL.version).toBe("md29b-hrnet-w32-v1");
   });
 
   it("ships with shape refinement disabled (raw predictions)", () => {

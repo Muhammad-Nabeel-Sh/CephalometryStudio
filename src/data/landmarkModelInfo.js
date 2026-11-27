@@ -1,11 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // Landmark model manifests
 //
-// Three models ship:
+// Four models ship:
 //   CEPHA19_MODEL — multi-domain HRNet-W32 (Aariz + ISBI 2015), 19 shared landmarks.
 //   CEPHA29_MODEL — original Aariz-only 29-landmark HRNet-W32 (HF-hosted).
 //   MD29_MODEL    — masked multi-domain 29-landmark retrain (all 29 outputs).
-//                   ACTIVE by default.
+//   MD29B_MODEL   — md29 fine-tuned with one labelling convention and orientation
+//                   augmentation. ACTIVE by default.
 //
 // Weights are SHA-256 verified and cached (storage/modelCache.js). The ONNX
 // Runtime UMD build is self-hosted under public/ort/ and loaded via a <script>.
@@ -109,9 +110,30 @@ export const MD29_MODEL = {
   sha256: "bf50dbfe0445a5c3dde178fab6946fd223b60efe239d46575ca625059d69ee60",
 };
 
-// The model the app uses. Switch to CEPHA19_MODEL to revert to the 19-landmark
-// model, or to CEPHA29_MODEL for the original 29-landmark baseline.
-export const LANDMARK_MODEL = MD29_MODEL;
+// md29 fine-tuned (docs/AI_DIAGNOSIS_2026-11.md, "md29b results"): ISBI films
+// 1-300 and 301-400 label Pog', B, A, Or, UL and LL differently, so on each film
+// the landmarks labelled unlike Aariz were masked; plus mirror / polarity /
+// film-frame augmentation and INT8 calibrated on Aariz films only.
+//
+// Measured on held-out films, INT8 (same films for every row):
+//   ISBI (90: 40 from 1-300, 50 from 301-400; masked landmarks skipped):
+//     md29b MRE 1.57 mm (1-300: 1.32, 301-400: 1.77), SDR@2 78.2%
+//     md29  MRE 1.68 mm (1-300: 1.34, trained on, 301-400: 1.96), SDR@2 77.3%
+//   Aariz test (150, true pixel sizes), all 29: md29b 1.30 mm, md29 1.30 mm
+// One pass on a mirrored film is 3.75 mm (md29: 91), inverted 18.6 mm, so the
+// orientation / polarity search stays on; it picked the right hypothesis on every
+// simulated film with this model, and the quality thresholds are unchanged.
+export const MD29B_MODEL = {
+  ...SHARED,
+  version: "md29b-hrnet-w32-v1",
+  landmarkSet: "cepha29",
+  url: "https://huggingface.co/MuhammadNabeelSh/cephalometry-landmarks/resolve/main/landmarks-md29b.int8.onnx",
+  sha256: "d4f2096739f2cf9d40269ee67eebc5e49f7b159f8f4f06ac421036b951275c39",
+};
+
+// The model the app uses. Switch to MD29_MODEL for the previous 29-landmark model,
+// CEPHA19_MODEL for the 19-landmark one, or CEPHA29_MODEL for the original baseline.
+export const LANDMARK_MODEL = MD29B_MODEL;
 
 export function isModelConfigured(model = LANDMARK_MODEL) {
   return Boolean(model?.url && model?.ortUrl);

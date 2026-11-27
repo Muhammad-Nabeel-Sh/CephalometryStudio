@@ -51,8 +51,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.js",
-    // Results/ holds local AI training outputs (incl. a copy of the app).
-    exclude: [...configDefaults.exclude, "Results/**"],
+    // Results/, "Results 2/", … hold local AI training outputs (incl. a copy of the app).
+    exclude: [...configDefaults.exclude, "Results/**", "Results */**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html"],

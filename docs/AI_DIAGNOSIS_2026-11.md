@@ -145,3 +145,38 @@ One Kaggle run instead of several (`kaggle-multidomain29.ipynb`):
 - Outputs are named `md29b` so they don't collide with the hosted md29.
 
 Not in this run: a refinement model for Po, PNS, Go, Ar, Or, ANS, and ensembles.
+
+## md29b results (Kaggle run, 2026-11-25; outputs in `Results 3/`, not in git)
+
+Held-out films, same for every model (`audit_md29/comparison.csv`; ISBI 1-300 = 40 held-out
+films, 301-400 = the mirror's 50; Aariz in true mm):
+
+| model | ISBI MRE | ISBI 1-300 | ISBI 301-400 | Aariz all | Aariz SDR@2 |
+|---|---|---|---|---|---|
+| md29b INT8 | **1.57** | **1.32** | **1.77** | 1.30 | 82.1% |
+| md29b FP32 | 1.53 | 1.29 | 1.73 | 1.24 | 83.3% |
+| md29 INT8 (app now) | 1.68 | 1.34* | 1.96 | 1.30 | 82.1% |
+| cepha29 INT8 (original) | 3.47 | 4.96 | 2.28 | 2.86 | 78.1% |
+
+\* md29 trained on these films. INT8 costs 0.04–0.06 mm (`peak match 100%` at export).
+
+**Training was unstable.** Validation loss was NaN on epochs 2, 4, 6 and 7 and validation MRE
+swung between 1.15 and 15.6 mm while SDR@2 stayed at 85–86%, so a few validation films blew
+up (likely fp16 overflow under AMP; the ISBI frame already drives activations to ~3,000).
+Early stopping kept epoch 3, so the augmentation had only three epochs to work.
+
+**Robustness** (`audit_md29/robustness.csv`, INT8): one pass on a mirrored film is 3.75 mm on
+ISBI (md29: 91 mm), on an inverted film 18.6 mm (md29: 98 mm). Not good enough to drop the
+orientation search: keep `autoOrientation` and `autoPolarity`. Simulating the app's search
+(first pass, short-circuit on "high", rank) with md29b picked the right hypothesis on 60/60
+normal, 60/60 mirrored, 24/24 inverted and 24/24 inverted+mirrored films; a correct-but-mirrored
+first pass still reads residualRatio ≈ 1.0 in model space, so it is never accepted.
+
+**Uncertainty:** flip distance (ρ 0.25) does not beat PSR (ρ 0.29) for md29b. Keep PSR.
+**Shape prior:** always-on hurts (1.67 vs 1.57 mm); the 0.1–0.5 band is unchanged.
+**Quality gate:** valid residualRatio max 0.18, upside-down min 0.77, so the current 0.5 / 0.7
+still separate them; the suggested 0.065 "medium" would flag 5% of good films. No change.
+
+**Verdict:** md29b is better than or equal to md29 on every held-out column, with no change to
+the app's search or gate. Ship it. A later run that fixes the NaNs (validation in FP32, or
+`--amp` off) could still teach orientation and polarity.

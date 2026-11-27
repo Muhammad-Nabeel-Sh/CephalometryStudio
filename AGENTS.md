@@ -614,6 +614,8 @@ Recommended settings for `.vscode/settings.json`:
 
 - **Trial guide**: `research/trialWorkflow.js` (pure: `stepForSession`, `ensureStepSession`, `openStep`, `completeStep`, `reopenStep`, `nextOpenIndex`, `transition` for handover / too-soon, `workflowProgress`) is the one place reliability workflow steps are opened and completed; `ReliabilityPanel`'s workflow and `panels/TrialGuide.jsx` (canvas, bottom-left, hidden while the research workspace is open) both use it. Steps get `startedAt`/`doneAt`. 9 tests in `src/test/trialGuide.test.jsx`.
 
+- **md29b model (AI accuracy round)**: `LANDMARK_MODEL = MD29B_MODEL` (`data/landmarkModelInfo.js`, HF `landmarks-md29b.int8.onnx`, SHA-256 `d4f20967…`). ISBI films 1–300 and 301–400 label Pog', B, A, Or, UL, LL differently; training masks the landmarks labelled unlike Aariz (`scripts/ai/canonical.py` `ISBI_MASK_BY_GROUP`), and benchmarks skip them (`external_benchmark.py --mask-conventions`). INT8 is calibrated on Aariz films only (ISBI's frame breaks MinMax calibration). Held out: ISBI 1.57 mm vs md29 1.68, Aariz equal. One pass is not orientation-invariant, so keep `autoOrientation`/`autoPolarity` on. Details: `docs/AI_DIAGNOSIS_2026-11.md`.
+
 ### Ongoing
 
 - **Remaining workspace-reducer migration** — session data (`markups`, `calibration`, norms, formulas, undo/redo) now lives in the Zustand `sessionStore`; only `projects`/`sessions` root state remains as App.jsx `useState`. Consider migrating those last.
